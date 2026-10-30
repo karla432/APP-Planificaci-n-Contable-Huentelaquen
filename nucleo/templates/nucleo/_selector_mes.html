@@ -1,0 +1,6 @@
+<div class="navegar">
+  <a class="btn btn-2 btn-sm" href="?mes={{ mes_anterior }}">‹ Mes anterior</a>
+  <strong style="text-transform:capitalize">{{ primero|date:"F Y" }}</strong>
+  <a class="btn btn-2 btn-sm" href="?mes={{ mes_siguiente }}">Mes siguiente ›</a>
+</div>
+{% if not periodo %}<div class="card"><p>No se ha abierto este mes: la Gerencia debe abrirlo para que aparezcan las tareas.</p></div>{% endif %}

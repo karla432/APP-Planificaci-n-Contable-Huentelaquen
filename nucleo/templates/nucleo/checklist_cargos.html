@@ -1,0 +1,36 @@
+{% extends "nucleo/base.html" %}
+{% block titulo %}Check List por cargo y responsable{% endblock %}
+{% block contenido %}
+<p class="kick">Check List</p><h1>Check List por cargo y responsable</h1>
+{% include "nucleo/_selector_mes.html" %}
+{% if periodo %}
+<section class="card"><h2>Cargos y responsables · <span style="text-transform:capitalize">{{ primero|date:"F Y" }}</span></h2>
+  <p class="meta">Quién es responsable de cada grupo de tareas y cómo van. Elige un cargo para ver sus tareas una por una.</p>
+  <div class="tabla-scroll"><table class="tbl">
+    <thead><tr><th>Cargo</th><th>Responsable</th><th class="n">Tareas del mes</th><th class="n">Hechas</th><th class="n">Atrasadas</th><th></th></tr></thead>
+    <tbody>
+    {% for f in filas %}
+      <tr{% if detalle_cargo and detalle_cargo.pk == f.cargo.pk %} style="background:#FDEAEE"{% endif %}>
+        <td><strong>{{ f.cargo.nombre }}</strong>{% if f.cargo.es_externo %}<br><span class="pill p-grey">Externo</span> <span class="meta">La Jefa registra «Recibido»</span>{% endif %}</td>
+        <td>{{ f.responsables }}</td><td class="n">{{ f.total }}</td><td class="n">{{ f.hechas }}</td>
+        <td class="n">{% if f.atrasadas %}<span class="pill p-red">{{ f.atrasadas }}</span>{% else %}0{% endif %}</td>
+        <td><a class="btn btn-2 btn-sm" href="?mes={{ primero|date:'Y-m' }}&cargo={{ f.cargo.pk }}">Ver tareas</a></td></tr>
+    {% empty %}<tr><td colspan="6" class="vacio">No hay tareas generadas para este mes.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% if detalle_cargo %}
+<section class="card"><h2>Tareas de {{ detalle_cargo.nombre }}</h2>
+  <p class="meta">Responsable: {{ detalle_responsables|join:", "|default:"—" }}</p>
+  <div class="tabla-scroll"><table class="tbl">
+    <thead><tr><th>Proceso</th><th>Tarea principal</th><th>Subtarea</th><th>Periodicidad</th><th>Vence</th><th>Estado</th></tr></thead>
+    <tbody>
+    {% for o in detalle %}
+      <tr><td>{{ o.tarea.proceso.nombre }}</td><td>{{ o.tarea.tarea_principal }}</td><td>{{ o.tarea.subtarea }}</td><td>{{ o.periodicidad }}</td><td>{{ o.fecha_limite|date:"d-m-Y" }}</td><td>{% include "nucleo/_estado.html" %}</td></tr>
+    {% empty %}<tr><td colspan="6" class="vacio">Sin tareas este mes.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}

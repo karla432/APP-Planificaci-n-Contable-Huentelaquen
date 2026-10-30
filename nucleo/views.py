@@ -12,7 +12,7 @@ from nucleo import permisos
 from nucleo.models import Colaborador, Ocurrencia, Periodo
 from datetime import date, timedelta
 
-from nucleo.servicios import agenda, ejecucion, kpi, parametros, reloj
+from nucleo.servicios import agenda, ejecucion, kpi, parametros, presentacion, reloj
 from nucleo.servicios.errores import ErrorDeNegocio, PermisoDenegado
 
 
@@ -23,12 +23,6 @@ def _sin_perfil(request):
 @login_required
 def inicio(request):
     return redirect("hoy")
-
-
-ETIQUETAS_SEMAFORO = {
-    "verde": ("Cumple", "ok"), "ambar": ("Bajo la meta", "warn"), "rojo": ("En riesgo", "red"),
-    "muestra_insuficiente": ("Muestra insuficiente (menos de {minimo} tareas vencidas)", "grey"), "sin_datos": ("Sin datos", "grey"),
-}
 
 
 def _contexto_checklist(request, pestana):
@@ -46,9 +40,8 @@ def _contexto_checklist(request, pestana):
     cumplimiento = None
     if elegida:
         k = kpi.de_persona(elegida, fecha)
-        minimo = parametros.entero("minimo_muestra_semaforo")
-        texto, clase = ETIQUETAS_SEMAFORO[k.semaforo]
-        cumplimiento = {"k": k, "etiqueta": texto.format(minimo=minimo), "clase": clase, "meta": parametros.entero("meta_cumplimiento")}
+        texto, clase = presentacion.etiqueta_semaforo(k.semaforo)
+        cumplimiento = {"k": k, "etiqueta": texto, "clase": clase, "meta": parametros.entero("meta_cumplimiento")}
     return {
         "rol": rol, "personas": personas, "elegida": elegida, "hoy": fecha, "es_mia": es_mia, "pestana": pestana,
         "persona_qs": "" if es_mia or elegida is None else f"persona={elegida.pk}", "cumplimiento": cumplimiento,

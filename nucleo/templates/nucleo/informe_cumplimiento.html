@@ -1,0 +1,26 @@
+{% extends "nucleo/base.html" %}
+{% block titulo %}Cumplimiento por colaborador{% endblock %}
+{% block contenido %}
+<p class="kick">Informes</p><h1>Cumplimiento por colaborador</h1>
+{% include "nucleo/_selector_mes.html" %}
+{% if periodo %}
+<section class="card"><h2>Equipo contable</h2>
+  <p class="meta"><strong>Cómo se calcula:</strong> tareas hechas en o antes de su fecha límite ÷ tareas cuya fecha límite ya venció, excluyendo las «no aplica» aprobadas. Una tarea hecha tarde nunca suma como a tiempo. Meta {{ meta }}%.</p>
+  {% include "nucleo/_cumplimiento_tabla.html" %}
+</section>
+<section class="card"><h2>Cumplimiento de revisión</h2>
+  <p class="meta">Revisiones hechas dentro del plazo ÷ revisiones debidas, por cargo que revisa.</p>
+  <table class="tbl"><thead><tr><th>Cargo que revisa</th><th class="n">Debidas</th><th class="n">A tiempo</th><th class="n">%</th></tr></thead><tbody>
+  {% for r in revision %}<tr><td>{{ r.cargo.nombre }}</td><td class="n">{{ r.debidas }}</td><td class="n">{{ r.a_tiempo }}</td><td class="n">{% if r.a_tiempo_pct is None %}—{% else %}{{ r.a_tiempo_pct }}%{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="4" class="vacio">Aún no hay revisiones vencidas.</td></tr>{% endfor %}
+  </tbody></table>
+</section>
+<section class="card"><h2>Insumos de responsables externos</h2>
+  <p class="meta">Lo que la Jefa recibe de áreas externas. Se mide aparte y no entra al cumplimiento de ninguna persona.</p>
+  <table class="tbl"><thead><tr><th>Área o persona externa</th><th class="n">Vencidos</th><th class="n">A tiempo</th><th class="n">%</th></tr></thead><tbody>
+  {% for i in insumos %}<tr><td>{{ i.cargo.nombre }}</td><td class="n">{{ i.vencidas }}</td><td class="n">{{ i.a_tiempo }}</td><td class="n">{% if i.a_tiempo_pct is None %}—{% else %}{{ i.a_tiempo_pct }}%{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="4" class="vacio">Aún no hay insumos vencidos.</td></tr>{% endfor %}
+  </tbody></table>
+</section>
+{% endif %}
+{% endblock %}

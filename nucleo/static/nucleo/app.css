@@ -93,3 +93,14 @@ input, select, textarea { width: 100%; min-height: 44px; padding: 6px 12px; bord
   .layout { flex-direction: column; } .sidebar { width: 100%; padding: 12px 0; } .principal { padding: 20px 16px 48px; }
   .semana, .ruta { grid-template-columns: 1fr; } .fila-accion { width: 100%; } .fila-accion .btn, .fila-accion .boton { width: 100%; }
 }
+
+/* Informes */
+.indicadores { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; } .indicadores .card { margin-bottom: 20px; }
+.numero { font-family: var(--hu-serif); font-size: 2.4rem; color: var(--hu-maroon); font-weight: 700; line-height: 1.1; margin: 4px 0; } .numero-rojo { color: var(--hu-risk); }
+.dos-columnas { display: grid; grid-template-columns: 3fr 2fr; gap: 20px; }
+.proceso-fila { display: grid; grid-template-columns: 1.4fr 1.2fr 56px 92px; gap: 12px; align-items: center; padding: 6px 0; }
+.barra { height: 8px; background: var(--hu-card-line); } .barra i { display: block; height: 100%; background: var(--hu-ok); }
+.barra i.c-red { background: var(--hu-risk); } .barra i.c-warn { background: var(--hu-warn); } .barra i.c-ok { background: var(--hu-ok); }
+.barra-meta { position: relative; height: 10px; background: var(--hu-card-line); margin-bottom: 4px; } .barra-meta i { display: block; height: 100%; background: var(--hu-gray); } .barra-meta i.c-ok { background: var(--hu-ok); } .barra-meta i.c-warn { background: var(--hu-warn); } .barra-meta i.c-red { background: var(--hu-risk); }
+.barra-meta b { position: absolute; top: -3px; width: 2px; height: 16px; background: var(--hu-ink); }
+@media (max-width: 900px) { .indicadores, .dos-columnas { grid-template-columns: 1fr; } .proceso-fila { grid-template-columns: 1fr 1fr; } }

@@ -1,7 +1,7 @@
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
-from nucleo import views
+from nucleo import views, views_checklist_cargos, views_informes
 from nucleo.autenticacion import FormularioDeIngreso
 
 urlpatterns = [
@@ -9,9 +9,9 @@ urlpatterns = [
     path("checklist/dia/", views.hoy, name="hoy"),
     path("checklist/semana/", views.semana, name="semana"),
     path("checklist/mes/", views.mes, name="mes"),
-    path("informes/panel/", views.en_construccion, {"titulo": "Panel del cierre"}, name="informe_panel"),
-    path("informes/cumplimiento/", views.en_construccion, {"titulo": "Cumplimiento por colaborador"}, name="informe_cumplimiento"),
-    path("checklist/cargos/", views.en_construccion, {"titulo": "Check List por cargo y responsable"}, name="checklist_cargos"),
+    path("informes/panel/", views_informes.panel, name="informe_panel"),
+    path("informes/cumplimiento/", views_informes.cumplimiento, name="informe_cumplimiento"),
+    path("checklist/cargos/", views_checklist_cargos.cargos, name="checklist_cargos"),
     path("mantenedor/tareas/", views.en_construccion, {"titulo": "Mantenedor de tareas"}, name="mant_tareas"),
     path("mantenedor/procesos/", views.en_construccion, {"titulo": "Mantenedor de procesos"}, name="mant_procesos"),
     path("mantenedor/usuarios/", views.en_construccion, {"titulo": "Mantenedor de usuarios"}, name="mant_usuarios"),

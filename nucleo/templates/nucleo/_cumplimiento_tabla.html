@@ -1,0 +1,19 @@
+<div class="tabla-scroll"><table class="tbl">
+  <thead><tr><th>Colaborador</th><th>Cargo</th><th class="n">Vencidas</th><th class="n">A tiempo</th><th>Cumplimiento (la línea marca la meta de {{ meta }}%)</th><th>Estado</th><th class="n">Sin hacer</th><th class="n">Devueltas</th><th class="n">No aplica</th></tr></thead>
+  <tbody>
+  {% for f in cumplimiento %}
+    <tr>
+      <td><strong>{{ f.k.colaborador.nombre }}</strong></td><td>{{ f.cargos }}</td>
+      <td class="n">{{ f.k.vencidas }}</td><td class="n">{{ f.k.a_tiempo }}</td>
+      <td style="min-width:200px">
+        <div class="barra-meta" title="Meta {{ meta }}%"><i class="c-{{ f.clase }}" style="width: {% if f.k.a_tiempo_pct is None %}0{% else %}{{ f.k.a_tiempo_pct|floatformat:0 }}{% endif %}%"></i><b style="left: {{ meta }}%"></b></div>
+        <small>{% if f.k.a_tiempo_pct is None %}—{% else %}{{ f.k.a_tiempo_pct }}%{% endif %} · <strong>{{ f.k.a_tiempo }} de {{ f.k.vencidas }}</strong> a tiempo · Meta {{ meta }}%</small>
+      </td>
+      <td><span class="pill p-{{ f.clase }}">{{ f.etiqueta }}</span></td>
+      <td class="n">{{ f.k.pendientes_vencidas }}</td>
+      <td class="n">{% if f.k.tasa_devolucion_pct is None %}—{% else %}{{ f.k.tasa_devolucion_pct }}%{% endif %}</td>
+      <td class="n">{% if f.k.tasa_no_aplica_pct is None %}—{% else %}{{ f.k.tasa_no_aplica_pct }}%{% endif %}</td>
+    </tr>
+  {% empty %}<tr><td colspan="9" class="vacio">Aún no hay tareas para medir en este mes.</td></tr>{% endfor %}
+  </tbody>
+</table></div>

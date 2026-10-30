@@ -93,3 +93,10 @@ def mes_de(colaborador, anio: int, mes: int, hoy: date) -> dict:
             h.total += 1
             h.hechas += o.estado in kpi.HECHAS
     return {"ocurrencias": ocurrencias, "hitos": list(hitos.values())}
+
+
+def cargos_de(colaborador, fecha: date) -> str:
+    """Los cargos que ejerce la persona en esa fecha, como texto."""
+    from nucleo.models import Asignacion
+    nombres = Asignacion.objects.filter(colaborador=colaborador, desde__lte=fecha).exclude(hasta__lt=fecha).values_list("cargo__nombre", flat=True)
+    return ", ".join(nombres)
