@@ -8,6 +8,10 @@ from datetime import date, timedelta
 from typing import Iterable
 
 
+# Jornada por día de la semana (0 = lunes), confirmada por Karla (DEC-14): 40 h, viernes de media jornada.
+JORNADA_HORAS = {0: 9, 1: 9, 2: 9, 3: 9, 4: 4}
+
+
 class Calendario:
     def __init__(self, feriados: Iterable[date]):
         self._feriados = frozenset(feriados)

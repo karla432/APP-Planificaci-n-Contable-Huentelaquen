@@ -1,0 +1,28 @@
+{% extends "nucleo/checklist_base.html" %}
+{% block titulo %}Mi semana{% endblock %}
+{% block nombre_vista %}semana{% endblock %}
+{% block vista %}
+<div class="navegar">
+  <a class="btn btn-2 btn-sm" href="{% url 'semana' %}?fecha={{ fecha_anterior }}{% if persona_qs %}&{{ persona_qs }}{% endif %}">‹ Semana anterior</a>
+  <strong>Semana del {{ lunes|date:"d-m-Y" }} al {{ viernes|date:"d-m-Y" }}</strong>
+  <a class="btn btn-2 btn-sm" href="{% url 'semana' %}?fecha={{ fecha_siguiente }}{% if persona_qs %}&{{ persona_qs }}{% endif %}">Semana siguiente ›</a>
+</div>
+<div class="semana">
+  {% for d in dias %}
+  <section class="dia-caja{% if d.fecha == hoy %} dia-hoy{% endif %}{% if d.feriado %} dia-feriado{% endif %}">
+    <h3>{{ d.fecha|date:"l d-m-Y" }}</h3>
+    <p class="horas">{{ d.horas }} h de jornada{% if d.fecha == hoy %} · <strong>hoy</strong>{% endif %}</p>
+    {% if d.feriado %}<p><span class="pill p-grey">Feriado</span> {{ d.feriado }}</p>{% endif %}
+    {% for o in d.items %}
+      <div class="item-compacto">
+        <span class="codigo">{{ o.tarea.codigo }}</span> {% include "nucleo/_estado.html" %}
+        <div>{{ o.tarea.subtarea|truncatechars:90 }}</div>
+        {% if es_mia and o.pendiente %}
+        <form method="post" action="{% url 'ocurrencia_accion' o.pk 'hecha' %}">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}"><button class="btn btn-sm" type="submit">Marcar hecha</button></form>
+        {% endif %}
+      </div>
+    {% empty %}{% if not d.feriado %}<p class="vacio">Sin tareas.</p>{% endif %}{% endfor %}
+  </section>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -13,16 +13,16 @@
   </div>
   <div class="fila-accion">
     {% if modo == "mia" %}
-      <form method="post" action="{% url 'ocurrencia_accion' o.pk 'hecha' %}">{% csrf_token %}<button class="boton" type="submit">Marcar hecha</button></form>
+      <form method="post" action="{% url 'ocurrencia_accion' o.pk 'hecha' %}">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}"><button class="btn" type="submit">Marcar hecha</button></form>
     {% elif modo == "recibir" %}
-      <form method="post" action="{% url 'ocurrencia_accion' o.pk 'recibida' %}">{% csrf_token %}<button class="boton" type="submit">Marcar recibido</button></form>
+      <form method="post" action="{% url 'ocurrencia_accion' o.pk 'recibida' %}">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}"><button class="btn" type="submit">Marcar recibido</button></form>
     {% elif modo == "revisar" %}
       <p class="meta">Hecha por {{ o.hecha_por.get_username }} el {{ o.hecha_en|date:"d-m-Y H:i" }}</p>
-      <form method="post" action="{% url 'ocurrencia_accion' o.pk 'revisar' %}">{% csrf_token %}<button class="boton" type="submit">Revisar</button></form>
-      <form method="post" action="{% url 'ocurrencia_accion' o.pk 'devolver' %}" class="devolver">{% csrf_token %}
+      <form method="post" action="{% url 'ocurrencia_accion' o.pk 'revisar' %}">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}"><button class="btn" type="submit">Revisar</button></form>
+      <form method="post" action="{% url 'ocurrencia_accion' o.pk 'devolver' %}" class="devolver">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}">
         <label for="c{{ o.pk }}">Comentario para devolver</label>
         <input id="c{{ o.pk }}" name="comentario" required>
-        <button class="boton boton-secundario" type="submit">Devolver</button>
+        <button class="btn btn-2" type="submit">Devolver</button>
       </form>
     {% endif %}
   </div>

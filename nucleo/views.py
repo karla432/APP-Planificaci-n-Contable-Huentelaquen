@@ -10,7 +10,9 @@ from django.views.decorators.http import require_POST
 
 from nucleo import permisos
 from nucleo.models import Colaborador, Ocurrencia, Periodo
-from nucleo.servicios import agenda, ejecucion, reloj
+from datetime import date, timedelta
+
+from nucleo.servicios import agenda, ejecucion, kpi, parametros, reloj
 from nucleo.servicios.errores import ErrorDeNegocio, PermisoDenegado
 
 
@@ -23,11 +25,15 @@ def inicio(request):
     return redirect("hoy")
 
 
-@login_required
-def hoy(request):
+ETIQUETAS_SEMAFORO = {
+    "verde": ("Cumple", "ok"), "ambar": ("Bajo la meta", "warn"), "rojo": ("En riesgo", "red"),
+    "muestra_insuficiente": ("Muestra insuficiente (menos de {minimo} tareas vencidas)", "grey"), "sin_datos": ("Sin datos", "grey"),
+}
+
+
+def _contexto_checklist(request, pestana):
+    """Lo común a Mi día, Mi semana y Mi mes: de quién es la vista, su cumplimiento y los enlaces entre pestañas."""
     rol = permisos.rol_de(request.user)
-    if rol is None:
-        return _sin_perfil(request)
     propia = permisos.colaborador_de(request.user)
     personas = list(Colaborador.objects.filter(activo=True, usuario__isnull=False))
     elegida = propia
@@ -36,15 +42,77 @@ def hoy(request):
     elif propia is None and personas:
         elegida = personas[0]
     fecha = reloj.hoy()
-    contexto = {
-        "rol": rol, "personas": personas, "elegida": elegida, "hoy": fecha,
-        "es_mia": elegida is not None and propia is not None and elegida.pk == propia.pk,
+    es_mia = elegida is not None and propia is not None and elegida.pk == propia.pk
+    cumplimiento = None
+    if elegida:
+        k = kpi.de_persona(elegida, fecha)
+        minimo = parametros.entero("minimo_muestra_semaforo")
+        texto, clase = ETIQUETAS_SEMAFORO[k.semaforo]
+        cumplimiento = {"k": k, "etiqueta": texto.format(minimo=minimo), "clase": clase, "meta": parametros.entero("meta_cumplimiento")}
+    return {
+        "rol": rol, "personas": personas, "elegida": elegida, "hoy": fecha, "es_mia": es_mia, "pestana": pestana,
+        "persona_qs": "" if es_mia or elegida is None else f"persona={elegida.pk}", "cumplimiento": cumplimiento,
         "hay_mes_abierto": Periodo.objects.filter(estado="abierto").exists(),
-        "agenda": agenda.agenda_de(elegida, fecha) if elegida else None,
-        "por_revisar": agenda.por_revisar(request.user, fecha),
-        "por_recibir": agenda.por_recibir(request.user, fecha),
     }
-    return render(request, "nucleo/hoy.html", contexto)
+
+
+def _fecha_de(texto, por_defecto: date) -> date:
+    try:
+        return date.fromisoformat(texto)
+    except (TypeError, ValueError):
+        return por_defecto
+
+
+@login_required
+def hoy(request):
+    if permisos.rol_de(request.user) is None:
+        return _sin_perfil(request)
+    c = _contexto_checklist(request, "dia")
+    c.update({
+        "agenda": agenda.agenda_de(c["elegida"], c["hoy"]) if c["elegida"] else None,
+        "por_revisar": agenda.por_revisar(request.user, c["hoy"]),
+        "por_recibir": agenda.por_recibir(request.user, c["hoy"]),
+    })
+    return render(request, "nucleo/hoy.html", c)
+
+
+@login_required
+def semana(request):
+    if permisos.rol_de(request.user) is None:
+        return _sin_perfil(request)
+    c = _contexto_checklist(request, "semana")
+    referencia = _fecha_de(request.GET.get("fecha"), c["hoy"])
+    lunes = referencia - timedelta(days=referencia.weekday())
+    c.update({
+        "dias": agenda.semana_de(c["elegida"], referencia, c["hoy"]) if c["elegida"] else [],
+        "lunes": lunes, "viernes": lunes + timedelta(days=4),
+        "fecha_anterior": (lunes - timedelta(days=7)).isoformat(), "fecha_siguiente": (lunes + timedelta(days=7)).isoformat(),
+    })
+    return render(request, "nucleo/semana.html", c)
+
+
+@login_required
+def mes(request):
+    if permisos.rol_de(request.user) is None:
+        return _sin_perfil(request)
+    c = _contexto_checklist(request, "mes")
+    try:
+        anio, m = (int(x) for x in request.GET.get("mes", "").split("-"))
+        primero = date(anio, m, 1)
+    except ValueError:
+        primero = c["hoy"].replace(day=1)
+    anterior = (primero - timedelta(days=1)).replace(day=1)
+    siguiente = (primero + timedelta(days=32)).replace(day=1)
+    c.update({
+        "primero": primero, "mes_anterior": anterior.strftime("%Y-%m"), "mes_siguiente": siguiente.strftime("%Y-%m"),
+        "datos": agenda.mes_de(c["elegida"], primero.year, primero.month, c["hoy"]) if c["elegida"] else None,
+    })
+    return render(request, "nucleo/mes.html", c)
+
+
+@login_required
+def en_construccion(request, titulo):
+    return render(request, "nucleo/en_construccion.html", {"titulo": titulo})
 
 
 ACCIONES = {"hecha", "recibida", "revisar", "devolver"}

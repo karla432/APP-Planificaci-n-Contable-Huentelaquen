@@ -2,8 +2,12 @@
 from datetime import date, timedelta
 
 from nucleo import permisos
-from nucleo.models import Ocurrencia
+from dataclasses import dataclass, field
+
+from nucleo.models import Feriado, Ocurrencia
 from nucleo.servicios import reloj
+from nucleo.servicios import kpi
+from nucleo.servicios.calendario import JORNADA_HORAS
 from nucleo.servicios.feriados import calendario_confirmado
 
 PENDIENTES = (Ocurrencia.PENDIENTE, Ocurrencia.DEVUELTA)
@@ -40,3 +44,52 @@ def por_recibir(usuario, hoy: date | None = None) -> list[Ocurrencia]:
     hoy = hoy or reloj.hoy()
     cargos = permisos.cargos_vigentes_de(usuario)
     return list(_abiertas().filter(cargo_revisa_id__in=cargos, estado__in=PENDIENTES, tipo_marca="RECIBIDA", fecha_limite__lte=hoy + timedelta(days=DIAS_PROXIMOS)))
+
+
+def _de_la_persona(colaborador):
+    return Ocurrencia.objects.filter(colaborador=colaborador).select_related("tarea__proceso", "cargo_ejecuta", "periodo")
+
+
+def _marcar_atraso(o: Ocurrencia, hoy: date):
+    o.pendiente = o.estado in PENDIENTES
+    o.atrasada = o.pendiente and o.fecha_limite < hoy
+    return o
+
+
+@dataclass
+class DiaSemana:
+    fecha: date
+    horas: int
+    feriado: str = ""
+    items: list = field(default_factory=list)
+
+
+def semana_de(colaborador, referencia: date, hoy: date) -> list[DiaSemana]:
+    """Lunes a viernes de la semana de `referencia`. Un feriado queda explícito y con 0 h de jornada."""
+    lunes = referencia - timedelta(days=referencia.weekday())
+    fechas = [lunes + timedelta(days=i) for i in range(5)]
+    feriados = dict(Feriado.objects.filter(confirmado=True, fecha__in=fechas).values_list("fecha", "nombre"))
+    por_dia: dict[date, list] = {f: [] for f in fechas}
+    for o in _de_la_persona(colaborador).filter(fecha_limite__in=fechas).order_by("tarea__codigo"):
+        por_dia[o.fecha_limite].append(_marcar_atraso(o, hoy))
+    return [DiaSemana(f, 0 if f in feriados else JORNADA_HORAS[f.weekday()], feriados.get(f, ""), por_dia[f]) for f in fechas]
+
+
+@dataclass
+class HitoMes:
+    etiqueta: str
+    fecha: date
+    hechas: int = 0
+    total: int = 0
+
+
+def mes_de(colaborador, anio: int, mes: int, hoy: date) -> dict:
+    """Las tareas de la persona que vencen en el mes y su avance en los días clave del cierre."""
+    ocurrencias = [_marcar_atraso(o, hoy) for o in _de_la_persona(colaborador).filter(fecha_limite__year=anio, fecha_limite__month=mes).order_by("fecha_limite", "tarea__codigo")]
+    hitos = {f: HitoMes(etiqueta, f) for etiqueta, f in kpi.hitos_del_mes(anio, mes)}
+    for o in ocurrencias:
+        h = hitos.get(o.fecha_limite)
+        if h is not None and o.tarea.regla_tipo in kpi.TIPOS_DE_CIERRE and o.estado != Ocurrencia.NO_APLICA:
+            h.total += 1
+            h.hechas += o.estado in kpi.HECHAS
+    return {"ocurrencias": ocurrencias, "hitos": list(hitos.values())}

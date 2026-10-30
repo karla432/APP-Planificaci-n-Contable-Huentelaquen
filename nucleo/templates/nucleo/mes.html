@@ -1,0 +1,35 @@
+{% extends "nucleo/checklist_base.html" %}
+{% block titulo %}Mi mes{% endblock %}
+{% block nombre_vista %}mes{% endblock %}
+{% block vista %}
+<div class="navegar">
+  <a class="btn btn-2 btn-sm" href="{% url 'mes' %}?mes={{ mes_anterior }}{% if persona_qs %}&{{ persona_qs }}{% endif %}">‹ Mes anterior</a>
+  <strong style="text-transform:capitalize">{{ primero|date:"F Y" }}</strong>
+  <a class="btn btn-2 btn-sm" href="{% url 'mes' %}?mes={{ mes_siguiente }}{% if persona_qs %}&{{ persona_qs }}{% endif %}">Mes siguiente ›</a>
+</div>
+{% if datos %}
+<section class="card"><h2>Ruta del cierre</h2>
+  <div class="ruta">
+    {% for h in datos.hitos %}
+    <div class="hito{% if h.fecha == hoy %} hito-hoy{% endif %}">
+      <strong>{{ h.etiqueta }}</strong><span class="meta">{{ h.fecha|date:"d-m-Y" }}</span>
+      <div class="barra"><i style="width: {% widthratio h.hechas h.total 100 %}%"></i></div>
+      <span>{{ h.hechas }} de {{ h.total }} hechas</span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+<section class="card"><h2>Tareas del mes</h2>
+  <div class="tabla-scroll"><table class="tbl">
+    <thead><tr><th>Vence</th><th>Código</th><th>Proceso</th><th>Tarea</th><th>Estado</th><th></th></tr></thead>
+    <tbody>
+    {% for o in datos.ocurrencias %}
+      <tr><td>{{ o.fecha_limite|date:"d-m-Y" }}</td><td>{{ o.tarea.codigo }}</td><td>{{ o.tarea.proceso.nombre }}</td><td>{{ o.tarea.subtarea }}</td>
+        <td>{% include "nucleo/_estado.html" %}</td>
+        <td>{% if es_mia and o.pendiente %}<form method="post" action="{% url 'ocurrencia_accion' o.pk 'hecha' %}">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}"><button class="btn btn-sm" type="submit">Marcar hecha</button></form>{% endif %}</td></tr>
+    {% empty %}<tr><td colspan="6" class="vacio">No hay tareas que venzan este mes.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endif %}
+{% endblock %}

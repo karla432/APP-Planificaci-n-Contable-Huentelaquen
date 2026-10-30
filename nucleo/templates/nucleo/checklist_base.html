@@ -1,0 +1,45 @@
+{% extends "nucleo/base.html" %}
+{% block contenido %}
+<div class="encabezado">
+  <div>
+    <p class="kick">{{ hoy|date:"l d-m-Y" }}</p>
+    <h1>{% if elegida %}{% if es_mia %}Mi {% block nombre_vista %}{% endblock %}{% else %}{{ elegida.nombre }}{% endif %}{% else %}Check List{% endif %}</h1>
+    {% if elegida and not es_mia %}<p class="aviso">Solo lectura: estás mirando el check list de otra persona.</p>{% endif %}
+  </div>
+  {% if personas %}
+  <form method="get" class="selector">
+    <label for="persona">Ver el check list de</label>
+    <select id="persona" name="persona" onchange="this.form.submit()">
+      {% for p in personas %}<option value="{{ p.pk }}" {% if elegida and p.pk == elegida.pk %}selected{% endif %}>{{ p.nombre }}</option>{% endfor %}
+    </select>
+    {% if request.GET.fecha %}<input type="hidden" name="fecha" value="{{ request.GET.fecha }}">{% endif %}
+    {% if request.GET.mes %}<input type="hidden" name="mes" value="{{ request.GET.mes }}">{% endif %}
+    <noscript><button class="btn btn-2 btn-sm" type="submit">Ver</button></noscript>
+  </form>
+  {% endif %}
+</div>
+
+<nav class="pestanas" aria-label="Período">
+  <a class="pestana{% if pestana == 'dia' %} pestana-on{% endif %}" href="{% url 'hoy' %}{% if persona_qs %}?{{ persona_qs }}{% endif %}">Día</a>
+  <a class="pestana{% if pestana == 'semana' %} pestana-on{% endif %}" href="{% url 'semana' %}{% if persona_qs %}?{{ persona_qs }}{% endif %}">Semana</a>
+  <a class="pestana{% if pestana == 'mes' %} pestana-on{% endif %}" href="{% url 'mes' %}{% if persona_qs %}?{{ persona_qs }}{% endif %}">Mes</a>
+</nav>
+
+{% if cumplimiento %}
+<section class="card cumplimiento cumplimiento-{{ cumplimiento.clase }}" aria-label="Cumplimiento">
+  <div>
+    <p class="kick">{% if es_mia %}Mi cumplimiento{% else %}Cumplimiento de {{ elegida.nombre }}{% endif %}</p>
+    <p class="numero">{% if cumplimiento.k.a_tiempo_pct is None %}—{% else %}{{ cumplimiento.k.a_tiempo_pct }}%{% endif %}</p>
+  </div>
+  <div>
+    <p><strong>{{ cumplimiento.k.a_tiempo }} de {{ cumplimiento.k.vencidas }}</strong> tareas vencidas hechas a tiempo · Meta {{ cumplimiento.meta }}%</p>
+    <p><span class="pill p-{{ cumplimiento.clase }}">{{ cumplimiento.etiqueta }}</span>
+       {% if cumplimiento.k.pendientes_vencidas %}<span class="pill p-red">{{ cumplimiento.k.pendientes_vencidas }} atrasada{{ cumplimiento.k.pendientes_vencidas|pluralize }} sin hacer</span>{% endif %}</p>
+    <p class="meta">A tiempo = marcada hecha en o antes de su fecha límite, ÷ tareas ya vencidas.</p>
+  </div>
+</section>
+{% endif %}
+
+{% if not hay_mes_abierto %}<div class="card"><p>No hay un mes abierto. La Gerencia debe abrir el mes para que aparezcan las tareas.</p></div>{% endif %}
+{% block vista %}{% endblock %}
+{% endblock %}

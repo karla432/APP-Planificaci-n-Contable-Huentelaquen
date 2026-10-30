@@ -164,11 +164,16 @@ def _cierre(periodo):
     return Ocurrencia.objects.filter(periodo=periodo, tarea__regla_tipo__in=TIPOS_DE_CIERRE).exclude(estado=Ocurrencia.NO_APLICA)
 
 
-def ruta_del_cierre(periodo, hoy: date) -> list[RutaDia]:
+def hitos_del_mes(anio: int, mes: int) -> list[tuple[str, date]]:
+    """Los días clave del cierre del mes: Día hábil 1 a 4, D7 (preliminar) y D10 (definitivo)."""
     from nucleo.servicios.calendario import hitos_de_cierre
     cal = calendario_confirmado()
-    d7, d10 = hitos_de_cierre(cal, periodo.anio, periodo.mes, parametros.entero("min_dias_habiles_d7_d10"))
-    dias = [(f"Día {n}", cal.dia_habil_n(periodo.anio, periodo.mes, n)) for n in (1, 2, 3, 4)] + [("D7", d7), ("D10", d10)]
+    d7, d10 = hitos_de_cierre(cal, anio, mes, parametros.entero("min_dias_habiles_d7_d10"))
+    return [(f"Día {n}", cal.dia_habil_n(anio, mes, n)) for n in (1, 2, 3, 4)] + [("D7", d7), ("D10", d10)]
+
+
+def ruta_del_cierre(periodo, hoy: date) -> list[RutaDia]:
+    dias = hitos_del_mes(periodo.anio, periodo.mes)
     ruta = {f: RutaDia(etiqueta, f) for etiqueta, f in dias}
     for o in _cierre(periodo):
         r = ruta.get(o.fecha_limite)
@@ -231,3 +236,15 @@ def avance_por_proceso(periodo, hoy: date) -> list[AvanceProceso]:
             elif a.estado != "atrasado":
                 a.estado = "por_vencer"
     return sorted(filas.values(), key=lambda a: a.proceso)
+
+
+def de_persona(colaborador, hoy: date) -> KpiPersona:
+    """El cumplimiento de una persona sumando todos los meses abiertos (puede haber dos al mismo tiempo, ej. noviembre y diciembre)."""
+    from nucleo.models import Periodo
+    total = KpiPersona(colaborador)
+    for periodo in Periodo.objects.filter(estado="abierto"):
+        for k in por_colaborador(periodo, hoy):
+            if k.colaborador.pk == colaborador.pk:
+                for campo in ("vencidas", "a_tiempo", "completas", "pendientes_vencidas", "no_aplica", "vencidas_con_no_aplica", "con_primera_hecha", "devueltas"):
+                    setattr(total, campo, getattr(total, campo) + getattr(k, campo))
+    return total

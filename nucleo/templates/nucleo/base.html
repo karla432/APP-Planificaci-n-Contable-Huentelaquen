@@ -1,25 +1,45 @@
-{% load static %}<!doctype html>
+<!DOCTYPE html>
 <html lang="es-CL">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block titulo %}Planificación Contable{% endblock %} · Huentelauquén</title>
-  <link rel="stylesheet" href="{% static 'nucleo/app.css' %}">
+  <title>{% block titulo %}Planificación Contable{% endblock %} · Hacienda Huentelauquén</title>
+  {% load static %}<link rel="stylesheet" href="{% static 'nucleo/app.css' %}">
 </head>
 <body>
-  {% if modo_prueba %}<p class="franja-prueba">MODO DE PRUEBA SIN CLAVE · solo en tu computador · datos de ejemplo</p>{% endif %}
-  <header class="barra">
-    <span class="marca">Hacienda Huentelauquén · Planificación Contable</span>
-    {% if user.is_authenticated %}
-    <form method="post" action="{% url 'logout' %}" class="salir">{% csrf_token %}
-      <span>{{ user.get_username }}</span>
-      <button type="submit" class="boton boton-secundario">Salir</button>
-    </form>
+{% if modo_prueba %}<p class="franja-prueba">MODO DE PRUEBA SIN CLAVE · solo en tu computador · datos de ejemplo</p>{% endif %}
+<div class="layout">
+  {% if user.is_authenticated %}<nav class="sidebar" aria-label="Menú principal">
+    <div class="marca">Hacienda<br>Huentelauquén<small>Planificación contable</small></div>
+
+    <div class="nav-sec">Informes</div>
+    <a class="nav-i{% if url_actual == 'informe_panel' %} nav-on{% endif %}" href="{% url 'informe_panel' %}">Panel del cierre</a>
+    <a class="nav-i{% if url_actual == 'informe_cumplimiento' %} nav-on{% endif %}" href="{% url 'informe_cumplimiento' %}">Cumplimiento por colaborador</a>
+
+    <div class="nav-sec">Check List</div>
+    <a class="nav-i{% if url_actual == 'hoy' %} nav-on{% endif %}" href="{% url 'hoy' %}">Mi día</a>
+    <a class="nav-i{% if url_actual == 'semana' %} nav-on{% endif %}" href="{% url 'semana' %}">Mi semana</a>
+    <a class="nav-i{% if url_actual == 'mes' %} nav-on{% endif %}" href="{% url 'mes' %}">Mi mes</a>
+    <a class="nav-i{% if url_actual == 'checklist_cargos' %} nav-on{% endif %}" href="{% url 'checklist_cargos' %}">Por cargo y responsable</a>
+
+    {% if ve_mantenedor_tareas or ve_usuarios %}
+    <div class="nav-sec">Mantenedor</div>
+    {% if ve_mantenedor_tareas %}
+    <a class="nav-i{% if url_actual == 'mant_tareas' %} nav-on{% endif %}" href="{% url 'mant_tareas' %}">Tareas</a>
+    <a class="nav-i{% if url_actual == 'mant_procesos' %} nav-on{% endif %}" href="{% url 'mant_procesos' %}">Procesos</a>
     {% endif %}
-  </header>
-  <main class="contenido">
+    {% if ve_usuarios %}<a class="nav-i{% if url_actual == 'mant_usuarios' %} nav-on{% endif %}" href="{% url 'mant_usuarios' %}">Usuarios</a>{% endif %}
+    {% endif %}
+
+    <div class="sidebar-pie">
+      <div>{{ user.get_username }} · {{ rol|default:"sin perfil" }}</div>
+      <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="btn btn-2 btn-sm" type="submit">Salir</button></form>
+    </div>
+  </nav>{% endif %}
+  <main class="principal">
     {% for m in messages %}<p class="mensaje mensaje-{{ m.tags }}" role="status">{{ m }}</p>{% endfor %}
     {% block contenido %}{% endblock %}
   </main>
+</div>
 </body>
 </html>

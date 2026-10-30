@@ -170,3 +170,18 @@ def test_avance_por_proceso_con_semaforo_al_dia_por_vencer_y_atrasado(base):
     assert (av["Compras"].hechas, av["Compras"].total, av["Compras"].estado) == (2, 2, "al_dia")
     assert av["Conciliación"].estado == "atrasado"
     assert av["Remuneraciones"].estado == "por_vencer"
+
+
+def test_el_cumplimiento_de_una_persona_suma_todos_los_meses_abiertos(base):
+    ocurrencia(base, date(2026, 12, 4), estado="hecha", primera=local(4, 17))  # a tiempo, diciembre
+    p_nov = Periodo.objects.create(anio=2026, mes=11, inicio_medicion=date(2026, 11, 5))
+    t = tarea("TAR-NOV", base["cont"], "CIERRE_DIA_HABIL", n=1)
+    Ocurrencia.objects.create(tarea=t, periodo=p_nov, fecha_limite=date(2026, 11, 20), cargo_ejecuta=base["cont"], colaborador=base["c"],
+                              estado="hecha", primera_hecha_en=local(23, 9, mes=11))  # tarde, noviembre
+    k = kpi.de_persona(base["c"], HOY)
+    assert (k.vencidas, k.a_tiempo) == (2, 1)
+
+
+def test_una_persona_sin_tareas_vencidas_queda_sin_datos(base):
+    k = kpi.de_persona(base["j"], HOY)
+    assert k.vencidas == 0 and k.semaforo == "sin_datos" and k.a_tiempo_pct is None
