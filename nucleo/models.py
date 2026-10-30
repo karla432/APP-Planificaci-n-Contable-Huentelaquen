@@ -5,6 +5,7 @@ No hay borrado físico: se desactiva. Todo valor supuesto lleva `estado_dato = p
 """
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 from nucleo.servicios.recurrencia import AJUSTES, TIPOS, Regla
 
@@ -203,3 +204,11 @@ class EventoAuditoria(models.Model):
 
     class Meta:
         ordering = ["id"]
+
+
+class IntentoFallido(models.Model):
+    """Un intento fallido de ingreso. Alimenta el bloqueo temporal (`nucleo.bloqueo_acceso`); no es la bitácora."""
+
+    nombre = models.CharField(max_length=150, db_index=True)
+    momento = models.DateTimeField(default=timezone.now, db_index=True)
+    origen = models.CharField(max_length=100, blank=True)

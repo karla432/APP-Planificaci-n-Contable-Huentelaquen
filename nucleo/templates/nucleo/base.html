@@ -1,0 +1,21 @@
+{% load static %}<!doctype html>
+<html lang="es-CL">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Planificación Contable{% endblock %} · Huentelauquén</title>
+  <link rel="stylesheet" href="{% static 'nucleo/app.css' %}">
+</head>
+<body>
+  <header class="barra">
+    <span class="marca">Hacienda Huentelauquén · Planificación Contable</span>
+    {% if user.is_authenticated %}
+    <form method="post" action="{% url 'logout' %}" class="salir">{% csrf_token %}
+      <span>{{ user.get_username }}</span>
+      <button type="submit" class="boton boton-secundario">Salir</button>
+    </form>
+    {% endif %}
+  </header>
+  <main class="contenido">{% block contenido %}{% endblock %}</main>
+</body>
+</html>
