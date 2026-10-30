@@ -115,3 +115,12 @@ def test_cualquier_perfil_con_acceso_puede_verlo_pero_sin_perfil_no(mundo):
     c.force_login(sin)
     assert c.get(reverse("informe_panel")).status_code == 403
     assert c.get(reverse("informe_cumplimiento")).status_code == 403
+
+
+def test_el_panel_lista_los_feriados_confirmados_del_mes_y_no_inventa_ninguno(mundo):
+    html = ver(mundo["u"]["lectura"], "informe_panel")
+    assert "Feriados del mes" in html and "08-12-2026" in html and "25-12-2026" in html
+    from nucleo.models import Feriado
+    Feriado.objects.all().delete()
+    sin = ver(mundo["u"]["lectura"], "informe_panel")
+    assert "Feriados del mes" not in sin and "08 de diciembre" not in sin

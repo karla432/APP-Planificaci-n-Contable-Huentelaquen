@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
 from nucleo import permisos
-from nucleo.models import Ocurrencia, Periodo
+from nucleo.models import Feriado, Ocurrencia, Periodo
 from nucleo.servicios import agenda, kpi, parametros, presentacion, reloj
 from nucleo.servicios.feriados import calendario_confirmado
 
@@ -52,6 +52,7 @@ def panel(request):
         c.update({
             "ruta": kpi.ruta_del_cierre(periodo, hoy), "resumen": kpi.resumen(periodo, hoy), "procesos": kpi.avance_por_proceso(periodo, hoy),
             "cumplimiento": _filas_cumplimiento(periodo, hoy), "dia_habil": ordinal,
+            "feriados_mes": list(Feriado.objects.filter(confirmado=True, fecha__year=periodo.anio, fecha__month=periodo.mes)),
             "faltan_d7": None if hoy > hitos["D7"] else presentacion.dias_habiles_texto(cal.dias_habiles_entre(hoy, hitos["D7"])),
             "faltan_d10": None if hoy > hitos["D10"] else presentacion.dias_habiles_texto(cal.dias_habiles_entre(hoy, hitos["D10"])),
             "atrasadas": list(Ocurrencia.objects.filter(periodo=periodo, estado=Ocurrencia.PENDIENTE, fecha_limite__lt=hoy, tarea__regla_tipo__in=kpi.TIPOS_DE_CIERRE)

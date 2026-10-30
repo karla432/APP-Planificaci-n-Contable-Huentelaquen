@@ -11,7 +11,8 @@
 {% include "nucleo/_selector_mes.html" %}
 {% if periodo %}
 <section class="card"><h2>Ruta del cierre</h2>
-  <p class="meta">Tareas del cierre hechas sobre las que vencen ese día. El 08 de diciembre es feriado.</p>
+  <p class="meta">Tareas del cierre hechas sobre las que vencen ese día.
+    {% if feriados_mes %}<strong>Feriados del mes:</strong> {% for f in feriados_mes %}{{ f.fecha|date:"d-m-Y" }} ({{ f.nombre }}){% if not forloop.last %}, {% endif %}{% endfor %}.{% endif %}</p>
   <div class="ruta">
     {% for r in ruta %}
     <div class="hito{% if r.fecha == hoy %} hito-hoy{% endif %}">
