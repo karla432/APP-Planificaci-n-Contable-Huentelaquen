@@ -1,4 +1,6 @@
+from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import get_user_model, login
 from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
@@ -72,3 +74,15 @@ def ocurrencia_accion(request, pk, accion):
     if not url_has_allowed_host_and_scheme(destino, allowed_hosts={request.get_host()}):
         destino = reverse("hoy")
     return redirect(destino)
+
+
+def acceso_rapido(request):
+    """Entrar sin clave, SOLO en desarrollo local (settings.ACCESO_RAPIDO). En cualquier otro caso la ruta no existe."""
+    if not settings.ACCESO_RAPIDO:
+        raise Http404
+    usuarios = get_user_model().objects.filter(is_active=True, groups__isnull=False).distinct().order_by("username")
+    if request.method == "POST":
+        u = get_object_or_404(usuarios, username=request.POST.get("usuario", ""))
+        login(request, u, backend="nucleo.autenticacion.RespaldoConBloqueo")
+        return redirect("hoy")
+    return render(request, "nucleo/acceso_rapido.html", {"usuarios": [(u, permisos.rol_de(u)) for u in usuarios]})

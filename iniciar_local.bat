@@ -17,6 +17,8 @@ if not exist .entorno_desarrollo type nul > .entorno_desarrollo
 set PLANIFICACION_DB_PATH=%CD%\db_local.sqlite3
 rem Simula que hoy es el viernes 04-12-2026 (Dia 4 del cierre) para ver el cierre de diciembre. Borra esta linea para usar la fecha real.
 set PLANIFICACION_HOY=2026-12-04
+rem Modo de prueba: en la pantalla de ingreso aparece "Entrar sin clave". Solo funciona en tu computador, nunca en el servidor.
+set PLANIFICACION_SIN_CLAVE=1
 
 if not exist db_local.sqlite3 (
   python manage.py migrate -v0
@@ -27,7 +29,7 @@ echo.
 echo ============================================================
 echo  Abre http://127.0.0.1:8000  (se cierra con Ctrl+C)
 echo  Usuarios de ejemplo: gerente, jefa, contadora, analista
-echo  Clave de ejemplo:    Ejemplo-local-2026
+echo  Entra con "Entrar sin clave" (o con la clave Ejemplo-local-2026)
 echo  Para empezar de cero, borra el archivo db_local.sqlite3
 echo ============================================================
 start "" http://127.0.0.1:8000/ingresar/

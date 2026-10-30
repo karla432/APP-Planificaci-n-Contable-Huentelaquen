@@ -8,6 +8,7 @@ python -m pip install -q -r requirements.txt
 [ -e .entorno_desarrollo ] || : > .entorno_desarrollo
 export PLANIFICACION_DB_PATH="$PWD/db_local.sqlite3"
 export PLANIFICACION_HOY="${PLANIFICACION_HOY:-2026-12-04}"
+export PLANIFICACION_SIN_CLAVE=1  # solo desarrollo local
 if [ ! -e db_local.sqlite3 ]; then
   python manage.py migrate -v0
   python manage.py datos_de_ejemplo --password Ejemplo-local-2026

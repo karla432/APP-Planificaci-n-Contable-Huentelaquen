@@ -34,3 +34,4 @@ input, select { width: 100%; min-height: 44px; padding: 0 16px; border: 1px soli
 .error { color: var(--riesgo); font-weight: 700; }
 details { margin-top: 8px; color: var(--gris); }
 @media (max-width: 640px) { .barra { padding: 16px; } h1 { font-size: 1.5rem; } .fila-accion { width: 100%; } .fila-accion .boton { width: 100%; } }
+.franja-prueba { margin: 0; padding: 8px 16px; background: var(--ambar-texto); color: var(--blanco); text-align: center; font-weight: 700; font-size: .85rem; }

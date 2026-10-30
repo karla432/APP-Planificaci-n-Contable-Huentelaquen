@@ -10,7 +10,7 @@ from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
 from django.core.management.utils import get_random_secret_key
 
-from config.entorno import resolver_entorno
+from config.entorno import acceso_rapido_permitido, resolver_entorno
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -18,6 +18,7 @@ ENTORNO = resolver_entorno(os.environ.get("PLANIFICACION_ENTORNO"), BASE_DIR)
 if ENTORNO not in ("desarrollo", "produccion"):
     raise ImproperlyConfigured("PLANIFICACION_ENTORNO debe ser «desarrollo» o «produccion».")
 PRODUCCION = ENTORNO == "produccion"
+ACCESO_RAPIDO = acceso_rapido_permitido(os.environ.get("PLANIFICACION_SIN_CLAVE"), PRODUCCION)  # solo desarrollo local
 
 
 def _lista_de_entorno(nombre: str) -> list[str]:
@@ -99,6 +100,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "nucleo.contexto.modo_prueba",
             ],
         },
     },

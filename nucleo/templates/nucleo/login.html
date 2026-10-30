@@ -11,5 +11,6 @@
     <input id="id_password" name="password" type="password" autocomplete="current-password" required>
     <button type="submit" class="boton">Ingresar</button>
   </form>
+  {% if modo_prueba %}<p class="meta"><a href="{% url 'acceso_rapido' %}">Entrar sin clave (solo prueba local)</a></p>{% endif %}
 </section>
 {% endblock %}

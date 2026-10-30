@@ -1,0 +1,16 @@
+{% extends "nucleo/base.html" %}
+{% block titulo %}Entrar sin clave{% endblock %}
+{% block contenido %}
+<section class="tarjeta tarjeta-angosta">
+  <h1>Entrar sin clave</h1>
+  <p class="meta">Solo para probar en tu computador. Elige con qué usuario quieres entrar.</p>
+  <form method="post">{% csrf_token %}
+    <ul class="lista">
+    {% for u, rol in usuarios %}
+      <li class="fila"><span><strong>{{ u.username }}</strong> <span class="meta">· {{ rol|default:"sin perfil" }}</span></span>
+        <button class="boton" type="submit" name="usuario" value="{{ u.username }}">Entrar como {{ u.username }}</button></li>
+    {% endfor %}
+    </ul>
+  </form>
+</section>
+{% endblock %}
