@@ -1,0 +1,9 @@
+django
+holidays
+openpyxl
+pyotp
+qrcode
+gunicorn
+tzdata
+pytest
+pytest-django

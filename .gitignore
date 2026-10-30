@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+db.sqlite3*
+.clave_secreta_local
+.entorno_desarrollo
+logs/
+staticfiles/
+.env
+respaldos/

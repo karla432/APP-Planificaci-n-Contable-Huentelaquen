@@ -1,0 +1,8 @@
+Django==6.1.1
+gunicorn==26.2.0
+holidays==0.107
+openpyxl==3.1.5
+PyOTP==2.10.0
+pytest==9.2.0
+pytest-django==4.14.0
+tzdata==2026.6
