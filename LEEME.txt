@@ -1,0 +1,11 @@
+PLANIFICACION CONTABLE HUENTELAUQUEN - para verla en tu computador
+
+1. Descomprime esta carpeta completa (clic derecho > Extraer todo).
+2. Haz doble clic en  iniciar_local.bat
+   - Si Windows dice "Windows protegio su PC": clic en "Mas informacion" y luego "Ejecutar de todos modos".
+   - La primera vez instala lo necesario (unos minutos). Necesita Python instalado (el mismo del Arqueo).
+3. Se abre el navegador. Entra con uno de estos usuarios:  gerente, jefa, contadora o analista
+   Clave de ejemplo:  Ejemplo-local-2026
+4. Para cerrar: en la ventana negra presiona Ctrl+C y ciérrala.
+
+Son datos de EJEMPLO (se simula el viernes 04-12-2026). Para empezar de cero, borra el archivo db_local.sqlite3.
