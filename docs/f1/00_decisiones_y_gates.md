@@ -35,11 +35,37 @@ Versión: F1-v1 · 30-10-2026 · Estado: borrador para G1.
 |---|---|---|
 | P1 | La Jefa ejecuta 27 tareas y no puede revisarse a sí misma. ¿Quién las revisa? En el Excel hoy las revisa la Contadora Senior (17), el Gerente (4) o nadie (6). | El **Gerente AyF** revisa las 27 tareas de la Jefa. La Jefa revisa todo lo demás, incluidas las 2 del Gerente. |
 | P2 | Cuando el D7 se corre, ¿el D10 se corre aparte (sigue su propio día 10) o conserva la distancia con el D7? Hay un choque posible: si el 7 es viernes feriado, el D7 pasa al lunes 10 y coincide con el D10. | El D10 se evalúa por su cuenta (día 10 → siguiente hábil). Si D10 ≤ D7 corrido, el D10 pasa al día hábil siguiente al D7. Parámetro `min_dias_habiles_D7_D10 = 1`. |
-| P3 | Las tareas «Recibido» de externos (6 tareas), ¿cuentan en el KPI de la Jefa o se miden aparte como «insumos por área»? | Aparte, no entran en el KPI de nadie. |
+| P3 | Las tareas «Recibido» de externos (9 tareas de 6 cargos externos), ¿cuentan en el KPI de la Jefa o se miden aparte como «insumos por área»? | Aparte, no entran en el KPI de nadie. |
 | P4 | **Día 13 (Previred)**: el 13-12-2026 es **domingo**. ¿Se corre al hábil anterior (viernes 11) o al siguiente (lunes 14)? La Contadora Senior debe verificarlo con la norma vigente. El primer Día 13 de la app (13-11-2026) es viernes. | Parámetro sin valor fijo («pendiente de confirmar»). La app avisa antes del 13-12 si sigue sin confirmar. |
 | P5 | ¿«Asistente Contable» (Excel) es el mismo cargo que «Analista Contable»? | Sí, alias. |
 | P6 | El repo nuevo está vacío. ¿Autorizas el primer commit a `main`, o sigo trabajando en la rama `claude/peaceful-ride-ysf0iw` y tú haces el merge? | Rama de trabajo; no toco `main`. |
 | P7 | ¿Desde qué fecha cuenta el KPI? El 05-11 es jueves; el 02, 03 y 04 de noviembre ya pasaron o pasarán antes del uso. | El período de noviembre abre con inicio de medición 05-11-2026. Las tareas con vencimiento anterior no se generan. |
+
+### 2b. Respuestas de Karla del 30-10-2026 (tarde)
+
+| ID | Respuesta | Efecto |
+|---|---|---|
+| P1 | Revisa el **Gerente AyF** las 27 tareas de la Jefa | Implementado en el importador (`cargo_revisor`) |
+| P2 | Sí, como propuse | D10 por su cuenta; si choca con el D7 corrido pasa al hábil siguiente; parámetro `min_dias_habiles_D7_D10 = 1` |
+| P3 | No entran al KPI de nadie | Los «Recibido» se miden aparte como insumos por área |
+| P4 | El viernes (11-12-2026) | Día 13 con ajuste «anterior». Sigue marcado «pendiente de confirmar» hasta que la Contadora Senior verifique la norma de Previred |
+| P5 | Es el mismo cargo | «Asistente Contable» del Excel se importa como «Analista Contable» |
+| P6 | Sí, puedo hacer commits | Commits en la rama `claude/peaceful-ride-ysf0iw` del repo nuevo; no toco `main` salvo que se indique |
+| P7 | Desde el 05-11-2026 | `inicio_medicion` del período de noviembre |
+
+### 2c. Hallazgos del importador sobre el Excel (30-10-2026): pregunta nueva P8
+
+La validación con `Fecha 1.ª vez` encontró **5 filas cuya fecha no calza con su regla**. No las corrijo: la app usa lo que dice «Cuándo».
+
+| Fila del Excel | Tarea | «Cuándo» | 1.ª vez en el Excel | Qué haría la app |
+|---|---|---|---|---|
+| 39 | Fondos por rendir: listar fondos abiertos… | Semanal · Martes (tarde) | lunes 02-11-2026 | Martes (03-11, 10-11, …) |
+| 178 | Reportería día 7: Costo en Destino | D7 | martes 08-12-2026 | Vence el D7 (lunes 07-12-2026) |
+| 179 | Reportería día 7: Costo por Producto | D7 | miércoles 09-12-2026 | Vence el D7 |
+| 180 | Reportería día 7: Ventas Semanales | D7 | jueves 10-12-2026 | Vence el D7 |
+| 181 | Reportería día 7: Torre Control Proyecto Los Lilenes | D7 | viernes 11-12-2026 | Vence el D7 |
+
+**P8:** ¿Es correcto el «Cuándo» (martes, D7) o la fecha? Las filas 178 a 181 tienen fechas escalonadas después del D7: si de verdad se entregan después, no deberían figurar como D7. Mi propuesta si no hay respuesta: se usa «Cuándo».
 
 ## 3. Datos que faltan y no bloquean
 
@@ -53,7 +79,7 @@ Versión: F1-v1 · 30-10-2026 · Estado: borrador para G1.
 | Puerta | Artefacto y versión | Estado | Aprobador |
 |---|---|---|---|
 | G0 | F0 · Nota de comprensión v1 | **Aprobado con condiciones** (respuestas de Karla del 30-10-2026; condiciones = P1 a P7) | Karla Meneses |
-| G1 | `docs/f1/` versión F1-v1 | **Pendiente** | Karla Meneses |
+| G1 | `docs/f1/` versión F1-v1 | **Aprobado con condiciones**, interpretado a partir de las respuestas de Karla a P1–P7 (30-10-2026). Karla no escribió literalmente «G1 aprobado»: si no era su intención, debe avisar y se detiene la construcción. Condiciones: parámetros marcados «pendiente de confirmar» y riesgo residual RC-04 (SQLite) | Karla Meneses |
 | G2 | Build en staging | No solicitada | — |
 | G3 | Producción en OpenCloud | No solicitada. Requiere aprobación escrita de Karla, aprobación de Eugenio y restauración de respaldo probada | — |
 

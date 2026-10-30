@@ -4,6 +4,8 @@ Versión: F1-v1 · 30-10-2026. Todo valor supuesto o estimado lleva `estado_dato
 
 ## 1. Modelo de datos
 
+**Cambios respecto a la primera versión (construcción, 30-10-2026):** la regla de recurrencia vive aplanada en la tabla `Tarea` (una regla por tarea) en vez de una tabla aparte; `Jornada` y `Ausencia` se difieren a la versión con capacidad semanal (en v1 no hay tiempos ni capacidad, DEC-09).
+
 Los instantes se guardan en UTC. Las fechas de negocio (`fecha_limite`, feriados, ausencias) son fechas sin hora, en `America/Santiago`. No hay borrado físico: se desactiva.
 
 | Tabla | Campos principales | Notas |
