@@ -105,3 +105,10 @@ def test_d7_y_d10_nunca_son_el_mismo_dia():
     for mes in range(1, 13):
         d7, d10 = hitos_de_cierre(cal, 2026, mes)
         assert d7 < d10
+
+
+def test_sumar_dias_habiles_salta_fines_de_semana_y_feriados():
+    cal = Calendario(FERIADOS_2026)
+    assert cal.sumar_dias_habiles(date(2026, 12, 7), 1) == date(2026, 12, 9)  # el martes 08 es feriado
+    assert cal.sumar_dias_habiles(date(2026, 12, 4), 1) == date(2026, 12, 7)  # viernes → lunes
+    assert cal.sumar_dias_habiles(date(2026, 12, 4), 0) == date(2026, 12, 4)

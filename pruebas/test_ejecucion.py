@@ -208,3 +208,16 @@ def test_ser_superusuario_no_da_permisos_de_la_aplicacion(mundo):
     su = get_user_model().objects.create_superuser("root", password="x" * 12)
     with pytest.raises(PermisoDenegado):
         ejecucion.marcar_hecha(mundo["o"]["TAR-0001"], su)
+
+
+def test_devolver_cuenta_la_devolucion_y_fija_la_primera_revision_una_sola_vez(mundo):
+    o = mundo["o"]["TAR-0001"]
+    ejecucion.marcar_hecha(o, mundo["u"]["cont"])
+    ejecucion.devolver(o, mundo["u"]["jefa"], comentario="Falta un respaldo")
+    o.refresh_from_db()
+    assert o.veces_devuelta == 1 and o.primera_revision_en is not None
+    primera = o.primera_revision_en
+    ejecucion.marcar_hecha(o, mundo["u"]["cont"])
+    ejecucion.revisar(o, mundo["u"]["jefa"])
+    o.refresh_from_db()
+    assert o.estado == "revisada" and o.veces_devuelta == 1 and o.primera_revision_en == primera

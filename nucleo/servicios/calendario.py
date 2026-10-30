@@ -39,6 +39,14 @@ class Calendario:
             raise ValueError(f"El mes {mes:02d}-{anio} no tiene un día hábil número {n}.")
         return habiles[n - 1]
 
+    def sumar_dias_habiles(self, f: date, n: int) -> date:
+        """La fecha que queda n días hábiles después de `f` (n = 0 devuelve `f`)."""
+        while n > 0:
+            f += timedelta(days=1)
+            if self.es_habil(f):
+                n -= 1
+        return f
+
     def dias_habiles_entre(self, desde: date, hasta: date) -> int:
         """Días hábiles después de `desde` y hasta `hasta` inclusive (desde no cuenta)."""
         cuenta, f = 0, desde

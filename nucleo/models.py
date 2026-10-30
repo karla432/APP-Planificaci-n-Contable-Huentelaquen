@@ -157,6 +157,8 @@ class Ocurrencia(models.Model):
     hecha_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
     revisada_en = models.DateTimeField(null=True, blank=True)
     revisada_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    primera_revision_en = models.DateTimeField(null=True, blank=True)  # primera vez que se revisó o devolvió; base del KPI de revisión
+    veces_devuelta = models.PositiveSmallIntegerField(default=0)  # base de la tasa de devolución
     comentario_devolucion = models.TextField(blank=True)
     por_excepcion = models.BooleanField(default=False)
     motivo_excepcion = models.TextField(blank=True)

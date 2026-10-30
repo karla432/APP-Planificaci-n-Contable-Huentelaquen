@@ -14,8 +14,8 @@ def persona(nombre, cargo_, desde=date(2026, 1, 1), hasta=None):
     return c
 
 
-def tarea(codigo, ejecuta, regla_tipo, revisa=None, **regla):
-    proceso = Proceso.objects.get_or_create(nombre="Proceso de prueba")[0]
+def tarea(codigo, ejecuta, regla_tipo, revisa=None, proceso_nombre="Proceso de prueba", **regla):
+    proceso = Proceso.objects.get_or_create(nombre=proceso_nombre)[0]
     campos = {f"regla_{k}": v for k, v in regla.items()}
     return Tarea.objects.create(
         codigo=codigo, clave_estable=codigo.ljust(64, "x"), proceso=proceso, tarea_principal="Tarea " + codigo,

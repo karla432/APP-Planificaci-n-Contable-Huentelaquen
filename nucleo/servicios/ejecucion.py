@@ -109,7 +109,10 @@ def _exigir_puede_revisar(o: Ocurrencia, usuario):
 def revisar(o: Ocurrencia, usuario):
     _exigir_puede_revisar(o, usuario)
     antes = _estado(o)
-    o.estado, o.revisada_por, o.revisada_en = Ocurrencia.REVISADA, usuario, timezone.now()
+    ahora = timezone.now()
+    o.estado, o.revisada_por, o.revisada_en = Ocurrencia.REVISADA, usuario, ahora
+    if o.primera_revision_en is None:
+        o.primera_revision_en = ahora
     o.save()
     auditoria.registrar("ocurrencia.revisada", usuario=usuario, entidad="Ocurrencia", entidad_id=o.pk, antes=antes, despues=_estado(o))
 
@@ -121,6 +124,9 @@ def devolver(o: Ocurrencia, usuario, comentario: str):
         raise ErrorDeNegocio("Al devolver una tarea hay que escribir un comentario.")
     antes = _estado(o)
     o.estado, o.comentario_devolucion, o.revisada_por, o.revisada_en = Ocurrencia.DEVUELTA, comentario.strip(), None, None
+    o.veces_devuelta += 1
+    if o.primera_revision_en is None:
+        o.primera_revision_en = timezone.now()
     o.save()
     auditoria.registrar("ocurrencia.devuelta", usuario=usuario, entidad="Ocurrencia", entidad_id=o.pk, antes=antes, despues=_estado(o), motivo=comentario.strip())
 
