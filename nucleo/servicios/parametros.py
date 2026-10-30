@@ -1,0 +1,39 @@
+"""Parámetros de cumplimiento. Los valores iniciales de Legión quedan «pendiente de confirmar» hasta que Karla los confirme."""
+from nucleo.models import Parametro
+from nucleo.servicios import auditoria
+from nucleo.servicios.errores import ErrorDeNegocio
+
+# clave: (valor inicial, estado, nota)
+INICIALES = {
+    "meta_cumplimiento": ("95", "confirmado", "Meta de cumplimiento a tiempo por colaborador (%), fijada por Karla."),
+    "umbral_ambar": ("90", "pendiente_confirmar", "Bajo este % el semáforo pasa a rojo. Propuesta de Legión."),
+    "plazo_revision_dias_habiles": ("1", "pendiente_confirmar", "Días hábiles para revisar una tarea hecha. Propuesta de Legión."),
+    "minimo_muestra_semaforo": ("10", "pendiente_confirmar", "Tareas vencidas mínimas para colorear el semáforo. Propuesta de Legión."),
+    "min_dias_habiles_d7_d10": ("1", "confirmado", "Días hábiles mínimos entre el D7 y el D10 corridos (P2, aprobada por Karla)."),
+    "tiempo_obligatorio": ("0", "confirmado", "1 = exigir minutos al marcar «hecha». Apagado en v1 (DEC-09)."),
+}
+
+
+def _obtener(clave: str) -> tuple[str, str]:
+    if clave not in INICIALES:
+        raise ErrorDeNegocio(f"Parámetro desconocido: {clave}.")
+    p = Parametro.objects.filter(clave=clave).first()
+    return (p.valor, p.estado_dato) if p else (INICIALES[clave][0], INICIALES[clave][1])
+
+
+def entero(clave: str) -> int:
+    return int(_obtener(clave)[0])
+
+
+def estado(clave: str) -> str:
+    return _obtener(clave)[1]
+
+
+def guardar(clave: str, valor: str, usuario, confirmado: bool = False) -> Parametro:
+    antes = _obtener(clave)
+    p, _ = Parametro.objects.update_or_create(
+        clave=clave, defaults={"valor": str(valor), "estado_dato": "confirmado" if confirmado else "pendiente_confirmar", "nota": INICIALES[clave][2]},
+    )
+    auditoria.registrar("parametro.editado", usuario=usuario, entidad="Parametro", entidad_id=clave,
+                        antes={"valor": antes[0], "estado": antes[1]}, despues={"valor": p.valor, "estado": p.estado_dato})
+    return p
