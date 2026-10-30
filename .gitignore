@@ -8,3 +8,4 @@ logs/
 staticfiles/
 .env
 respaldos/
+db_local.sqlite3*

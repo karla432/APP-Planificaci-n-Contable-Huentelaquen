@@ -17,6 +17,10 @@ para llegar al **D7 con el cierre preliminar y al D10 con el cierre definitivo**
 | F2 Construcción | **En curso.** Listo y probado (147 pruebas): calendario y D7/D10, motor de recurrencia, bitácora sellada, importador del Excel, feriados con confirmación, parámetros, apertura de mes, ejecución con segregación de funciones y KPI. Falta: ingreso/2FA, pantallas, mantenedores, respaldo y despliegue |
 | F3 Producción | No autorizada (espera G3 por escrito de Karla y aprobación de Eugenio) |
 
+## Verla en tu computador
+
+Doble clic en `iniciar_local.bat` (Windows) o `./iniciar_local.sh`. Detalle y etapas en `docs/etapas.md`.
+
 ## Cómo correr las pruebas
 
 ```bash
