@@ -1,0 +1,17 @@
+{% extends "nucleo/base.html" %}
+{% block titulo %}Mantenedor de procesos{% endblock %}
+{% block contenido %}
+<p class="kick">Mantenedor</p><h1>Procesos</h1>
+<form method="post" class="card filtros">{% csrf_token %}<input type="hidden" name="accion" value="crear">
+  <div><label for="nuevo">Nuevo proceso</label><input id="nuevo" name="nombre" required></div><div><button class="btn" type="submit">Agregar</button></div></form>
+<section class="card"><div class="tabla-scroll"><table class="tbl">
+  <thead><tr><th>Proceso</th><th class="n">Tareas</th><th>Activo</th><th></th></tr></thead><tbody>
+  {% for p in procesos %}
+    <tr><form method="post">{% csrf_token %}<input type="hidden" name="accion" value="editar"><input type="hidden" name="proceso" value="{{ p.pk }}">
+      <td><label class="oculto" for="n{{ p.pk }}">Nombre</label><input id="n{{ p.pk }}" name="nombre" value="{{ p.nombre }}" required></td>
+      <td class="n">{{ p.n_tareas }} tarea{{ p.n_tareas|pluralize }}</td>
+      <td><label class="check"><input type="checkbox" name="activo" {% if p.activo %}checked{% endif %}> Activo</label></td>
+      <td><button class="btn btn-2 btn-sm" type="submit">Guardar</button></td></form></tr>
+  {% empty %}<tr><td colspan="4" class="vacio">Aún no hay procesos.</td></tr>{% endfor %}
+</tbody></table></div></section>
+{% endblock %}

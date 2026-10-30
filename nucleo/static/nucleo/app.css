@@ -104,3 +104,11 @@ input, select, textarea { width: 100%; min-height: 44px; padding: 6px 12px; bord
 .barra-meta { position: relative; height: 10px; background: var(--hu-card-line); margin-bottom: 4px; } .barra-meta i { display: block; height: 100%; background: var(--hu-gray); } .barra-meta i.c-ok { background: var(--hu-ok); } .barra-meta i.c-warn { background: var(--hu-warn); } .barra-meta i.c-red { background: var(--hu-risk); }
 .barra-meta b { position: absolute; top: -3px; width: 2px; height: 16px; background: var(--hu-ink); }
 @media (max-width: 900px) { .indicadores, .dos-columnas { grid-template-columns: 1fr; } .proceso-fila { grid-template-columns: 1fr 1fr; } }
+
+/* Mantenedor */
+.filtros { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: flex-end; } .filtros > div { flex: 1 1 180px; } .filtros label { margin-top: 0; }
+.formulario { max-width: 760px; } .formulario fieldset { border: 1px solid var(--hu-line); padding: 8px 14px; } .formulario legend { font-weight: 700; padding: 0 6px; }
+.check { display: inline-flex; align-items: center; gap: 8px; margin: 6px 16px 6px 0; font-weight: 400; } .check input { width: auto; min-height: 0; }
+.grupo[hidden] { display: none; }
+.oculto { position: absolute; left: -9999px; }
+.tbl input { min-height: 36px; }

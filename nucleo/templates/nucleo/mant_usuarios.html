@@ -1,0 +1,15 @@
+{% extends "nucleo/base.html" %}
+{% block titulo %}Mantenedor de usuarios{% endblock %}
+{% block contenido %}
+<div class="encabezado"><div><p class="kick">Mantenedor</p><h1>Usuarios</h1></div><a class="btn" href="{% url 'mant_usuario_nuevo' %}">+ Nuevo usuario</a></div>
+<section class="card"><p class="meta">Cada persona tiene un perfil (qué puede hacer) y un cargo (qué tareas le corresponden). La clave se asigna en la etapa de seguridad.</p>
+<div class="tabla-scroll"><table class="tbl">
+  <thead><tr><th>Usuario</th><th>Nombre</th><th>Correo</th><th>Perfil</th><th>Cargo</th><th>Estado</th><th>Clave</th><th></th></tr></thead><tbody>
+  {% for f in filas %}
+    <tr><td><strong>{{ f.u.username }}</strong></td><td>{{ f.nombre }}</td><td>{{ f.u.email|default:"—" }}</td><td>{{ f.rol|default:"sin perfil" }}</td><td>{{ f.cargo|default:"—" }}</td>
+      <td>{% if f.u.is_active %}<span class="pill p-ok">Activo</span>{% else %}<span class="pill p-grey">Inactivo</span>{% endif %}</td>
+      <td>{% if f.u.has_usable_password %}<span class="pill p-ok">Con clave</span>{% else %}<span class="pill p-warn">Sin clave todavía</span>{% endif %}</td>
+      <td><a class="btn btn-2 btn-sm" href="{% url 'mant_usuario_editar' f.u.pk %}">Editar</a></td></tr>
+  {% endfor %}
+</tbody></table></div></section>
+{% endblock %}

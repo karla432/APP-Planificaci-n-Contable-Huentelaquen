@@ -1,0 +1,17 @@
+{% extends "nucleo/base.html" %}
+{% block titulo %}{% if usuario %}Editar usuario{% else %}Nuevo usuario{% endif %}{% endblock %}
+{% block contenido %}
+<p class="kick">Mantenedor · Usuarios</p><h1>{% if usuario %}Editar {{ usuario.username }}{% else %}Nuevo usuario{% endif %}</h1>
+<p class="meta">La clave se asigna en la etapa de seguridad: por ahora la persona queda «sin clave». Nadie puede cambiar su propio perfil ni desactivarse.</p>
+{% if error %}<p class="mensaje mensaje-error" role="alert">{{ error }}</p>{% endif %}
+<form method="post" class="card formulario">{% csrf_token %}
+  <label for="username">Usuario</label><input id="username" name="username" value="{{ v.username }}" {% if usuario %}readonly{% endif %} required>
+  <label for="nombre">Nombre de la persona</label><input id="nombre" name="nombre" value="{{ v.nombre }}" required>
+  <label for="correo">Correo</label><input id="correo" name="correo" type="email" value="{{ v.correo }}">
+  <label for="rol">Perfil</label><select id="rol" name="rol">{% for k, n in roles %}<option value="{{ k }}" {% if v.rol == k %}selected{% endif %}>{{ n }}</option>{% endfor %}</select>
+  <label for="cargo">Cargo (los perfiles que ejecutan tareas lo necesitan)</label>
+  <select id="cargo" name="cargo"><option value="">—</option>{% for c in cargos %}<option value="{{ c.pk }}" {% if v.cargo == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}</select>
+  {% if usuario %}<label class="check"><input type="checkbox" name="activo" {% if v.activo %}checked{% endif %}> Usuario activo</label>{% endif %}
+  <p><button class="btn" type="submit">Guardar</button> <a class="btn btn-2" href="{% url 'mant_usuarios' %}">Cancelar</a></p>
+</form>
+{% endblock %}

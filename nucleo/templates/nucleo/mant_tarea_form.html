@@ -1,0 +1,37 @@
+{% extends "nucleo/base.html" %}
+{% block titulo %}{% if tarea %}Editar tarea{% else %}Nueva tarea{% endif %}{% endblock %}
+{% block contenido %}
+<p class="kick">Mantenedor · Tareas</p><h1>{% if tarea %}Editar {{ tarea.codigo }}{% else %}Nueva tarea{% endif %}</h1>
+<p class="meta">El cambio rige desde el próximo mes que se abra. Lo ya generado no se modifica. Siempre revisa la Jefa; las tareas de la Jefa las revisa el Gerente.</p>
+{% if error %}<p class="mensaje mensaje-error" role="alert">{{ error }}</p>{% endif %}
+<form method="post" class="card formulario">{% csrf_token %}
+  <label for="proceso">Proceso</label>
+  <select id="proceso" name="proceso" required>{% for p in procesos %}<option value="{{ p.pk }}" {% if v.proceso == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.nombre }}</option>{% endfor %}</select>
+  <label for="tarea_principal">Tarea principal</label><input id="tarea_principal" name="tarea_principal" value="{{ v.tarea_principal }}" required>
+  <label for="subtarea">Subtarea</label><textarea id="subtarea" name="subtarea" rows="2" required>{{ v.subtarea }}</textarea>
+  <label for="cargo_ejecuta">Responsable (quien la ejecuta)</label>
+  <select id="cargo_ejecuta" name="cargo_ejecuta" required>{% for c in cargos %}<option value="{{ c.pk }}" {% if v.cargo_ejecuta == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nombre }}{% if c.es_externo %} (externo){% endif %}</option>{% endfor %}</select>
+
+  <label for="tipo">Periodicidad</label>
+  <select id="tipo" name="tipo">{% for k, n in tipos %}<option value="{{ k }}" {% if v.tipo == k %}selected{% endif %}>{{ n }}</option>{% endfor %}</select>
+  <div class="grupo" data-para="SEMANAL"><label for="dia_semana">Día de la semana</label>
+    <select id="dia_semana" name="dia_semana"><option value="">—</option>{% for k, n in dias %}<option value="{{ k }}" {% if v.dia_semana == k|stringformat:"s" %}selected{% endif %}>{{ n }}</option>{% endfor %}</select>
+    <label for="franja">Franja (opcional)</label><select id="franja" name="franja"><option value="">Sin franja</option><option value="mañana" {% if v.franja == "mañana" %}selected{% endif %}>Mañana</option><option value="tarde" {% if v.franja == "tarde" %}selected{% endif %}>Tarde</option></select></div>
+  <div class="grupo" data-para="CIERRE_DIA_HABIL CIERRE_HITO"><label for="n">Día hábil del cierre (1 a 10) o hito (7 u 10)</label><input id="n" name="n" type="number" min="1" max="10" value="{{ v.n }}"></div>
+  <div class="grupo" data-para="DIA_FIJO MESES"><label for="dia">Día del mes</label><input id="dia" name="dia" type="number" min="1" max="31" value="{{ v.dia }}"></div>
+  <div class="grupo" data-para="MESES"><fieldset><legend>Meses</legend>{% for k, n in meses %}<label class="check"><input type="checkbox" name="meses" value="{{ k }}" {% if k|stringformat:"s" in v.meses %}checked{% endif %}> {{ n }}</label>{% endfor %}</fieldset></div>
+  <div class="grupo" data-para="DIA_FIJO MESES"><label for="ajuste">Si cae en día inhábil, pasa al día hábil…</label>
+    <select id="ajuste" name="ajuste"><option value="siguiente" {% if v.ajuste == "siguiente" %}selected{% endif %}>siguiente</option><option value="anterior" {% if v.ajuste == "anterior" %}selected{% endif %}>anterior</option></select></div>
+
+  <label for="referencia">Referencia normativa (opcional)</label><textarea id="referencia" name="referencia" rows="2">{{ v.referencia }}</textarea>
+  <label class="check"><input type="checkbox" name="activa" {% if v.activa %}checked{% endif %}> Tarea activa</label>
+  <p><button class="btn" type="submit">Guardar</button> <a class="btn btn-2" href="{% url 'mant_tareas' %}">Cancelar</a></p>
+</form>
+<script>
+(function () {
+  var tipo = document.getElementById('tipo');
+  function mostrar() { document.querySelectorAll('.grupo').forEach(function (g) { g.hidden = g.dataset.para.split(' ').indexOf(tipo.value) < 0; }); }
+  tipo.addEventListener('change', mostrar); mostrar();
+})();
+</script>
+{% endblock %}
