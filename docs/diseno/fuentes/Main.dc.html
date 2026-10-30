@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Panel Gerente — Cierre contable</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Carlito:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#ED0035}a:hover{color:#B3001F}
+</style>
+</helmet>
+<div style="background:#F6F5F5;min-height:1180px;padding:32px 40px 48px;box-sizing:border-box;font-family:Calibri,Carlito,Arial,sans-serif;color:#222222;font-size:15px;line-height:1.4">
+<div style="max-width:1200px;margin:0 auto;display:flex;flex-direction:column;gap:24px">
+
+<!-- Encabezado -->
+<div style="display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end">
+<div style="display:flex;flex-direction:column;gap:4px">
+<div style="font-size:12px;font-weight:700;letter-spacing:0.12em;color:#ED0035">HACIENDA HUENTELAUQUÉN · ADMINISTRACIÓN Y FINANZAS</div>
+<h1 style="margin:0;font-size:30px;font-weight:700;color:#222222">Cierre contable · noviembre 2026</h1>
+<div style="color:#6E6E6E">Viernes 4 de diciembre · día hábil 4 · falta 1 día hábil para el D7 y 4 para el D10</div>
+</div>
+<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+<span style="background:#FFF1D6;color:#7A4E00;font-weight:700;font-size:13px;padding:6px 12px;border-radius:999px">Vista de ejemplo · datos ilustrativos</span>
+<span style="display:flex;border:1px solid #E4B5BF;border-radius:10px;overflow:hidden;background:#FFFFFF">
+<span style="padding:8px 16px;background:#ED0035;color:#FFFFFF;font-weight:700">Cierre</span>
+<span style="padding:8px 16px;color:#222222">Semana</span>
+<span style="padding:8px 16px;color:#222222">Equipo</span>
+</span>
+</div>
+</div>
+
+<!-- Ruta del cierre -->
+<div style="background:#FFFFFF;border:1px solid #ECE7E8;border-radius:16px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.06);display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;align-items:baseline">
+<h2 style="margin:0;font-size:19px">Ruta del cierre</h2>
+<div style="color:#6E6E6E;font-size:14px">Tareas del cierre hechas / con vencimiento ese día · el 8 de diciembre es feriado</div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px">
+
+<div style="border:1px solid #ECE7E8;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px">
+<div style="font-weight:700">Día 1 <span style="color:#6E6E6E;font-weight:400">· mar 1</span></div>
+<div style="height:8px;background:#EDEDED;border-radius:4px"><div style="width:100%;height:8px;background:#1B7A4B;border-radius:4px"></div></div>
+<div style="font-size:14px"><b>10</b> de 10 · <span style="color:#1B7A4B;font-weight:700">Al día</span></div>
+</div>
+
+<div style="border:1px solid #ECE7E8;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px">
+<div style="font-weight:700">Día 2 <span style="color:#6E6E6E;font-weight:400">· mié 2</span></div>
+<div style="height:8px;background:#EDEDED;border-radius:4px"><div style="width:85%;height:8px;background:#B7791F;border-radius:4px"></div></div>
+<div style="font-size:14px"><b>11</b> de 13 · <span style="color:#7A4E00;font-weight:700">2 atrasadas</span></div>
+</div>
+
+<div style="border:1px solid #ECE7E8;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px">
+<div style="font-weight:700">Día 3 <span style="color:#6E6E6E;font-weight:400">· jue 3</span></div>
+<div style="height:8px;background:#EDEDED;border-radius:4px"><div style="width:83%;height:8px;background:#B3001F;border-radius:4px"></div></div>
+<div style="font-size:14px"><b>34</b> de 41 · <span style="color:#B3001F;font-weight:700">7 atrasadas</span></div>
+</div>
+
+<div style="border:2px solid #ED0035;border-radius:12px;padding:13px;display:flex;flex-direction:column;gap:8px;background:#FDEAEE">
+<div style="font-weight:700">Día 4 <span style="color:#ED0035;font-weight:700">· HOY</span></div>
+<div style="height:8px;background:#FFFFFF;border-radius:4px"><div style="width:65%;height:8px;background:#ED0035;border-radius:4px"></div></div>
+<div style="font-size:14px"><b>17</b> de 26 · <span style="font-weight:700">9 por hacer</span></div>
+</div>
+
+<div style="border:1px solid #ECE7E8;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px">
+<div style="font-weight:700">D7 <span style="color:#6E6E6E;font-weight:400">· lun 7</span></div>
+<div style="height:8px;background:#EDEDED;border-radius:4px"></div>
+<div style="font-size:14px"><b>0</b> de 12 · <span style="color:#6E6E6E;font-weight:700">Cierre preliminar</span></div>
+</div>
+
+<div style="border:1px solid #ECE7E8;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px">
+<div style="font-weight:700">D10 <span style="color:#6E6E6E;font-weight:400">· jue 10</span></div>
+<div style="height:8px;background:#EDEDED;border-radius:4px"></div>
+<div style="font-size:14px"><b>0</b> de 8 · <span style="color:#6E6E6E;font-weight:700">Cierre definitivo</span></div>
+</div>
+
+</div>
+</div>
+
+<!-- Indicadores -->
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px">
+<div style="background:#FFFFFF;border:1px solid #ECE7E8;border-radius:16px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.06);display:flex;flex-direction:column;gap:6px">
+<div style="color:#6E6E6E;font-size:14px">Avance del cierre</div>
+<div style="font-size:44px;font-weight:700;line-height:1">65%</div>
+<div style="color:#6E6E6E;font-size:14px">72 de 110 tareas hechas</div>
+</div>
+<div style="background:#FFFFFF;border:1px solid #ECE7E8;border-radius:16px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.06);display:flex;flex-direction:column;gap:6px">
+<div style="color:#6E6E6E;font-size:14px">Atrasadas sin hacer</div>
+<div style="font-size:44px;font-weight:700;line-height:1;color:#B3001F">9</div>
+<div style="color:#6E6E6E;font-size:14px">Riesgo para el D7 · más 9 vencen hoy</div>
+</div>
+<div style="background:#FFFFFF;border:1px solid #ECE7E8;border-radius:16px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.06);display:flex;flex-direction:column;gap:6px">
+<div style="color:#6E6E6E;font-size:14px">Cumplimiento a tiempo del equipo</div>
+<div style="font-size:44px;font-weight:700;line-height:1;color:#7A4E00">93%</div>
+<div style="color:#6E6E6E;font-size:14px">Meta mínima 95% · 2 puntos bajo la meta</div>
+</div>
+</div>
+
+<!-- Procesos y riesgos -->
+<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:stretch">
+
+<div style="flex:7 1 520px;min-width:0;background:#FFFFFF;border:1px solid #ECE7E8;border-radius:16px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.06);display:flex;flex-direction:column;gap:16px">
+<h2 style="margin:0;font-size:19px">Avance por proceso</h2>
+
+<div style="display:grid;grid-template-columns:200px minmax(0,1fr) 70px;gap:12px;align-items:center">
+<div>Compras y honorarios</div>
+<div style="height:10px;background:#EDEDED;border-radius:5px"><div style="width:86%;height:10px;background:#1B7A4B;border-radius:5px"></div></div>
+<div style="text-align:right;font-weight:700">12 / 14</div>
+</div>
+<div style="display:grid;grid-template-columns:200px minmax(0,1fr) 70px;gap:12px;align-items:center">
+<div>Conciliación bancaria</div>
+<div style="height:10px;background:#EDEDED;border-radius:5px"><div style="width:70%;height:10px;background:#B7791F;border-radius:5px"></div></div>
+<div style="text-align:right;font-weight:700">7 / 10</div>
+</div>
+<div style="display:grid;grid-template-columns:200px minmax(0,1fr) 70px;gap:12px;align-items:center">
+<div>Remuneraciones</div>
+<div style="height:10px;background:#EDEDED;border-radius:5px"><div style="width:62%;height:10px;background:#B7791F;border-radius:5px"></div></div>
+<div style="text-align:right;font-weight:700">5 / 8</div>
+</div>
+<div style="display:grid;grid-template-columns:200px minmax(0,1fr) 70px;gap:12px;align-items:center">
+<div>Producción e inventario</div>
+<div style="height:10px;background:#EDEDED;border-radius:5px"><div style="width:67%;height:10px;background:#B7791F;border-radius:5px"></div></div>
+<div style="text-align:right;font-weight:700">6 / 9</div>
+</div>
+<div style="display:grid;grid-template-columns:200px minmax(0,1fr) 70px;gap:12px;align-items:center">
+<div>Créditos y leasing</div>
+<div style="height:10px;background:#EDEDED;border-radius:5px"><div style="width:67%;height:10px;background:#B7791F;border-radius:5px"></div></div>
+<div style="text-align:right;font-weight:700">6 / 9</div>
+</div>
+<div style="display:grid;grid-template-columns:200px minmax(0,1fr) 70px;gap:12px;align-items:center">
+<div>Costeo y producción</div>
+<div style="height:10px;background:#EDEDED;border-radius:5px"><div style="width:47%;height:10px;background:#B3001F;border-radius:5px"></div></div>
+<div style="text-align:right;font-weight:700">8 / 17</div>
+</div>
+<div style="color:#6E6E6E;font-size:14px">Verde: al día · Ámbar: con tareas por vencer · Rojo: con atrasos que frenan el D7. Al tocar un proceso se filtran las tareas y las personas.</div>
+</div>
+
+<div style="flex:5 1 380px;min-width:0;background:#FFFFFF;border:1px solid #ECE7E8;border-radius:16px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.06);display:flex;flex-direction:column;gap:14px">
+<h2 style="margin:0;font-size:19px">Riesgos a revisar hoy</h2>
+
+<div style="display:flex;flex-direction:column;gap:4px;padding-bottom:12px;border-bottom:1px solid #ECE7E8">
+<div style="font-weight:700">Activación Lechería (siempre primero)</div>
+<div style="color:#6E6E6E;font-size:14px">Contadora Senior · frena 4 activaciones posteriores</div>
+<div><span style="background:#FDE8EC;color:#B3001F;font-weight:700;font-size:13px;padding:2px 10px;border-radius:999px">Atrasada 1 día</span></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:4px;padding-bottom:12px;border-bottom:1px solid #ECE7E8">
+<div style="font-weight:700">Cotejar el RCV contra Odoo y listar las diferencias</div>
+<div style="color:#6E6E6E;font-size:14px">Jefa Gestión y Control · antecede a la auditoría del libro</div>
+<div><span style="background:#FDE8EC;color:#B3001F;font-weight:700;font-size:13px;padding:2px 10px;border-radius:999px">Atrasada 2 días</span></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:4px;padding-bottom:12px;border-bottom:1px solid #ECE7E8">
+<div style="font-weight:700">Cuadrar ventas por canal contra el libro de ventas del SII</div>
+<div style="color:#6E6E6E;font-size:14px">Encargada de Ingresos · revisa: Contadora Senior</div>
+<div><span style="background:#FDE8EC;color:#B3001F;font-weight:700;font-size:13px;padding:2px 10px;border-radius:999px">Atrasada 2 días</span></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:4px">
+<div style="font-weight:700">Cotejar saldo final de la cartola contra Odoo</div>
+<div style="color:#6E6E6E;font-size:14px">Contadora Senior · luego se firman las conciliaciones</div>
+<div><span style="background:#FFF1D6;color:#7A4E00;font-weight:700;font-size:13px;padding:2px 10px;border-radius:999px">Vence hoy</span></div>
+</div>
+</div>
+
+</div>
+
+<!-- KPI por persona -->
+<div style="background:#FFFFFF;border:1px solid #ECE7E8;border-radius:16px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.06);display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;align-items:baseline">
+<h2 style="margin:0;font-size:19px">Cumplimiento por colaborador</h2>
+<div style="color:#6E6E6E;font-size:14px">Hechas a tiempo ÷ tareas que le tocaban · la línea marca la meta de 95%</div>
+</div>
+
+<div style="display:grid;grid-template-columns:200px minmax(0,1fr) 70px 130px;gap:12px;align-items:center">
+<div><b>Contadora Senior</b><div style="color:#6E6E6E;font-size:14px">85 tareas</div></div>
+<div style="position:relative;height:12px;background:#EDEDED;border-radius:6px"><div style="width:91%;height:12px;background:#B7791F;border-radius:6px"></div><div style="position:absolute;left:95%;top:-4px;width:2px;height:20px;background:#222222"></div></div>
+<div style="text-align:right;font-weight:700;font-size:18px">91%</div>
+<div><span style="background:#FFF1D6;color:#7A4E00;font-weight:700;font-size:13px;padding:2px 10px;border-radius:999px">Bajo la meta</span></div>
+</div>
+<div style="display:grid;grid-template-columns:200px minmax(0,1fr) 70px 130px;gap:12px;align-items:center">
+<div><b>Encargada de Ingresos</b><div style="color:#6E6E6E;font-size:14px">39 tareas</div></div>
+<div style="position:relative;height:12px;background:#EDEDED;border-radius:6px"><div style="width:97%;height:12px;background:#1B7A4B;border-radius:6px"></div><div style="position:absolute;left:95%;top:-4px;width:2px;height:20px;background:#222222"></div></div>
+<div style="text-align:right;font-weight:700;font-size:18px">97%</div>
+<div><span style="background:#E6F4EC;color:#14653E;font-weight:700;font-size:13px;padding:2px 10px;border-radius:999px">Cumple</span></div>
+</div>
+<div style="display:grid;grid-template-columns:200px minmax(0,1fr) 70px 130px;gap:12px;align-items:center">
+<div><b>Jefa Gestión y Control</b><div style="color:#6E6E6E;font-size:14px">27 tareas</div></div>
+<div style="position:relative;height:12px;background:#EDEDED;border-radius:6px"><div style="width:96%;height:12px;background:#1B7A4B;border-radius:6px"></div><div style="position:absolute;left:95%;top:-4px;width:2px;height:20px;background:#222222"></div></div>
+<div style="text-align:right;font-weight:700;font-size:18px">96%</div>
+<div><span style="background:#E6F4EC;color:#14653E;font-weight:700;font-size:13px;padding:2px 10px;border-radius:999px">Cumple</span></div>
+</div>
+<div style="color:#6E6E6E;font-size:14px">Las tareas de RR.HH., Bodega y Jefaturas de área se siguen en el panel, pero no cuentan en este indicador. Toca una persona para abrir su vista Hoy, Semana y Mes. Todo el equipo puede ver el avance de los demás; cada uno marca solo lo suyo.</div>
+</div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1180}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
