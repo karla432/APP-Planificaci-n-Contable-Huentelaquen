@@ -28,3 +28,16 @@ def anio_abierto(anio=2026, feriados=(date(2026, 12, 8), date(2026, 12, 25))):
     for f in feriados:
         Feriado.objects.create(fecha=f, nombre="Feriado de prueba", confirmado=True)
     return a
+
+
+def usuario_con_rol(nombre, rol, colaborador=None):
+    """Crea un usuario con su rol de la aplicación (grupo) y, si corresponde, lo liga a su colaborador."""
+    from django.contrib.auth import get_user_model
+    from django.contrib.auth.models import Group
+    u = get_user_model().objects.create_user(nombre, password="x" * 12)
+    if rol:
+        u.groups.add(Group.objects.get_or_create(name=rol)[0])
+    if colaborador is not None:
+        colaborador.usuario = u
+        colaborador.save()
+    return u
