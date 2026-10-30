@@ -3,10 +3,13 @@
 | # | Etapa | Dónde corre | Qué ves tú | Quién decide | Estado |
 |---|---|---|---|---|---|
 | 1 | Diseño técnico (`docs/f1/`) | Papel | Documentos | Karla (G1) | Hecho |
-| 2 | **Construcción y prueba local** | Tu computador, con datos de EJEMPLO | La web real, para probar y corregir | Karla, en cada pantalla | **Aquí estamos** |
-| 3 | Prueba de aceptación | Tu computador o un servidor de pruebas | Todo el flujo con el equipo, sin datos reales | Karla (G2) | Pendiente |
-| 4 | Despliegue en el servidor OpenCloud | Servidor propio, con HTTPS | La app definitiva | Karla (G3, por escrito) y Eugenio, que despliega | Pendiente |
-| 5 | Puesta en marcha y estabilización | Servidor | Primer cierre real (noviembre → diciembre) | Karla | Pendiente |
+| 2 | **Construcción y prueba local, sin claves** | Tu computador, con datos de EJEMPLO | La web real, para probar y corregir | Karla, en cada pantalla | **Aquí estamos** |
+| 3 | Prueba de aceptación con el equipo | Tu computador | Todo el flujo, sin datos reales | Karla (G2) | Pendiente |
+| 4 | **Seguridad e ingreso con claves** (últimas etapas) | Tu computador | Ingreso con clave de 12+ caracteres, bloqueo, 2FA, respaldo restaurado | Karla | Pendiente |
+| 5 | Despliegue en el servidor OpenCloud | Servidor propio, con HTTPS | La app definitiva | Karla (G3, por escrito) y Eugenio, que despliega | Pendiente |
+| 6 | Puesta en marcha y estabilización | Servidor | Primer cierre real | Karla | Pendiente |
+
+**Regla de Karla (30-10-2026):** todo proyecto parte en su computador y la seguridad con claves se deja para las últimas etapas, antes del deploy. Nada va a producción sin cerrar la etapa 4.
 
 ## Cómo ver la web mientras se construye (etapa 2)
 
