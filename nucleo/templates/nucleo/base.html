@@ -16,6 +16,9 @@
     </form>
     {% endif %}
   </header>
-  <main class="contenido">{% block contenido %}{% endblock %}</main>
+  <main class="contenido">
+    {% for m in messages %}<p class="mensaje mensaje-{{ m.tags }}" role="status">{{ m }}</p>{% endfor %}
+    {% block contenido %}{% endblock %}
+  </main>
 </body>
 </html>

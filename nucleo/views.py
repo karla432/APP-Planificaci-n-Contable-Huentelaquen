@@ -1,7 +1,74 @@
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
+from django.http import Http404, HttpResponseForbidden
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_POST
+
+from nucleo import permisos
+from nucleo.models import Colaborador, Ocurrencia, Periodo
+from nucleo.servicios import agenda, ejecucion, reloj
+from nucleo.servicios.errores import ErrorDeNegocio, PermisoDenegado
+
+
+def _sin_perfil(request):
+    return render(request, "nucleo/sin_perfil.html", status=403)
 
 
 @login_required
 def inicio(request):
-    return render(request, "nucleo/inicio.html")
+    return redirect("hoy")
+
+
+@login_required
+def hoy(request):
+    rol = permisos.rol_de(request.user)
+    if rol is None:
+        return _sin_perfil(request)
+    propia = permisos.colaborador_de(request.user)
+    personas = list(Colaborador.objects.filter(activo=True, usuario__isnull=False))
+    elegida = propia
+    if request.GET.get("persona"):
+        elegida = get_object_or_404(Colaborador, pk=request.GET["persona"], activo=True)
+    elif propia is None and personas:
+        elegida = personas[0]
+    fecha = reloj.hoy()
+    contexto = {
+        "rol": rol, "personas": personas, "elegida": elegida, "hoy": fecha,
+        "es_mia": elegida is not None and propia is not None and elegida.pk == propia.pk,
+        "hay_mes_abierto": Periodo.objects.filter(estado="abierto").exists(),
+        "agenda": agenda.agenda_de(elegida, fecha) if elegida else None,
+        "por_revisar": agenda.por_revisar(request.user, fecha),
+        "por_recibir": agenda.por_recibir(request.user, fecha),
+    }
+    return render(request, "nucleo/hoy.html", contexto)
+
+
+ACCIONES = {"hecha", "recibida", "revisar", "devolver"}
+
+
+@login_required
+@require_POST
+def ocurrencia_accion(request, pk, accion):
+    if accion not in ACCIONES:
+        raise Http404
+    o = get_object_or_404(Ocurrencia.objects.select_related("periodo", "tarea"), pk=pk)
+    try:
+        if accion == "hecha":
+            ejecucion.marcar_hecha(o, request.user)
+        elif accion == "recibida":
+            ejecucion.marcar_recibida(o, request.user)
+        elif accion == "revisar":
+            ejecucion.revisar(o, request.user)
+        else:
+            ejecucion.devolver(o, request.user, request.POST.get("comentario", ""))
+        messages.success(request, f"Listo: {o.tarea.codigo}.")
+    except PermisoDenegado as e:
+        return HttpResponseForbidden(str(e))
+    except ErrorDeNegocio as e:
+        messages.error(request, str(e))
+    destino = request.POST.get("siguiente", "")
+    if not url_has_allowed_host_and_scheme(destino, allowed_hosts={request.get_host()}):
+        destino = reverse("hoy")
+    return redirect(destino)

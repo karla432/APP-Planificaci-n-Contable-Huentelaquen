@@ -1,0 +1,36 @@
+/* Identidad Huentelauquén: rojo de marca como único acento; sistema de 8 px. Calibri (Carlito como alternativa métrica). */
+:root {
+  --rojo: #ED0035; --texto: #222222; --gris: #6E6E6E; --rosado: #FDEAEE; --borde: #E4B5BF; --neutro: #F4F4F4; --blanco: #fff;
+  --verde: #1B7A4B; --verde-texto: #14653E; --ambar: #B7791F; --ambar-texto: #7A4E00; --riesgo: #B3001F;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Calibri, Carlito, "Segoe UI", sans-serif; color: var(--texto); background: var(--neutro); line-height: 1.5; }
+.barra { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px 24px; background: var(--blanco); border-bottom: 1px solid var(--borde); }
+.marca { color: var(--rojo); font-weight: 700; letter-spacing: .02em; }
+.salir { display: flex; align-items: center; gap: 16px; margin: 0; }
+.contenido { max-width: 1120px; margin: 0 auto; padding: 24px 16px 64px; }
+.encabezado { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 24px; }
+.sobretitulo { margin: 0; color: var(--rojo); font-weight: 700; text-transform: uppercase; font-size: .8rem; letter-spacing: .08em; }
+h1 { margin: 0; font-size: 2rem; } h2 { margin: 0 0 16px; font-size: 1.25rem; }
+.tarjeta { background: var(--blanco); border-radius: 16px; padding: 24px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.tarjeta-angosta { max-width: 420px; margin: 48px auto; }
+.lista { list-style: none; margin: 0; padding: 0; }
+.fila { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; padding: 16px 0; border-top: 1px solid var(--neutro); }
+.fila:first-child { border-top: 0; }
+.fila-texto { flex: 1 1 360px; } .fila-accion { flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.titulo { margin: 4px 0; font-weight: 700; } .meta, .vacio, .aviso { margin: 0; color: var(--gris); }
+.codigo { font-weight: 700; } .proceso { color: var(--gris); }
+.comentario { margin: 8px 0 0; padding: 8px 16px; background: var(--rosado); border: 1px solid var(--borde); border-radius: 8px; }
+.etiqueta { display: inline-block; padding: 0 8px; border-radius: 999px; font-size: .85rem; }
+.etiqueta-rojo { background: var(--rosado); color: var(--riesgo); } .etiqueta-ambar { background: #FFF1D6; color: var(--ambar-texto); } .etiqueta-verde { background: #E3F4EA; color: var(--verde-texto); }
+.boton { min-height: 44px; min-width: 44px; padding: 0 24px; border: 0; border-radius: 8px; background: var(--rojo); color: var(--blanco); font: inherit; font-weight: 700; cursor: pointer; }
+.boton-secundario { background: var(--blanco); color: var(--texto); border: 1px solid var(--borde); }
+.boton:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--texto); outline-offset: 2px; }
+label { display: block; margin: 16px 0 4px; font-weight: 700; }
+input, select { width: 100%; min-height: 44px; padding: 0 16px; border: 1px solid var(--borde); border-radius: 8px; font: inherit; background: var(--blanco); }
+.devolver { display: flex; flex-direction: column; gap: 4px; min-width: 260px; } .devolver label { margin: 0; font-weight: 400; color: var(--gris); font-size: .85rem; }
+.selector { min-width: 240px; } .selector label { margin-top: 0; }
+.mensaje { padding: 16px; border-radius: 8px; background: #E3F4EA; color: var(--verde-texto); } .mensaje-error { background: var(--rosado); color: var(--riesgo); }
+.error { color: var(--riesgo); font-weight: 700; }
+details { margin-top: 8px; color: var(--gris); }
+@media (max-width: 640px) { .barra { padding: 16px; } h1 { font-size: 1.5rem; } .fila-accion { width: 100%; } .fila-accion .boton { width: 100%; } }
