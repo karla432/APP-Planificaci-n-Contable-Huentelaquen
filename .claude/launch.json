@@ -4,9 +4,10 @@
     {
       "name": "planificacion-local",
       "runtimeExecutable": ".venv/Scripts/python.exe",
-      "runtimeArgs": ["manage.py", "runserver", "8000"],
-      "port": 8000,
-      "env": { "PLANIFICACION_HOY": "2026-12-04" }
+      "runtimeArgs": [
+        "levantar_local.py"
+      ],
+      "port": 8000
     }
   ]
 }
