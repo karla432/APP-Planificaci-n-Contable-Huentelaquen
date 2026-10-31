@@ -140,3 +140,4 @@ a.tarjeta .area { display: block; font-size: 11px; font-weight: 700; letter-spac
 .chip { display: inline-block; background: var(--hu-pink-2); color: var(--hu-maroon); padding: 1px 8px; margin: 2px 4px 2px 0; font-size: 13px; border: 1px solid var(--hu-card-line); }
 .etapas { margin: 8px 0 0 18px; padding: 0; } .etapas li { margin-bottom: 8px; } .mover form { display: flex; gap: 4px; } .mover .btn[disabled] { opacity: .35; cursor: default; }
 code { font-family: ui-monospace, Menlo, Consolas, monospace; background: var(--hu-pink-2); padding: 0 5px; }
+.tbl-edit input, .tbl-edit select { width: 100%; min-width: 7rem; } .tbl-edit input[name=nombre] { min-width: 15rem; } .tbl-edit input[type=date] { min-width: 9.5rem; } .tbl-edit td { white-space: nowrap; } .tbl-edit td:first-child { white-space: normal; min-width: 7rem; }

@@ -30,7 +30,7 @@
 <section class="card"><h2>Tareas del proceso</h2>
   <form method="post" class="filtros">{% csrf_token %}<input type="hidden" name="accion" value="tarea_crear">
     <div><label for="nueva-tarea">Nueva tarea</label><input id="nueva-tarea" name="nombre" required maxlength="300"></div><div><button class="btn" type="submit">Agregar tarea</button></div></form>
-  <div class="tabla-scroll"><table class="tbl"><thead><tr><th>Código</th><th>Tarea</th><th class="n">Subtareas</th><th>Responsable</th><th>Estado</th><th>Inicio</th><th>Término</th><th>Observaciones</th><th></th></tr></thead><tbody>
+  <div class="tabla-scroll"><table class="tbl tbl-edit"><thead><tr><th>Código</th><th>Tarea</th><th class="n">Subtareas</th><th>Responsable</th><th>Estado</th><th>Inicio</th><th>Término</th><th>Observaciones</th><th></th></tr></thead><tbody>
   {% for t in tareas %}
     <tr><td><strong>{{ t.codigo }}</strong>{% if not t.activa %}<br><span class="pill p-grey">Inactiva</span>{% endif %}
       <form id="t{{ t.pk }}" method="post">{% csrf_token %}<input type="hidden" name="accion" value="tarea_guardar"><input type="hidden" name="tarea" value="{{ t.pk }}"></form></td>
