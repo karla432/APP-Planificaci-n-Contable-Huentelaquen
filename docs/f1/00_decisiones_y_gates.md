@@ -104,10 +104,16 @@ Karla entregó la planificación final, en el orden en que se procesa, con el ti
 |---|---|---|
 | DEC-21 | **Los procesos van en el orden del Excel, no en orden alfabético.** | Cada proceso tiene un `orden` (el de su primera aparición en el Excel) y todas las listas lo siguen. Se puede cambiar desde Excel (ver DEC-24). |
 | DEC-22 | **Las personas anotan las horas reales** que ocuparon en cada tarea. | Campo opcional «Horas reales» al marcar hecha y «Registrar horas reales» en el detalle (solo quien ejecuta, mientras el mes esté abierto; cada cambio queda en la bitácora). Se escribe 1,5 o 1:30. «Carga del equipo» compara estimado contra real por persona, solo con las tareas que tienen horas reales. |
-| DEC-23 | **Código de tarea = PRO-TAR-SUB.** | Ejemplo: `PRO-02-TAR-01-SUB-05` = proceso 2 · tarea principal 1 · subtarea 5. Se asigna una sola vez y no cambia aunque se reordene o se edite. Reemplaza `TAR-0001`; la migración 0010 convierte lo que ya existía. |
+| DEC-23 | *(Reemplazada el mismo día por DEC-25.)* **Código de tarea = PRO-TAR-SUB.** | Ejemplo: `PRO-02-TAR-01-SUB-05` = proceso 2 · tarea principal 1 · subtarea 5. Se asigna una sola vez y no cambia aunque se reordene o se edite. Reemplaza `TAR-0001`; la migración 0010 convierte lo que ya existía. |
 | DEC-24 | **Descarga y carga masiva en Excel** de Tareas y de Procesos. | Mantenedor → Tareas: «Descargar Excel» y «Cargar Excel» (primero vista previa, luego confirmación; lo que falta en el archivo se desactiva, nunca se borra, y pide confirmación expresa). Mantenedor → Procesos: descarga y carga de orden, activo y procesos nuevos. Solo Gerente y Jefatura. Lo descargado se puede volver a cargar sin cambios. |
 
 **Límites a tener presentes:** la carga masiva rechaza cargos que no existen (para no crear uno por un error de tipeo), archivos de más de 5 MB o de más de 5.000 filas, y no ejecuta fórmulas. El «día hábil siguiente» de un día fijo no se puede escribir en el Excel (se cambia en el Mantenedor). Cambiar el texto de Proceso, Tarea principal o Subtarea en el Excel crea una tarea nueva y desactiva la anterior (la vista previa lo muestra).
+
+| ID | Decisión | Efecto en la app |
+|---|---|---|
+| DEC-25 | **Código jerárquico `OO-PPP.TT.SSS` en tres niveles** (proceso · tarea · subtarea): orden de ejecución, sigla de 3 letras, correlativo de tarea y de subtarea. Karla: «no me gustó cómo quedó el código». | Ver `06_estructura_y_codigos.md`. El orden es un campo aparte; reordenar actualiza los códigos de todo el árbol en una transacción y guarda el historial. Dependencias entre procesos con etapas y paralelismo. Campos de planificación en los tres niveles. Catálogo base de 11 procesos opcional. |
+
+**Supuestos de Legión para confirmar:** (1) las siglas propuestas para los 35 procesos del Excel (por ejemplo VEN, COM, TES, ACT, CON); (2) las dependencias del catálogo base; (3) las dependencias entre los procesos de Hacienda no se definieron (no las inventé): todos figuran en la etapa 1 hasta que se indiquen.
 
 ## 3. Datos que faltan y no bloquean
 

@@ -43,3 +43,22 @@ def test_datos_de_ejemplo_se_niega_a_correr_en_produccion(settings):
     with pytest.raises(CommandError, match="producción"):
         call_command("datos_de_ejemplo", "--password", "ejemplo-ejemplo-1")
     assert Tarea.objects.count() == 0
+
+
+def test_cargar_ejemplo_planificacion_trae_el_catalogo_y_el_ejemplo_de_ventas():
+    from nucleo.models import Proceso, TareaPrincipal
+    call_command("cargar_ejemplo_planificacion")
+    assert [p.codigo for p in Proceso.objects.all()][:3] == ["01-PLA", "02-VEN", "03-CXC"] and Proceso.objects.count() == 11
+    assert [t.codigo for t in TareaPrincipal.objects.all()] == ["02-VEN.01", "02-VEN.02", "02-VEN.03"]
+    assert list(Tarea.objects.order_by("codigo").values_list("codigo", flat=True)) == [
+        "02-VEN.01.001", "02-VEN.01.002", "02-VEN.01.003", "02-VEN.02.001", "02-VEN.02.002", "02-VEN.02.003", "02-VEN.03.001", "02-VEN.03.002"]
+
+
+def test_el_ejemplo_de_planificacion_se_niega_en_produccion_y_si_ya_hay_procesos(settings):
+    from nucleo.models import Proceso
+    Proceso.objects.create(nombre="Ya existe", sigla="YAE")
+    with pytest.raises(CommandError, match="ya tiene procesos"):
+        call_command("cargar_ejemplo_planificacion")
+    settings.PRODUCCION = True
+    with pytest.raises(CommandError, match="producción"):
+        call_command("cargar_ejemplo_planificacion")

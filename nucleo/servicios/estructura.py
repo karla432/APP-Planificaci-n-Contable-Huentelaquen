@@ -88,9 +88,10 @@ def _nombre_de_proceso(nombre: str, excepto: Proceso | None = None) -> str:
 
 
 @transaction.atomic
-def crear_proceso(usuario, nombre: str, sigla: str = "", plan: DatosPlan | None = None, orden: int | None = None) -> Proceso:
+def crear_proceso(usuario, nombre: str, sigla: str = "", plan: DatosPlan | None = None, orden: int | None = None, validar_permiso: bool = True) -> Proceso:
     """Un proceso nuevo queda al final del orden (o en la posición pedida). Sin sigla, la app propone una."""
-    _exigir(usuario)
+    if validar_permiso:
+        _exigir(usuario)
     nombre = _nombre_de_proceso(nombre)
     if Proceso.objects.count() >= MAX_PROCESOS:
         raise ErrorDeNegocio(f"Se admiten hasta {MAX_PROCESOS} procesos (el orden OO tiene dos dígitos).")
@@ -101,7 +102,7 @@ def crear_proceso(usuario, nombre: str, sigla: str = "", plan: DatosPlan | None 
     _poner_plan(p, plan)
     p.save()
     if orden is not None and orden != p.orden:
-        mover_a_posicion(usuario, p, orden, _auditar=False)
+        mover_a_posicion(usuario, p, orden, validar_permiso=validar_permiso)
         p.refresh_from_db()
     auditoria.registrar("proceso.creado", usuario=usuario, entidad="Proceso", entidad_id=p.pk, despues={"nombre": p.nombre, "codigo": p.codigo, **_plan_de(p)})
     return p
@@ -190,12 +191,12 @@ def mover_proceso(usuario, p: Proceso, hacia: str) -> list[Proceso]:
     return reordenar_procesos(usuario, ids, motivo=f"{p.nombre}: {hacia}")
 
 
-def mover_a_posicion(usuario, p: Proceso, posicion: int, _auditar: bool = True) -> list[Proceso]:
+def mover_a_posicion(usuario, p: Proceso, posicion: int, validar_permiso: bool = True) -> list[Proceso]:
     ids = [pk for pk in Proceso.objects.values_list("pk", flat=True) if pk != p.pk]
     if not 1 <= posicion <= len(ids) + 1:
         raise ErrorDeNegocio(f"La posición debe estar entre 1 y {len(ids) + 1}.")
     ids.insert(posicion - 1, p.pk)
-    return reordenar_procesos(usuario, ids, motivo=f"{p.nombre} pasa a la posición {posicion}")
+    return reordenar_procesos(usuario, ids, motivo=f"{p.nombre} pasa a la posición {posicion}", validar_permiso=validar_permiso)
 
 
 # ---- Dependencias y etapas -------------------------------------------------------------------------------------------------
@@ -216,9 +217,10 @@ def _alcanza(origen: int, destino: int, deps: dict[int, set[int]]) -> bool:
 
 
 @transaction.atomic
-def fijar_dependencias(usuario, p: Proceso, depende_de_ids) -> Proceso:
+def fijar_dependencias(usuario, p: Proceso, depende_de_ids, validar_permiso: bool = True) -> Proceso:
     """Deja a `p` dependiendo exactamente de esos procesos. Rechaza dependerse a sí mismo, ciclos y prerrequisitos que van después en el orden."""
-    _exigir(usuario)
+    if validar_permiso:
+        _exigir(usuario)
     nuevos = {int(i) for i in depende_de_ids}
     existentes = {x.pk: x for x in Proceso.objects.filter(pk__in=nuevos | {p.pk})}
     if p.pk in nuevos:
@@ -343,16 +345,18 @@ def fijar_activa_tarea_principal(usuario, tp: TareaPrincipal, activa: bool, con_
 
 
 @transaction.atomic
-def cargar_catalogo_base(usuario) -> dict:
+def cargar_catalogo_base(usuario, validar_permiso: bool = True) -> dict:
     """Agrega los procesos del catálogo base que aún no existen (por sigla o por nombre), al final del orden y con sus dependencias propuestas.
-    Todo es editable después. Una dependencia que contradiga el orden actual se omite y se informa."""
-    _exigir(usuario)
+    Todo es editable después. Una dependencia que contradiga el orden actual se omite y se informa.
+    `validar_permiso=False` solo lo usa el comando de ejemplo de desarrollo."""
+    if validar_permiso:
+        _exigir(usuario)
     creados, existentes, omitidas = [], [], []
     for sigla, nombre, _ in siglas.CATALOGO_BASE:
         if Proceso.objects.filter(sigla=sigla).exists() or Proceso.objects.filter(nombre__iexact=nombre).exists():
             existentes.append(sigla)
             continue
-        crear_proceso(usuario, nombre, sigla)
+        crear_proceso(usuario, nombre, sigla, validar_permiso=validar_permiso)
         creados.append(sigla)
     por_sigla = {p.sigla: p for p in Proceso.objects.all()}
     for sigla, _, deps in siglas.CATALOGO_BASE:
@@ -362,7 +366,7 @@ def cargar_catalogo_base(usuario) -> dict:
         validas = [d for d in deps if d in por_sigla and por_sigla[d].orden < p.orden]
         omitidas += [f"{sigla}→{d}" for d in deps if d not in validas]
         if validas:
-            fijar_dependencias(usuario, p, [por_sigla[d].pk for d in validas])
+            fijar_dependencias(usuario, p, [por_sigla[d].pk for d in validas], validar_permiso=validar_permiso)
     resumen = {"creados": creados, "ya_existian": existentes, "dependencias_omitidas": omitidas}
     auditoria.registrar("catalogo.cargado", usuario=usuario, entidad="Proceso", despues=resumen)
     return resumen
