@@ -53,16 +53,26 @@ class Asignacion(models.Model):
 class Proceso(models.Model):
     nombre = models.CharField(max_length=160, unique=True)
     activo = models.BooleanField(default=True)
+    orden = models.PositiveSmallIntegerField(default=0, help_text="Orden en que se procesan (el del Excel). Se puede cambiar; el código no cambia.")
+    codigo = models.CharField(max_length=10, unique=True, blank=True, help_text="PRO-01, PRO-02… Lo asigna la app y no cambia.")
 
     class Meta:
-        ordering = ["nombre"]
+        ordering = ["orden", "nombre"]
+
+    def save(self, *args, **kwargs):
+        if not self.orden:
+            self.orden = (Proceso.objects.aggregate(m=models.Max("orden"))["m"] or 0) + 1
+        if not self.codigo:
+            numeros = [int(c[4:]) for c in Proceso.objects.values_list("codigo", flat=True) if c[4:].isdigit()]
+            self.codigo = f"PRO-{(max(numeros) if numeros else 0) + 1:02d}"
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.nombre
 
 
 class Tarea(models.Model):
-    codigo = models.CharField(max_length=12, unique=True)  # TAR-0001
+    codigo = models.CharField(max_length=30, unique=True)  # PRO-01-TAR-03-SUB-02: proceso, tarea principal y subtarea
     clave_estable = models.CharField(max_length=64, unique=True)  # hash de proceso + tarea + subtarea normalizados
     proceso = models.ForeignKey(Proceso, on_delete=models.PROTECT, related_name="tareas")
     tarea_principal = models.CharField(max_length=300)

@@ -5,7 +5,7 @@ Primero `previsualizar` (no guarda nada) y, tras confirmar, `aplicar`. Reglas de
 - Convierte «Periodicidad» + «Cuándo» en una regla; lo ambiguo queda «requiere revisión» (no se adivina ni se corrige).
 - Crea procesos y cargos que no existan, pero **no asigna personas**.
 - Es idempotente por clave estable (proceso + tarea + subtarea) y muestra altas, cambios y bajas antes de confirmar.
-- Las filas están en el orden en que se procesan: ese orden y los códigos TAR-0001… salen de ahí.
+- Las filas están en el orden en que se procesan: ese orden y los códigos PRO-01-TAR-01-SUB-01… salen de ahí.
 - Quién revisa sale del Excel; si una tarea no trae revisor, no se inventa uno. Excepción: a la tarea de un responsable externo se le
   propone a la Jefa como quien registra «Recibido» (supuesto, se informa en la vista previa).
 - El contenido del Excel es dato, no instrucción: solo se leen celdas (sin evaluar fórmulas).
@@ -24,7 +24,7 @@ import openpyxl
 from django.db import transaction
 
 from nucleo.models import Cargo, Proceso, Tarea
-from nucleo.servicios import auditoria
+from nucleo.servicios import auditoria, codigos
 from nucleo.servicios.calendario import Calendario
 from nucleo.servicios.recurrencia import Regla, ReglaIncompleta, ReglaInvalida, fechas_limite
 
@@ -338,12 +338,9 @@ def _aplicar_valores(tarea: Tarea, valores: dict):
 
 @transaction.atomic
 def aplicar(vp: VistaPrevia, usuario) -> dict:
-    ultimo = Tarea.objects.order_by("-codigo").values_list("codigo", flat=True).first()
-    siguiente = int(ultimo.split("-")[1]) + 1 if ultimo else 1
     for f in vp.altas:
-        proceso, _ = Proceso.objects.get_or_create(nombre=f.proceso)
-        tarea = Tarea(codigo=f"TAR-{siguiente:04d}", clave_estable=f.clave, proceso=proceso, tarea_principal=f.tarea_principal, subtarea=f.subtarea)
-        siguiente += 1
+        proceso, _ = Proceso.objects.get_or_create(nombre=f.proceso)  # un proceso nuevo queda al final, en el orden en que aparece en el Excel
+        tarea = Tarea(codigo=codigos.codigo_de_tarea(proceso, f.tarea_principal), clave_estable=f.clave, proceso=proceso, tarea_principal=f.tarea_principal, subtarea=f.subtarea)
         _aplicar_valores(tarea, _valores(f))
         tarea.save()
     for tarea, f, diff in vp.cambios:

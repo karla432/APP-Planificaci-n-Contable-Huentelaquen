@@ -117,7 +117,7 @@ def test_aplicar_crea_tareas_en_orden_con_codigos_horas_y_sin_personas():
     importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
     assert Tarea.objects.count() == 195 and Proceso.objects.count() == 35
     primeras = list(Tarea.objects.order_by("secuencia").values_list("codigo", "secuencia", flat=False)[:2])
-    assert primeras == [("TAR-0001", 1), ("TAR-0002", 2)] and Tarea.objects.get(codigo="TAR-0195").secuencia == 195
+    assert primeras == [("PRO-01-TAR-01-SUB-01", 1), ("PRO-01-TAR-02-SUB-01", 2)] and Tarea.objects.order_by("secuencia").last().secuencia == 195
     assert Colaborador.objects.count() == 0  # las personas las crea el administrador
     cuentas = Counter(Tarea.objects.values_list("cargo_ejecuta__nombre", flat=True))
     assert (cuentas["Jefa de Control"], cuentas["Contador Senior"], cuentas["Asistente Contable"], cuentas["Gerente AyF"]) == (80, 54, 29, 20)
@@ -160,7 +160,7 @@ def test_las_horas_estimadas_marcan_quien_las_definio():
     sin_tiempo = Tarea.objects.filter(minutos_estimados__isnull=True)
     assert [t.tarea_principal for t in sin_tiempo] == ["Revisión del cierre con Gerente General"]  # la del día 9 aún no tiene tiempo
     assert Counter(Tarea.objects.values_list("fuente_horas", flat=True)) == {"estimacion": 171, "gerente": 24}
-    t = Tarea.objects.get(codigo="TAR-0001")
+    t = Tarea.objects.get(secuencia=1)
     assert t.minutos_estimados == 30 and float(t.ejecuciones_mes) == pytest.approx(4.33)
 
 
@@ -196,9 +196,9 @@ def test_reimportar_un_excel_actualizado_muestra_altas_cambios_y_bajas(tmp_path)
     vp = importador.previsualizar(nuevo)
     assert (len(vp.altas), len(vp.cambios), len(vp.bajas)) == (1, 1, 1) and vp.procesos_nuevos == ["Proceso nuevo"]
     importador.aplicar(vp, usuario=None)
-    assert Tarea.objects.get(codigo="TAR-0196").subtarea == "Subtarea nueva"  # el código nuevo sigue la secuencia
+    assert Tarea.objects.get(subtarea="Subtarea nueva").codigo == "PRO-36-TAR-01-SUB-01"  # proceso nuevo: sigue al último (35)
     assert Tarea.objects.filter(activa=False).count() == 1  # no se borra físicamente
-    assert Tarea.objects.get(codigo="TAR-0001").cargo_ejecuta.nombre == "Asistente Contable"
+    assert Tarea.objects.get(secuencia=1).cargo_ejecuta.nombre == "Asistente Contable"
 
 
 @pytest.mark.django_db
@@ -218,3 +218,27 @@ def test_los_cargos_del_excel_se_llaman_como_los_definio_karla():
     nombres = set(Cargo.objects.values_list("nombre", flat=True))
     assert {"Contador Senior", "Jefa de Control"} <= nombres
     assert not nombres & {"Contadora Senior", "Jefa Gestión y Control"}
+
+
+@pytest.mark.django_db
+def test_los_procesos_quedan_en_el_orden_del_excel_y_no_en_orden_alfabetico():
+    filas = importador.leer_excel(EXCEL)
+    esperado = []
+    for f in importador._con_tarea_del_dia_9(filas):
+        if f.proceso not in esperado:
+            esperado.append(f.proceso)
+    importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
+    assert list(Proceso.objects.values_list("nombre", flat=True)) == esperado
+    assert esperado != sorted(esperado)  # el Excel no está ordenado por el alfabeto
+    assert list(Proceso.objects.values_list("codigo", flat=True))[:3] == ["PRO-01", "PRO-02", "PRO-03"]
+    assert Proceso.objects.get(nombre="Revisión día 9").orden == esperado.index("Revisión día 9") + 1
+
+
+@pytest.mark.django_db
+def test_todos_los_codigos_tienen_la_forma_pro_tar_sub_y_son_unicos():
+    import re
+    importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
+    codigos = list(Tarea.objects.values_list("codigo", flat=True))
+    assert all(re.fullmatch(r"PRO-\d{2}-TAR-\d{2}-SUB-\d{2}", c) for c in codigos) and len(set(codigos)) == len(codigos) == 195
+    for t in Tarea.objects.select_related("proceso"):
+        assert t.codigo.startswith(t.proceso.codigo + "-")

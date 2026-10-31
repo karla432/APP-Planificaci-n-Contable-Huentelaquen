@@ -74,7 +74,7 @@ def tareas(request):
         qs = qs.filter(requiere_revision=True)
     if f["q"]:
         qs = qs.filter(Q(tarea_principal__icontains=f["q"]) | Q(subtarea__icontains=f["q"]) | Q(codigo__icontains=f["q"]))
-    lista = list(qs.order_by("proceso__nombre", "codigo"))
+    lista = list(qs.order_by("proceso__orden", "secuencia", "codigo"))
     for t in lista:
         t.periodicidad = reglas_texto.describir(t.regla(), t.regla_franja)
     return render(request, "nucleo/mant_tareas.html", {"tareas": lista, "f": f, "procesos": Proceso.objects.all(), "cargos": Cargo.objects.filter(activo=True)})
@@ -156,7 +156,7 @@ def procesos(request):
         except ErrorDeNegocio as e:
             messages.error(request, str(e))
         return redirect("mant_procesos")
-    return render(request, "nucleo/mant_procesos.html", {"procesos": Proceso.objects.annotate(n_tareas=Count("tareas")).order_by("nombre")})
+    return render(request, "nucleo/mant_procesos.html", {"procesos": Proceso.objects.annotate(n_tareas=Count("tareas")).order_by("orden", "nombre")})
 
 
 # ---- Usuarios --------------------------------------------------------------------------------------------

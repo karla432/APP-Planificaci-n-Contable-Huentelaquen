@@ -9,10 +9,11 @@ from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.db import transaction
+from django.db.models import Max
 
 from nucleo import permisos
 from nucleo.models import Asignacion, Cargo, Colaborador, Proceso, Tarea
-from nucleo.servicios import auditoria, reloj
+from nucleo.servicios import auditoria, codigos, reloj
 from nucleo.servicios.errores import ErrorDeNegocio, PermisoDenegado
 from nucleo.servicios.importador import CARGO_JEFA, _clave, normalizar
 from nucleo.servicios.recurrencia import AJUSTES, TIPOS
@@ -129,8 +130,9 @@ def crear_tarea(usuario, d: DatosTarea) -> Tarea:
     _exigir_edita_tareas(usuario)
     motivo = _validar(d)
     clave = _exigir_no_repetida(d)
-    ultimo = Tarea.objects.order_by("-codigo").values_list("codigo", flat=True).first()
-    t = Tarea(codigo=f"TAR-{(int(ultimo.split('-')[1]) + 1) if ultimo else 1:04d}", clave_estable=clave)
+    proceso = Proceso.objects.get(pk=d.proceso_id)
+    t = Tarea(codigo=codigos.codigo_de_tarea(proceso, normalizar(d.tarea_principal)), clave_estable=clave,
+              secuencia=(Tarea.objects.aggregate(m=Max("secuencia"))["m"] or 0) + 1)  # una tarea nueva se procesa al final
     _aplicar(t, d, motivo)
     t.save()
     auditoria.registrar("tarea.creada", usuario=usuario, entidad="Tarea", entidad_id=t.pk, despues=_instantanea(t))
