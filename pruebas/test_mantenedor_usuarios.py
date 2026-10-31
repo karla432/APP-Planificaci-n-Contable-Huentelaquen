@@ -21,7 +21,7 @@ def reloj(monkeypatch):
 
 @pytest.fixture
 def mundo():
-    cont, anal, jefa, ger = cargo("Contadora Senior"), cargo("Analista Contable"), cargo("Jefa Gestión y Control"), cargo("Gerente AyF")
+    cont, anal, jefa, ger = cargo("Contador Senior"), cargo("Analista Contable"), cargo("Jefa de Control"), cargo("Gerente AyF")
     p = persona("Gerente", ger)
     return {"ger_cargo": ger, "cont": cont, "anal": anal, "jefa_cargo": jefa,
             "ger": usuario_con_rol("ger", "GERENTE", p), "admin": usuario_con_rol("admin", "ADMIN_SISTEMA"),
@@ -93,7 +93,7 @@ def test_cambiar_de_cargo_cierra_la_asignacion_anterior_y_abre_otra(mundo):
     assert anterior.cargo == mundo["anal"] and anterior.hasta == date(2026, 12, 3)
     assert nueva.cargo == mundo["cont"] and nueva.desde == HOY and nueva.hasta is None
     ev = EventoAuditoria.objects.filter(accion="usuario.editado").get()
-    assert ev.antes["cargo"] == "Analista Contable" and ev.despues["cargo"] == "Contadora Senior"
+    assert ev.antes["cargo"] == "Analista Contable" and ev.despues["cargo"] == "Contador Senior"
 
 
 def test_nadie_cambia_su_propio_perfil_ni_se_desactiva(mundo):

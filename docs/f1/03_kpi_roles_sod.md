@@ -33,7 +33,7 @@ Reglas:
 | `ADMIN_SISTEMA` | Eugenio | Usuarios, permisos y calendario; no marca ni revisa tareas; 2FA obligatorio |
 | `GERENTE` | Karla | Todo lo funcional, reabre períodos, aprueba excepciones; 2FA obligatorio |
 | `JEFATURA` | Jefa de Control y Gestión | Revisa, marca «Recibido», aprueba «no aplica», edita procesos y tareas |
-| `COLABORADOR` | Contadora Senior, Analista Contable | Marca solo lo suyo; ve el avance de los demás en solo lectura |
+| `COLABORADOR` | Contador Senior, Analista Contable | Marca solo lo suyo; ve el avance de los demás en solo lectura |
 | `LECTURA` | Quien se designe | Solo consulta |
 
 | Acción | ADMIN | GERENTE | JEFATURA | COLAB. | LECTURA |

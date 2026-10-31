@@ -13,7 +13,7 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def mundo():
-    jefa, cont, anal, ger = cargo("Jefa Gestión y Control"), cargo("Contadora Senior"), cargo("Analista Contable"), cargo("Gerente AyF")
+    jefa, cont, anal, ger = cargo("Jefa de Control"), cargo("Contador Senior"), cargo("Analista Contable"), cargo("Gerente AyF")
     bodega = cargo("Bodega", externo=True)
     pers = {"jefa": persona("Jefa", jefa), "cont": persona("Contadora", cont), "anal": persona("Analista", anal), "ger": persona("Gerente", ger)}
     u = {

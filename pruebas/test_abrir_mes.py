@@ -19,7 +19,7 @@ def reloj(monkeypatch):
 
 @pytest.fixture
 def mundo():
-    ger, cont, vacio = cargo("Gerente AyF"), cargo("Contadora Senior"), cargo("Cargo vacío")
+    ger, cont, vacio = cargo("Gerente AyF"), cargo("Contador Senior"), cargo("Cargo vacío")
     persona("Gerente", ger)
     pc = persona("Contadora", cont)
     u = {"ger": usuario_con_rol("ger", "GERENTE", persona("Gerente 2", ger)), "admin": usuario_con_rol("admin", "ADMIN_SISTEMA"),

@@ -21,7 +21,7 @@ def local(dia, hora=12, minuto=0, mes=12):
 def base():
     anio_abierto()
     p = Periodo.objects.create(anio=2026, mes=12, inicio_medicion=date(2026, 12, 1))
-    cont, jefa, bodega = cargo("Contadora Senior"), cargo("Jefa Gestión y Control"), cargo("Bodega", externo=True)
+    cont, jefa, bodega = cargo("Contador Senior"), cargo("Jefa de Control"), cargo("Bodega", externo=True)
     c = persona("Contadora", cont)
     j = persona("Jefa", jefa)
     return {"p": p, "cont": cont, "jefa": jefa, "bodega": bodega, "c": c, "j": j, "n": 0}
@@ -137,7 +137,7 @@ def test_cumplimiento_de_revision_mide_contra_el_plazo_de_1_dia_habil(base):
         ocurrencia(base, date(2026, 12, 7), estado="revisada", primera=local(dia_hecha, 10), cargo_revisa=base["jefa"],
                    primera_revision_en=local(dia_rev, 10))
     ocurrencia(base, date(2026, 12, 7), estado="hecha", primera=local(7, 11), cargo_revisa=base["jefa"])  # sin revisar y ya vencida
-    rev = {r.cargo.nombre: r for r in kpi.cumplimiento_de_revision(base["p"], HOY)}["Jefa Gestión y Control"]
+    rev = {r.cargo.nombre: r for r in kpi.cumplimiento_de_revision(base["p"], HOY)}["Jefa de Control"]
     assert (rev.debidas, rev.a_tiempo) == (3, 1)
 
 

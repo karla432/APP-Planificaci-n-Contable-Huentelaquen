@@ -29,7 +29,7 @@ def test_en_produccion_pedirlo_impide_arrancar():
 
 @pytest.fixture
 def equipo(db):
-    p = persona("Contadora de ejemplo", cargo("Contadora Senior"))
+    p = persona("Contadora de ejemplo", cargo("Contador Senior"))
     return usuario_con_rol("contadora", "COLABORADOR", p), usuario_con_rol("gerente", "GERENTE")
 
 

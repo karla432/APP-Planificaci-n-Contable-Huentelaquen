@@ -16,7 +16,7 @@ class Cargo(models.Model):
     nombre = models.CharField(max_length=80, unique=True)
     es_externo = models.BooleanField(default=False, help_text="Sin cuenta: la Jefa marca «Recibido».")
     activo = models.BooleanField(default=True)
-    orden = models.PositiveSmallIntegerField(default=100, help_text="Orden en las listas: Gerente AyF, Jefa, Contadora Senior, Asistente Contable, y después los externos.")
+    orden = models.PositiveSmallIntegerField(default=100, help_text="Orden en las listas: Gerente AyF, Jefa de Control, Contador Senior, Asistente Contable, y después los externos.")
 
     class Meta:
         ordering = ["orden", "nombre"]

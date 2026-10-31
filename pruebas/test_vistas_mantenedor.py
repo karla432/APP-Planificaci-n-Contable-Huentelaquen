@@ -21,7 +21,7 @@ def reloj(monkeypatch):
 
 @pytest.fixture
 def mundo():
-    jefa, cont, ger, anal = cargo("Jefa Gestión y Control"), cargo("Contadora Senior"), cargo("Gerente AyF"), cargo("Asistente Contable")
+    jefa, cont, ger, anal = cargo("Jefa de Control"), cargo("Contador Senior"), cargo("Gerente AyF"), cargo("Asistente Contable")
     u = {"jefa": usuario_con_rol("jefa", "JEFATURA", persona("Jefa", jefa)), "ger": usuario_con_rol("ger", "GERENTE", persona("Gerente", ger)),
          "cont": usuario_con_rol("cont", "COLABORADOR", persona("Contadora", cont)), "admin": usuario_con_rol("admin", "ADMIN_SISTEMA"),
          "lectura": usuario_con_rol("lectura", "LECTURA")}
@@ -56,7 +56,7 @@ def test_usuarios_solo_para_gerente_y_administrador(mundo, nombre, quien, espera
 
 def test_la_lista_muestra_proceso_tarea_subtarea_responsable_y_periodicidad(mundo):
     html = cli(mundo["u"]["jefa"]).get(reverse("mant_tareas")).content.decode()
-    for texto in ("Proceso", "Tarea principal", "Subtarea", "Responsable", "Periodicidad", "Compras", "Libro de compras", "Cotejar el RCV contra Odoo", "Contadora Senior", "Día hábil 2 del cierre"):
+    for texto in ("Proceso", "Tarea principal", "Subtarea", "Responsable", "Periodicidad", "Compras", "Libro de compras", "Cotejar el RCV contra Odoo", "Contador Senior", "Día hábil 2 del cierre"):
         assert texto in html, texto
 
 

@@ -102,7 +102,7 @@ def test_lee_las_195_filas_en_el_orden_del_excel():
 def test_vista_previa_no_guarda_nada_y_reporta_lo_dudoso():
     vp = importador.previsualizar(EXCEL)
     assert Tarea.objects.count() == 0
-    assert len(vp.altas) == 194 and not vp.cambios and not vp.bajas and len(vp.procesos_nuevos) == 34
+    assert len(vp.altas) == 195 and not vp.cambios and not vp.bajas and len(vp.procesos_nuevos) == 35  # 194 del Excel + la revisión del día 9
     # El Excel trae una tarea repetida: la fila 61 repite la 51 (0,75 h contra 0,5 h). Se importa una vez y se reporta.
     assert [(f.fila, f.subtarea) for f in vp.duplicadas] == [(61, "Registrar Regularizacion Rechazo Pago a Proveedores")]
     texto = " | ".join(f.subtarea for f, _ in vp.requieren_revision).lower()
@@ -115,13 +115,13 @@ def test_vista_previa_no_guarda_nada_y_reporta_lo_dudoso():
 @pytest.mark.django_db
 def test_aplicar_crea_tareas_en_orden_con_codigos_horas_y_sin_personas():
     importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
-    assert Tarea.objects.count() == 194 and Proceso.objects.count() == 34
+    assert Tarea.objects.count() == 195 and Proceso.objects.count() == 35
     primeras = list(Tarea.objects.order_by("secuencia").values_list("codigo", "secuencia", flat=False)[:2])
-    assert primeras == [("TAR-0001", 1), ("TAR-0002", 2)] and Tarea.objects.get(codigo="TAR-0194").secuencia == 194
+    assert primeras == [("TAR-0001", 1), ("TAR-0002", 2)] and Tarea.objects.get(codigo="TAR-0195").secuencia == 195
     assert Colaborador.objects.count() == 0  # las personas las crea el administrador
     cuentas = Counter(Tarea.objects.values_list("cargo_ejecuta__nombre", flat=True))
-    assert (cuentas["Jefa Gestión y Control"], cuentas["Contadora Senior"], cuentas["Asistente Contable"], cuentas["Gerente AyF"]) == (80, 54, 29, 19)
-    assert not Cargo.objects.get(nombre="Contadora Senior").es_externo
+    assert (cuentas["Jefa de Control"], cuentas["Contador Senior"], cuentas["Asistente Contable"], cuentas["Gerente AyF"]) == (80, 54, 29, 20)
+    assert not Cargo.objects.get(nombre="Contador Senior").es_externo
     for nombre in EXTERNOS:
         assert Cargo.objects.get(nombre=nombre).es_externo
     assert EventoAuditoria.objects.filter(accion="importacion.aplicada").count() == 1
@@ -131,7 +131,7 @@ def test_aplicar_crea_tareas_en_orden_con_codigos_horas_y_sin_personas():
 def test_los_cargos_quedan_en_el_orden_de_karla_y_despues_los_externos():
     importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
     nombres = list(Cargo.objects.values_list("nombre", flat=True))
-    assert nombres[:4] == ["Gerente AyF", "Jefa Gestión y Control", "Contadora Senior", "Asistente Contable"]
+    assert nombres[:4] == ["Gerente AyF", "Jefa de Control", "Contador Senior", "Asistente Contable"]
     assert set(nombres[4:]) == set(EXTERNOS)
 
 
@@ -139,9 +139,9 @@ def test_los_cargos_quedan_en_el_orden_de_karla_y_despues_los_externos():
 def test_quien_revisa_sale_del_excel_y_las_tareas_sin_revisor_no_se_inventan():
     importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
     cuentas = Counter(t.cargo_revisa.nombre if t.cargo_revisa else None for t in Tarea.objects.select_related("cargo_revisa"))
-    # 62 las revisa el Gerente AyF; 127 no tienen revisor; 5 son de externos sin quien reciba en el Excel (se propone a la Jefa).
-    assert cuentas == {"Gerente AyF": 62, None: 127, "Jefa Gestión y Control": 5}
-    assert not Tarea.objects.filter(cargo_ejecuta__nombre="Jefa Gestión y Control").exclude(cargo_revisa=None).exists()
+    # 62 las revisa el Gerente AyF; 128 no tienen revisor (127 del Excel + la revisión del día 9); 5 son de externos sin quien reciba en el Excel (se propone a la Jefa).
+    assert cuentas == {"Gerente AyF": 62, None: 128, "Jefa de Control": 5}
+    assert not Tarea.objects.filter(cargo_ejecuta__nombre="Jefa de Control").exclude(cargo_revisa=None).exists()
 
 
 @pytest.mark.django_db
@@ -149,7 +149,7 @@ def test_el_cierre_va_del_dia_habil_1_al_8_9_y_10():
     importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
     por_dia = Counter(t.regla_n for t in Tarea.objects.filter(regla_tipo="CIERRE_DIA_HABIL"))
     assert por_dia[8] == 19  # 18 que decían D7 + 1 que ya decía «Día hábil 8»
-    assert por_dia[10] == 9 and por_dia[9] == 1 and por_dia[7] == 1
+    assert por_dia[10] == 9 and por_dia[9] == 2 and por_dia[7] == 1  # el 9: una del Excel + la revisión con el Gerente General
     assert not Tarea.objects.filter(regla_tipo="CIERRE_HITO").exists()
     assert Tarea.objects.filter(cuando_excel__startswith="D7").count() == 18  # lo que decía el Excel queda guardado
 
@@ -157,8 +157,9 @@ def test_el_cierre_va_del_dia_habil_1_al_8_9_y_10():
 @pytest.mark.django_db
 def test_las_horas_estimadas_marcan_quien_las_definio():
     importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
-    assert not Tarea.objects.filter(minutos_estimados__isnull=True).exists()
-    assert Counter(Tarea.objects.values_list("fuente_horas", flat=True)) == {"estimacion": 170, "gerente": 24}
+    sin_tiempo = Tarea.objects.filter(minutos_estimados__isnull=True)
+    assert [t.tarea_principal for t in sin_tiempo] == ["Revisión del cierre con Gerente General"]  # la del día 9 aún no tiene tiempo
+    assert Counter(Tarea.objects.values_list("fuente_horas", flat=True)) == {"estimacion": 171, "gerente": 24}
     t = Tarea.objects.get(codigo="TAR-0001")
     assert t.minutos_estimados == 30 and float(t.ejecuciones_mes) == pytest.approx(4.33)
 
@@ -179,7 +180,7 @@ def test_reimportar_el_mismo_excel_no_duplica_ni_cambia_nada():
     vp = importador.previsualizar(EXCEL)
     assert not vp.altas and not vp.cambios and not vp.bajas
     importador.aplicar(vp, usuario=None)
-    assert Tarea.objects.count() == 194
+    assert Tarea.objects.count() == 195
 
 
 @pytest.mark.django_db
@@ -189,12 +190,31 @@ def test_reimportar_un_excel_actualizado_muestra_altas_cambios_y_bajas(tmp_path)
     ws = wb["Planificación"]
     ws.cell(row=5, column=4).value = "Asistente Contable"  # cambia el responsable de la primera tarea (cambio)
     ws.delete_rows(6)  # sale una tarea (baja)
-    ws.append(["Proceso nuevo", "Tarea nueva", "Subtarea nueva", "Contadora Senior", None, "Diaria", "Todos los días hábiles", None, None, 0.5, 21])  # alta
+    ws.append(["Proceso nuevo", "Tarea nueva", "Subtarea nueva", "Contador Senior", None, "Diaria", "Todos los días hábiles", None, None, 0.5, 21])  # alta
     nuevo = tmp_path / "actualizado.xlsx"
     wb.save(nuevo)
     vp = importador.previsualizar(nuevo)
     assert (len(vp.altas), len(vp.cambios), len(vp.bajas)) == (1, 1, 1) and vp.procesos_nuevos == ["Proceso nuevo"]
     importador.aplicar(vp, usuario=None)
-    assert Tarea.objects.get(codigo="TAR-0195").subtarea == "Subtarea nueva"  # el código nuevo sigue la secuencia
+    assert Tarea.objects.get(codigo="TAR-0196").subtarea == "Subtarea nueva"  # el código nuevo sigue la secuencia
     assert Tarea.objects.filter(activa=False).count() == 1  # no se borra físicamente
     assert Tarea.objects.get(codigo="TAR-0001").cargo_ejecuta.nombre == "Asistente Contable"
+
+
+@pytest.mark.django_db
+def test_la_revision_del_dia_9_con_el_gerente_general_se_crea_y_no_se_duplica():
+    importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
+    t = Tarea.objects.get(tarea_principal="Revisión del cierre con Gerente General")
+    assert (t.regla_tipo, t.regla_n, t.cargo_ejecuta.nombre, t.proceso.nombre) == ("CIERRE_DIA_HABIL", 9, "Gerente AyF", "Revisión día 9")
+    assert t.cargo_revisa is None and not t.requiere_revision
+    # va antes del cierre del día 10 en el orden de proceso
+    assert t.secuencia < Tarea.objects.filter(proceso__nombre="Cierre día 10").order_by("secuencia").first().secuencia
+    assert Tarea.objects.filter(tarea_principal=t.tarea_principal).count() == 1
+
+
+@pytest.mark.django_db
+def test_los_cargos_del_excel_se_llaman_como_los_definio_karla():
+    importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
+    nombres = set(Cargo.objects.values_list("nombre", flat=True))
+    assert {"Contador Senior", "Jefa de Control"} <= nombres
+    assert not nombres & {"Contadora Senior", "Jefa Gestión y Control"}

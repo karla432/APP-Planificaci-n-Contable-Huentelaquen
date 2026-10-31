@@ -14,7 +14,7 @@ INICIO_NOV = date(2026, 11, 5)  # P7
 
 @pytest.fixture
 def equipo():
-    jefa, cont, anal, ger = cargo("Jefa Gestión y Control"), cargo("Contadora Senior"), cargo("Analista Contable"), cargo("Gerente AyF")
+    jefa, cont, anal, ger = cargo("Jefa de Control"), cargo("Contador Senior"), cargo("Analista Contable"), cargo("Gerente AyF")
     return {
         "jefa": jefa, "cont": cont, "anal": anal, "ger": ger,
         "p_jefa": persona("Jefa", jefa), "p_cont": persona("Contadora", cont), "p_anal": persona("Analista", anal),

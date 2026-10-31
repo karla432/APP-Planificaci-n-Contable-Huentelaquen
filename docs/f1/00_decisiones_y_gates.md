@@ -83,16 +83,18 @@ Karla entregó la planificación final, en el orden en que se procesa, con el ti
 | DEC-17 | **Quien revisa es el cargo que dice el Excel** (puede no haber). Los «Recibido» de externos los marca el cargo que dice «Revisa» en el Excel; si está en blanco, la Jefa. | Reemplaza DEC-08. |
 | DEC-18 | **Tiempos estimados por tarea** (minutos × ejecuciones al mes). La revisión se carga al revisor con el 25 % del tiempo. Capacidad de referencia: 160 h al mes. Semáforo de carga: menos de 90 % verde, 90 a 110 % ámbar, más de 110 % rojo. | Reemplaza DEC-09. Todo se muestra como «Estimado»; los umbrales quedan «pendiente de confirmar». |
 | DEC-19 | **Se usan los 34 procesos del Excel**, sin áreas. Los códigos `TAR-nnnn` los asigna la app siguiendo el orden del Excel. | Mantenedor de Procesos sin agrupación por área. |
-| DEC-20 | **Cargos** los del Excel, en el orden 1 Gerente AyF, 2 Jefa Gestión y Control, 3 Contadora Senior, 4 Asistente Contable; externos después. | Ver 2d. |
+| DEC-20 | **Cargos** en el orden 1 Gerente AyF, 2 Jefa de Control, 3 Contador Senior, 4 Asistente Contable; externos después. Los nombres **«Jefa de Control»** y **«Contador Senior»** son los definitivos (Karla, 31-10-2026: son dos cargos distintos). El Excel dice «Jefa Gestión y Control» y «Contadora Senior»: el importador los traduce y la migración 0009 renombra los que ya existían. | Ver 2d. |
 
-**Supuestos que dejé anotados (Karla puede corregirlos):**
-1. El «D7» del Excel significa **día hábil 8** (el último día de cierre) y el «D10», día hábil 10.
-2. El **día 9** (revisión con el Gerente General) **no tiene tarea en el Excel**. Propuesta: crear «Revisión del cierre con Gerente General», día hábil 9, a cargo del Gerente AyF. Pendiente de tu respuesta.
+**Confirmado por Karla el 31-10-2026:**
+1. El «D7» del Excel significa **día hábil 8** y el «D10», día hábil 10. ✔
+2. Se crea la tarea **«Revisión del cierre con Gerente General»**, día hábil 9, a cargo del Gerente AyF, en el proceso «Revisión día 9» (queda entre «Reportería día 7» y «Cierre día 10»). Sin tiempo estimado ni revisor hasta que se definan. El importador la agrega solo (35 procesos y 195 tareas en total). ✔
+
+**Supuestos que siguen pendientes de confirmar:**
 3. Las tareas externas sin «Revisa» en el Excel las recibe la Jefa. «Vendedor Stgo» y «Jefe Bodega» se tratan como externos.
 4. El Excel trae la **fila 61 duplicada** de la 51: el importador la informa y no la duplica (194 tareas de 195 filas).
 5. **Riesgo R28:** 127 tareas no tienen revisor en el Excel. Ya figura en tu auditoría (R07 y R08); la app lo muestra como «sin revisión» y no lo corrige.
 
-**Preguntas abiertas para Karla:** confirmar el supuesto 1, la tarea del día 9 (supuesto 2), a quién recibe lo de los externos sin «Revisa» y si prefieres «Contador Senior» o «Jefa de Control» como nombres de cargo.
+**Pregunta abierta para Karla:** a quién recibe lo de los externos sin «Revisa» (hoy, la Jefa de Control) y qué tiempo estimado tiene la revisión del día 9.
 
 ## 3. Datos que faltan y no bloquean
 

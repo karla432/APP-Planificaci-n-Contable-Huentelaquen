@@ -22,7 +22,7 @@ def reloj(monkeypatch):
 
 @pytest.fixture
 def mundo():
-    jefa, cont, ger = cargo("Jefa Gestión y Control"), cargo("Contadora Senior"), cargo("Gerente AyF")
+    jefa, cont, ger = cargo("Jefa de Control"), cargo("Contador Senior"), cargo("Gerente AyF")
     bodega = cargo("Bodega", externo=True)
     p = {"jefa": persona("Jefa", jefa), "cont": persona("Contadora", cont)}
     u = {"cont": usuario_con_rol("cont", "COLABORADOR", p["cont"]), "jefa": usuario_con_rol("jefa", "JEFATURA", p["jefa"]), "lectura": usuario_con_rol("lectura", "LECTURA")}
@@ -107,7 +107,7 @@ def test_los_externos_se_miden_aparte_y_no_entran_en_el_cuadro_del_equipo(mundo)
 
 def test_el_cumplimiento_incluye_la_revision(mundo):
     html = ver(mundo["u"]["cont"], "informe_cumplimiento")
-    assert "Cumplimiento de revisión" in html and "Jefa Gestión y Control" in html
+    assert "Cumplimiento de revisión" in html and "Jefa de Control" in html
 
 
 def test_cualquier_perfil_con_acceso_puede_verlo_pero_sin_perfil_no(mundo):
@@ -128,15 +128,15 @@ def test_el_panel_lista_los_feriados_confirmados_del_mes_y_no_inventa_ninguno(mu
 
 
 def test_el_cumplimiento_lista_a_las_personas_en_el_orden_de_los_cargos(mundo):
-    """Gerente AyF, Jefa, Contadora Senior, Asistente Contable: el orden que definió Karla, no el alfabético."""
+    """Gerente AyF, Jefa, Contador Senior, Asistente Contable: el orden que definió Karla, no el alfabético."""
     from nucleo.models import Cargo
-    for nombre, orden in (("Gerente AyF", 1), ("Jefa Gestión y Control", 2), ("Contadora Senior", 3), ("Asistente Contable", 4)):
+    for nombre, orden in (("Gerente AyF", 1), ("Jefa de Control", 2), ("Contador Senior", 3), ("Asistente Contable", 4)):
         Cargo.objects.update_or_create(nombre=nombre, defaults={"orden": orden})
     asistente = cargo("Asistente Contable")
     ger = persona("Aaa Gerente", cargo("Gerente AyF"))
     pa = persona("Zzz Asistente", asistente)
-    tarea("TAR-0090", asistente, "CIERRE_DIA_HABIL", revisa=cargo("Jefa Gestión y Control"), n=1)
-    tarea("TAR-0091", cargo("Gerente AyF"), "CIERRE_DIA_HABIL", revisa=cargo("Jefa Gestión y Control"), n=1)
+    tarea("TAR-0090", asistente, "CIERRE_DIA_HABIL", revisa=cargo("Jefa de Control"), n=1)
+    tarea("TAR-0091", cargo("Gerente AyF"), "CIERRE_DIA_HABIL", revisa=cargo("Jefa de Control"), n=1)
     periodos.abrir_mes(2026, 12, usuario=None)
     html = ver(mundo["u"]["lectura"], "informe_cumplimiento")
     cuadro = html.split("Cumplimiento de revisión")[0]

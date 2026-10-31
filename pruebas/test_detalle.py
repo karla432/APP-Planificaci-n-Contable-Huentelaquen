@@ -21,7 +21,7 @@ def reloj(monkeypatch):
 
 @pytest.fixture
 def mundo():
-    ger, cont, jefa, bodega = cargo("Gerente AyF"), cargo("Contadora Senior"), cargo("Jefa Gestión y Control"), cargo("Bodega", externo=True)
+    ger, cont, jefa, bodega = cargo("Gerente AyF"), cargo("Contador Senior"), cargo("Jefa de Control"), cargo("Bodega", externo=True)
     p = {"ger": persona("Gerente", ger), "cont": persona("Contadora", cont), "jefa": persona("Jefa", jefa)}
     u = {k: usuario_con_rol(k, r, p[k]) for k, r in (("ger", "GERENTE"), ("cont", "COLABORADOR"), ("jefa", "JEFATURA"))}
     u["lectura"] = usuario_con_rol("lectura", "LECTURA")
@@ -110,7 +110,7 @@ def ver(usuario, o):
 
 def test_el_detalle_muestra_los_datos_la_referencia_y_las_horas_como_estimadas(mundo):
     html = ver(mundo["u"]["cont"], mundo["o"]["TAR-0001"])
-    for texto in ("Subtarea TAR-0001", "Contadora Senior", "Gerente AyF", "Día 3", "03-12-2026", "Art. 20 N°1 LIR", "1,5 h", "Estimado", "Revisa"):
+    for texto in ("Subtarea TAR-0001", "Contador Senior", "Gerente AyF", "Día 3", "03-12-2026", "Art. 20 N°1 LIR", "1,5 h", "Estimado", "Revisa"):
         assert texto in html, texto
 
 

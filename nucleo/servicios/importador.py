@@ -28,11 +28,13 @@ from nucleo.servicios import auditoria
 from nucleo.servicios.calendario import Calendario
 from nucleo.servicios.recurrencia import Regla, ReglaIncompleta, ReglaInvalida, fechas_limite
 
-CARGO_JEFA = "Jefa Gestión y Control"
+CARGO_JEFA = "Jefa de Control"
+# El Excel usa otros nombres para dos cargos; en la app rigen los que definió Karla (31-10-2026): son cargos distintos.
+NOMBRES_DE_CARGO = {"Contadora Senior": "Contador Senior", "Jefa Gestión y Control": "Jefa de Control", "Jefa de Gestión y Control": "Jefa de Control"}
 CARGO_GERENTE = "Gerente AyF"
 CARGOS_EXTERNOS = {"Vendedor Stgo", "RR.HH.", "Jefe Bodega", "Gerencia", "Gerencia / Directorio", "Bodega", "Jefaturas de área", "Jefatura Lechería", "Rafael"}
-# Orden de los cargos en las listas (Karla, 31-10-2026): Gerente AyF, Jefa, Contadora Senior, Asistente Contable; después los externos.
-ORDEN_CARGOS = {"Gerente AyF": 1, "Jefa Gestión y Control": 2, "Contadora Senior": 3, "Asistente Contable": 4}
+# Orden de los cargos en las listas (Karla, 31-10-2026): Gerente AyF, Jefa de Control, Contador Senior, Asistente Contable; después los externos.
+ORDEN_CARGOS = {"Gerente AyF": 1, "Jefa de Control": 2, "Contador Senior": 3, "Asistente Contable": 4}
 ORDEN_EXTERNOS = 50
 RELLENO_GERENTE = "FFE2EFDA"  # verde: horas definidas por la Gerente AyF (el resto es estimación base)
 
@@ -98,7 +100,7 @@ def convertir_regla(periodicidad, cuando) -> Conversion:
             return Conversion(Regla("CIERRE_DIA_HABIL", n=10), nota="D10 es el día hábil 10: se liberan los informes al Directorio.")
         m = re.fullmatch(r"dia (\d{1,2})", cua_l)
         if m and 1 <= int(m.group(1)) <= 31:
-            # Si cae en inhábil: día hábil anterior (P4, Karla). La norma (por ejemplo Previred) la verifica la Contadora Senior.
+            # Si cae en inhábil: día hábil anterior (P4, Karla). La norma (por ejemplo Previred) la verifica el Contador Senior.
             return Conversion(Regla("DIA_FIJO", dia=int(m.group(1)), ajuste="anterior"), estado="pendiente_confirmar")
         if cua_l == "ultimo dia del mes":
             return Conversion(Regla("FIN_DE_MES", ajuste="anterior"), estado="pendiente_confirmar")
@@ -168,6 +170,26 @@ def _numero(valor):
         return None
 
 
+def _cargo_de_la_app(nombre: str) -> str:
+    return NOMBRES_DE_CARGO.get(nombre, nombre)
+
+
+# Tarea del día 9 que el Excel no trae (Karla, 31-10-2026: «sí» a crearla). Va en el orden de proceso, antes del cierre del día 10.
+TAREA_DIA_9 = dict(
+    proceso="Revisión día 9", tarea_principal="Revisión del cierre con Gerente General", subtarea="Revisar el cierre del mes con el Gerente General",
+    ejecuta="Gerente AyF", revisa_excel="", periodicidad="Mensual (cierre)", cuando="Día hábil 9", fecha_1ra=None,
+    observacion="", dia_cierre=9, horas=None, ejecuciones=1.0,
+)
+
+
+def _con_tarea_del_dia_9(filas: list) -> list:
+    if any(f.tarea_principal == TAREA_DIA_9["tarea_principal"] for f in filas):
+        return filas
+    nueva = FilaImport(fila=0, secuencia=0, **TAREA_DIA_9)
+    posicion = next((i for i, f in enumerate(filas) if f.proceso == "Cierre día 10"), len(filas))
+    return filas[:posicion] + [nueva] + filas[posicion:]
+
+
 def leer_excel(ruta) -> list[FilaImport]:
     wb = openpyxl.load_workbook(Path(ruta), data_only=True)
     hoja = wb["Planificación"] if "Planificación" in wb.sheetnames else wb["Tareas"]
@@ -198,7 +220,7 @@ def leer_excel(ruta) -> list[FilaImport]:
         dia = _numero(r[opc["dia"]]) if opc["dia"] is not None else None
         resultado.append(FilaImport(
             fila=n, secuencia=len(resultado) + 1, proceso=normalizar(r[idx["proceso"]]), tarea_principal=normalizar(r[idx["tarea"]]),
-            subtarea=normalizar(r[idx["sub"]]), ejecuta=normalizar(r[idx["ejecuta"]]), revisa_excel=normalizar(r[idx["revisa"]]),
+            subtarea=normalizar(r[idx["sub"]]), ejecuta=_cargo_de_la_app(normalizar(r[idx["ejecuta"]])), revisa_excel=_cargo_de_la_app(normalizar(r[idx["revisa"]])),
             periodicidad=normalizar(r[idx["per"]]), cuando=normalizar(r[idx["cuando"]]),
             fecha_1ra=r[opc["fecha"]] if opc["fecha"] is not None else None, observacion=normalizar(r[idx["obs"]]),
             dia_cierre=int(dia) if dia else None, horas=_numero(r[opc["horas"]]) if opc["horas"] is not None else None,
@@ -258,7 +280,7 @@ def previsualizar(ruta, calendario: Calendario | None = None) -> VistaPrevia:
     if calendario is None:
         from nucleo.models import Feriado
         calendario = Calendario(Feriado.objects.filter(confirmado=True).values_list("fecha", flat=True))
-    filas = leer_excel(ruta)
+    filas = _con_tarea_del_dia_9(leer_excel(ruta))
     vp = VistaPrevia(total_filas=len(filas))
     existentes = {t.clave_estable: t for t in Tarea.objects.select_related("cargo_ejecuta", "cargo_revisa")}
     procesos = set(Proceso.objects.values_list("nombre", flat=True))

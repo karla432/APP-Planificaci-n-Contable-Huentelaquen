@@ -27,7 +27,7 @@ Activos: marcas de cumplimiento (evidencia ante la Gerencia), configuración de 
 |---|---|---|---|---|---|---|
 | RC-01 | El calendario calcula mal un D7 o D10 | Media | Alto | Pruebas con los casos de `02_modelo_datos_recurrencia.md`; feriados confirmados por Karla antes de abrir mes | Legión (R24) / Karla | Propuesto |
 | RC-02 | KPI engañoso con pocas tareas (Gerente: 2) | Alta | Medio | Mínimo de 10 para colorear; se muestra `n` | R12 | Propuesto |
-| RC-03 | Dependencia de una persona (Contadora Senior: 115 de 186 tareas) y de una revisora (la Jefa, unas 159) | Alta | Alto | Se muestra la concentración en el panel. No se corrige aquí: es una decisión de organización de Karla | Karla | Visible; decisión humana abierta |
+| RC-03 | Dependencia de una persona (Contador Senior: 115 de 186 tareas) y de una revisora (la Jefa, unas 159) | Alta | Alto | Se muestra la concentración en el panel. No se corrige aquí: es una decisión de organización de Karla | Karla | Visible; decisión humana abierta |
 | RC-04 | Inmutabilidad débil de la bitácora en SQLite | Baja | Medio | Sello encadenado, permisos del archivo, respaldo fuera del servidor, disparadores para migrar a PostgreSQL | Eugenio / R23 | **Riesgo residual a aceptar por Karla en G1** |
 | RC-05 | Plazo del 05-11 presiona el alcance y las pruebas | Alta | Alto | Alcance recortado; solo lo que pasa pruebas entra en uso | Karla / Legión | Abierto |
 | RC-06 | Reglas convertidas mal desde el Excel | Media | Medio | Importador marca «requiere revisión» y valida contra `Fecha 1.ª vez` | R04 | Propuesto |

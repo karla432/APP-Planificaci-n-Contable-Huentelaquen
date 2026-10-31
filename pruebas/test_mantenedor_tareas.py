@@ -11,7 +11,7 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def mundo():
-    jefa, cont, ger = cargo("Jefa Gestión y Control"), cargo("Contadora Senior"), cargo("Gerente AyF")
+    jefa, cont, ger = cargo("Jefa de Control"), cargo("Contador Senior"), cargo("Gerente AyF")
     p = {"jefa": persona("Jefa", jefa), "cont": persona("Contadora", cont), "ger": persona("Gerente", ger)}
     u = {k: usuario_con_rol(k, r, p.get(k)) for k, r in (("jefa", "JEFATURA"), ("cont", "COLABORADOR"), ("ger", "GERENTE"))}
     u["admin"], u["lectura"] = usuario_con_rol("admin", "ADMIN_SISTEMA"), usuario_con_rol("lectura", "LECTURA")

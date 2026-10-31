@@ -22,7 +22,7 @@ def reloj(monkeypatch):
 
 @pytest.fixture
 def mundo():
-    jefa, cont, ger = cargo("Jefa Gestión y Control"), cargo("Contadora Senior"), cargo("Gerente AyF")
+    jefa, cont, ger = cargo("Jefa de Control"), cargo("Contador Senior"), cargo("Gerente AyF")
     bodega = cargo("Bodega", externo=True)
     p = persona("Contadora", cont)
     persona("Jefa", jefa)
@@ -50,7 +50,7 @@ def ver(usuario, **params):
 def test_lista_cada_cargo_con_su_responsable_y_sus_numeros(mundo):
     html = ver(mundo["u"])
     assert "Por cargo y responsable" in html or "Check List por cargo y responsable" in html
-    assert "Contadora Senior" in html and "Contadora" in html  # cargo y responsable
+    assert "Contador Senior" in html and "Contadora" in html  # cargo y responsable
     assert "Hechas" in html and "Atrasadas" in html
 
 

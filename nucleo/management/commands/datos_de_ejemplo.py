@@ -14,8 +14,8 @@ from nucleo.servicios import feriados, importador, periodos
 EXCEL = Path(settings.BASE_DIR) / "docs" / "datos" / "Planificacion_Mensual_Huentelauquen_Revisada.xlsx"
 PERSONAS = [  # usuario, nombre de ejemplo, cargo, rol
     ("gerente", "Gerente AyF (ejemplo)", "Gerente AyF", "GERENTE"),
-    ("jefa", "Jefa de Gestión y Control (ejemplo)", "Jefa Gestión y Control", "JEFATURA"),
-    ("contadora", "Contadora Senior (ejemplo)", "Contadora Senior", "COLABORADOR"),
+    ("jefa", "Jefa de Control (ejemplo)", "Jefa de Control", "JEFATURA"),
+    ("contadora", "Contador Senior (ejemplo)", "Contador Senior", "COLABORADOR"),
     ("asistente", "Asistente Contable (ejemplo)", "Asistente Contable", "COLABORADOR"),
 ]
 SCL = ZoneInfo("America/Santiago")

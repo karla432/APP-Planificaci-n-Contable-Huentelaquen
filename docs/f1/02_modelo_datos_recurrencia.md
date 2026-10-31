@@ -10,7 +10,7 @@ Los instantes se guardan en UTC. Las fechas de negocio (`fecha_limite`, feriados
 
 | Tabla | Campos principales | Notas |
 |---|---|---|
-| `Cargo` | nombre, `es_externo`, activo | Internos: Gerente AyF, Jefa Control y Gestión, Contadora Senior, Analista Contable. Externos: RR.HH., Gerencia/Directorio, Bodega, Jefaturas de área, Jefatura Lechería, Rafael |
+| `Cargo` | nombre, `es_externo`, activo | Internos: Gerente AyF, Jefa Control y Gestión, Contador Senior, Analista Contable. Externos: RR.HH., Gerencia/Directorio, Bodega, Jefaturas de área, Jefatura Lechería, Rafael |
 | `Colaborador` | usuario, nombre, correo, activo | Solo nombre, correo y cargo. Sin datos médicos |
 | `Asignacion` | cargo, colaborador, desde, hasta | Vigencia: subrogancias y reemplazos |
 | `Proceso` | nombre, activo | 34 en el Excel |

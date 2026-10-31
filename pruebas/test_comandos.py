@@ -30,7 +30,7 @@ def test_el_reloj_ignora_la_variable_en_produccion(monkeypatch, settings):
 
 def test_datos_de_ejemplo_arma_un_mes_de_diciembre_navegable():
     call_command("datos_de_ejemplo", "--password", "ejemplo-ejemplo-1")
-    assert Tarea.objects.count() == 194  # el Excel trae 195 filas y una repetida
+    assert Tarea.objects.count() == 195  # 195 filas del Excel, una repetida, más la revisión del día 9
     assert Colaborador.objects.filter(usuario__isnull=False).count() == 4
     assert Periodo.objects.filter(anio=2026, mes=12, estado="abierto").exists()
     assert Ocurrencia.objects.filter(periodo__mes=12).exists()
