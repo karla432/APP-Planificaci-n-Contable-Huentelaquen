@@ -14,7 +14,7 @@ para llegar al **D7 con el cierre preliminar y al D10 con el cierre definitivo**
 |---|---|
 | F0 Aclaración | Respondida por Karla (30-10-2026). Ver `docs/f1/00_decisiones_y_gates.md` |
 | F1 Diseño técnico | G1 aprobado con condiciones (30-10-2026), ver `docs/f1/` |
-| F2 Construcción | **En curso.** Listo y probado (casi 300 pruebas): calendario y D7/D10, motor de recurrencia, bitácora sellada, importador del Excel, feriados con confirmación, parámetros, apertura de mes, ejecución con segregación de funciones y KPI. Pantallas de Informes, Check List y Mantenedor hechas. Falta: abrir mes y feriados desde la web, comparar con el mockup (docs/diseno), respaldo, seguridad con claves y despliegue |
+| F2 Construcción | **En curso** (372 pruebas). Plan final del Excel del 31-10-2026 incorporado: cierre en días hábiles 1 a 8, revisión con Gerencia General el 9 y informes al Directorio el 10; estado Bloqueada; tiempos estimados y carga del equipo. Hechas: Informes (panel, tablero, cronograma, cumplimiento, carga), Check List (día, semana, mes, por cargo, detalle), Mantenedor (tareas, procesos, usuarios) y **Abrir mes** (feriados, año, vista previa). Falta: respaldo con restauración, seguridad con claves y despliegue |
 | F3 Producción | No autorizada (espera G3 por escrito de Karla y aprobación de Eugenio) |
 
 ## Verla en tu computador

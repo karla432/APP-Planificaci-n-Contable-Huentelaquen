@@ -54,4 +54,10 @@ class Command(BaseCommand):
                 hecha = datetime(2026, 12, 4, 10, 0, tzinfo=SCL)  # hecha tarde
             o.estado, o.primera_hecha_en, o.hecha_en = Ocurrencia.HECHA, hecha, hecha
             o.hecha_por = o.colaborador.usuario
+            if i % 11 == 4 and o.cargo_revisa_id:  # ya revisada por quien corresponde
+                o.estado, o.revisada_en, o.primera_revision_en = Ocurrencia.REVISADA, hecha, hecha
+            o.save()
+        # Un par de tareas bloqueadas, para mostrar el estado y su motivo (ejemplo, no son datos reales).
+        for o in Ocurrencia.objects.filter(periodo__mes=12, estado=Ocurrencia.PENDIENTE, colaborador__isnull=False, fecha_limite__lte=date(2026, 12, 3)).order_by("id")[:2]:
+            o.estado, o.motivo_bloqueo = Ocurrencia.BLOQUEADA, "Falta la información del proveedor (ejemplo)."
             o.save()

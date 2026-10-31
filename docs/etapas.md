@@ -15,7 +15,7 @@
 
 1. Baja el repositorio a tu computador (`git clone`, o descarga el ZIP de la rama `claude/peaceful-ride-ysf0iw`).
 2. Doble clic en **`iniciar_local.bat`**. La primera vez instala lo necesario; después abre en segundos.
-3. Entra a http://127.0.0.1:8000 con `gerente`, `jefa`, `contadora` o `analista` y la clave `Ejemplo-local-2026`.
+3. Entra a http://127.0.0.1:8000 con `gerente`, `jefa`, `contadora` o `asistente` y la clave `Ejemplo-local-2026`.
 4. Cuando yo suba cambios: `git pull` y vuelve a abrir. Para empezar de cero, borra `db_local.sqlite3`.
 
 La fecha simulada es el viernes 04-12-2026 (Día 4 del cierre), para ver el cierre de diciembre. Los datos son de ejemplo.

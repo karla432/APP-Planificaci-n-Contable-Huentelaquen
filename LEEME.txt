@@ -4,7 +4,7 @@ PLANIFICACION CONTABLE HUENTELAUQUEN - para verla en tu computador
 2. Haz doble clic en  iniciar_local.bat
    - Si Windows dice "Windows protegio su PC": clic en "Mas informacion" y luego "Ejecutar de todos modos".
    - La primera vez instala lo necesario (unos minutos). Necesita Python instalado (el mismo del Arqueo).
-3. Se abre el navegador. Entra con uno de estos usuarios:  gerente, jefa, contadora o analista
+3. Se abre el navegador. Entra con uno de estos usuarios:  gerente, jefa, contadora o asistente
    Clave de ejemplo:  Ejemplo-local-2026
 4. Para cerrar: en la ventana negra presiona Ctrl+C y ciérrala.
 

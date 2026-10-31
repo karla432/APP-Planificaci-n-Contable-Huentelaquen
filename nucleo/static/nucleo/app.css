@@ -129,3 +129,4 @@ a.tarjeta .area { display: block; font-size: 11px; font-weight: 700; letter-spac
 .cifra-grande { font-family: var(--hu-serif); font-weight: 700; color: var(--hu-maroon); font-size: 6.5rem; line-height: .95; letter-spacing: -.02em; } .cifra-grande small { font-size: 2.8rem; }
 .kpis { display: flex; flex-wrap: wrap; gap: 12px 32px; } .kpi b { display: block; font-family: var(--hu-serif); font-size: 2.2rem; line-height: 1; color: var(--hu-maroon); } .kpi span { color: var(--hu-gray); font-size: 13px; } .kpi.rojo b { color: var(--hu-risk); }
 @media (max-width: 900px) { .cifra-grande { font-size: 4.5rem; } }
+.card h3 { margin: 22px 0 8px; } .card details { margin-top: 14px; } .card form.filtros { margin-top: 14px; }
