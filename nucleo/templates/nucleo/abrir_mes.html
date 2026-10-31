@@ -1,0 +1,93 @@
+{% extends "nucleo/base.html" %}
+{% block titulo %}Abrir mes{% endblock %}
+{% block contenido %}
+<p class="kick">Cierre mensual</p>
+<h1>Abrir mes</h1>
+<p class="meta">
+  <a href="?mes={{ mes_anterior }}">← Mes anterior</a> ·
+  <strong>{{ nombre_mes|capfirst }}</strong> ·
+  <a href="?mes={{ mes_siguiente }}">Mes siguiente →</a>
+</p>
+<p>Para abrir un mes hacemos tres cosas, en este orden: <strong>1)</strong> confirmar los feriados del año, <strong>2)</strong> abrir el año y <strong>3)</strong> revisar la vista previa y abrir el mes. Nada se genera hasta que lo confirmes.</p>
+
+<section class="card">
+  <h2>1 · Feriados de {{ anio }}</h2>
+  {% if not hay_feriados %}
+    <p class="aviso">Aún no hay feriados cargados para {{ anio }}. Cargamos la propuesta oficial y tú la confirmas.</p>
+    <form method="post">{% csrf_token %}<input type="hidden" name="mes" value="{{ mes_param }}"><input type="hidden" name="accion" value="cargar_feriados">
+      <button class="btn" type="submit">Cargar los feriados de {{ anio }}</button></form>
+  {% else %}
+    <div class="tabla-scroll"><table class="tbl">
+      <thead><tr><th>Fecha</th><th>Feriado</th><th>Tipo</th><th>Estado</th></tr></thead><tbody>
+      {% for f in feriados %}<tr><td>{{ f.fecha|date:"d-m-Y" }}</td><td>{{ f.nombre }}</td><td>{{ f.get_tipo_display }}</td>
+        <td>{% if f.confirmado %}Confirmado{% else %}Sin confirmar{% endif %}</td></tr>{% endfor %}
+    </tbody></table></div>
+    {% if sin_confirmar %}
+      <p class="aviso-caja">Hay {{ sin_confirmar }} feriado{{ sin_confirmar|pluralize }} sin confirmar. Mientras no se confirmen, no cuentan para el calendario.</p>
+      <form method="post">{% csrf_token %}<input type="hidden" name="mes" value="{{ mes_param }}"><input type="hidden" name="accion" value="confirmar_feriados">
+        <button class="btn" type="submit">Confirmar los {{ sin_confirmar }} feriados de {{ anio }}</button></form>
+    {% endif %}
+  {% endif %}
+  <details>
+    <summary>Agregar un feriado decretado o regional</summary>
+    <form method="post" class="filtros">{% csrf_token %}<input type="hidden" name="mes" value="{{ mes_param }}"><input type="hidden" name="accion" value="agregar_feriado">
+      <div><label for="f-fecha">Fecha</label><input id="f-fecha" type="date" name="fecha" required></div>
+      <div><label for="f-nombre">Nombre</label><input id="f-nombre" name="nombre" required></div>
+      <div><label for="f-tipo">Tipo</label><select id="f-tipo" name="tipo">{% for v, t in tipos_feriado %}<option value="{{ v }}">{{ t }}</option>{% endfor %}</select></div>
+      <div><button class="btn btn-2" type="submit">Agregar</button></div>
+    </form>
+  </details>
+</section>
+
+<section class="card">
+  <h2>2 · Año {{ anio }}</h2>
+  {% if anio_abierto %}
+    <p>El año {{ anio }} está <strong>abierto</strong>.</p>
+  {% elif hay_feriados and not sin_confirmar %}
+    <p>Los feriados están confirmados. Falta abrir el año.</p>
+    <form method="post">{% csrf_token %}<input type="hidden" name="mes" value="{{ mes_param }}"><input type="hidden" name="accion" value="abrir_anio">
+      <button class="btn" type="submit">Abrir el año {{ anio }}</button></form>
+  {% else %}
+    <p class="aviso">Primero carga y confirma los feriados (paso 1). Después podrás abrir el año.</p>
+  {% endif %}
+</section>
+
+{% if anio_abierto %}
+<section class="card">
+  <h2>3 · {{ nombre_mes|capfirst }}</h2>
+  {% if problema %}
+    <p class="aviso-caja">{{ problema }}</p>
+  {% else %}
+    {% if periodo %}<p class="mensaje">Este mes ya está abierto. Si corriges una tarea (responsable, regla), puedes abrirlo otra vez: solo se agrega lo que faltaba y nada se duplica.</p>{% endif %}
+
+    <h3>Calendario del cierre</h3>
+    <div class="tabla-scroll"><table class="tbl">
+      <thead><tr><th>Día</th><th>Fecha</th><th>Qué pasa</th></tr></thead><tbody>
+      {% for etiqueta, fecha, descripcion in hitos %}<tr><td>{{ etiqueta }}</td><td>{{ fecha|date:"D d-m-Y" }}</td><td>{{ descripcion }}</td></tr>{% endfor %}
+    </tbody></table></div>
+
+    <h3>Vista previa</h3>
+    <p>Se generarían <strong>{{ vp.ocurrencias|length }}</strong> ocurrencia{{ vp.ocurrencias|length|pluralize }} nuevas{% if vp.ya_existian %}; <strong>{{ vp.ya_existian }}</strong> ya existían{% endif %}.</p>
+    {% if resumen %}<div class="tabla-scroll"><table class="tbl">
+      <thead><tr><th>Periodicidad</th><th class="n">Tareas</th><th class="n">Ocurrencias</th></tr></thead><tbody>
+      {% for r in resumen %}<tr><td>{{ r.texto }}</td><td class="n">{{ r.tareas }}</td><td class="n">{{ r.ocurrencias }}</td></tr>{% endfor %}
+    </tbody></table></div>{% endif %}
+
+    {% if avisos %}
+    <h3>Tareas que no se generan hasta corregirlas</h3>
+    <div class="tabla-scroll"><table class="tbl">
+      <thead><tr><th>Aviso</th><th>Tarea</th><th>Detalle</th></tr></thead><tbody>
+      {% for etiqueta, a in avisos %}<tr><td>{{ etiqueta }}</td>
+        <td>{% if ve_mantenedor_tareas %}<a href="{% url 'mant_tarea_editar' a.tarea.pk %}">{{ a.tarea.codigo }}</a>{% else %}{{ a.tarea.codigo }}{% endif %} · {{ a.tarea.tarea_principal }}</td>
+        <td>{{ a.detalle }}</td></tr>{% endfor %}
+    </tbody></table></div>
+    {% endif %}
+
+    <form method="post" class="filtros">{% csrf_token %}<input type="hidden" name="mes" value="{{ mes_param }}"><input type="hidden" name="accion" value="abrir_mes">
+      {% if not periodo %}<div><label for="inicio">Medir desde (opcional)</label><input id="inicio" type="date" name="inicio_medicion" min="{{ primero|date:'Y-m-d' }}" max="{{ ultimo_dia|date:'Y-m-d' }}"></div>{% endif %}
+      <div><button class="btn" type="submit">Abrir {{ nombre_mes }}</button></div>
+    </form>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

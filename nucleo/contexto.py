@@ -15,5 +15,6 @@ def menu(request):
     return {
         "rol": rol, "url_actual": destino,
         "ve_mantenedor_tareas": rol in (permisos.GERENTE, permisos.JEFATURA),
+        "ve_abrir_mes": rol in (permisos.GERENTE, permisos.ADMIN_SISTEMA),
         "ve_usuarios": rol in (permisos.GERENTE, permisos.ADMIN_SISTEMA),
     }

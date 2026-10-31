@@ -25,6 +25,11 @@
     <a class="nav-i{% if url_actual == 'mes' %} nav-on{% endif %}" href="{% url 'mes' %}">Mi mes</a>
     <a class="nav-i{% if url_actual == 'checklist_cargos' %} nav-on{% endif %}" href="{% url 'checklist_cargos' %}">Por cargo y responsable</a>
 
+    {% if ve_abrir_mes %}
+    <div class="nav-sec">Cierre mensual</div>
+    <a class="nav-i{% if url_actual == 'abrir_mes' %} nav-on{% endif %}" href="{% url 'abrir_mes' %}">Abrir mes</a>
+    {% endif %}
+
     {% if ve_mantenedor_tareas or ve_usuarios %}
     <div class="nav-sec">Mantenedor</div>
     {% if ve_mantenedor_tareas %}

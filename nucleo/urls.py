@@ -1,7 +1,7 @@
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
-from nucleo import views, views_checklist_cargos, views_informes, views_mantenedor
+from nucleo import views, views_checklist_cargos, views_apertura, views_informes, views_mantenedor
 from nucleo.autenticacion import FormularioDeIngreso
 
 urlpatterns = [
@@ -15,6 +15,7 @@ urlpatterns = [
     path("informes/cronograma/", views_informes.cronograma, name="informe_cronograma"),
     path("informes/carga/", views_informes.carga_del_equipo, name="informe_carga"),
     path("checklist/cargos/", views_checklist_cargos.cargos, name="checklist_cargos"),
+    path("cierre/abrir/", views_apertura.abrir_mes, name="abrir_mes"),
     path("mantenedor/tareas/", views_mantenedor.tareas, name="mant_tareas"),
     path("mantenedor/tareas/nueva/", views_mantenedor.tarea_nueva, name="mant_tarea_nueva"),
     path("mantenedor/tareas/<int:pk>/", views_mantenedor.tarea_editar, name="mant_tarea_editar"),
