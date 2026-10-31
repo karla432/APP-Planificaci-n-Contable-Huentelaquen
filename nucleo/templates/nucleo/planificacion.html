@@ -1,0 +1,61 @@
+{% extends "nucleo/base.html" %}
+{% block titulo %}Planificación{% endblock %}
+{% block contenido %}
+<div class="encabezado"><div><p class="kick">Planificación</p><h1>Procesos, tareas y subtareas</h1></div>
+  <div class="acciones">
+    <a class="btn {% if vista == 'arbol' %}{% else %}btn-2{% endif %}" href="?{% if consulta %}{{ consulta }}&{% endif %}vista=arbol" {% if vista == 'arbol' %}aria-current="page"{% endif %}>Árbol</a>
+    <a class="btn {% if vista == 'tabla' %}{% else %}btn-2{% endif %}" href="?{% if consulta %}{{ consulta }}&{% endif %}vista=tabla" {% if vista == 'tabla' %}aria-current="page"{% endif %}>Tabla</a>
+    {% if puede_editar %}<a class="btn btn-2" href="{% url 'planificacion_exportar' %}?{{ consulta }}">Exportar a Excel</a><a class="btn btn-2" href="{% url 'mant_procesos' %}">Editar procesos</a>{% endif %}
+  </div></div>
+<p class="sub">Código <strong>OO-PPP.TT.SSS</strong>: orden del proceso · sigla del proceso · tarea · subtarea. Ejemplo: <code>02-VEN.01.003</code> es la subtarea 3 de la tarea 1 del proceso VEN, que se ejecuta en 2.º lugar.</p>
+
+<form method="get" class="card filtros" aria-label="Filtros">
+  <input type="hidden" name="vista" value="{{ vista }}">
+  <div><label for="f-proceso">Proceso</label><select id="f-proceso" name="proceso"><option value="">Todos</option>{% for p in procesos %}<option value="{{ p.pk }}" {% if f.proceso == p.pk %}selected{% endif %}>{{ p.codigo }} · {{ p.nombre }}</option>{% endfor %}</select></div>
+  <div><label for="f-tarea">Tarea</label><input id="f-tarea" name="tarea" value="{{ f.tarea }}" placeholder="nombre o código"></div>
+  <div><label for="f-sub">Subtarea</label><input id="f-sub" name="subtarea" value="{{ f.subtarea }}" placeholder="texto o código"></div>
+  <div><label for="f-od">Orden desde</label><input id="f-od" name="orden_desde" type="number" min="1" max="99" value="{{ f.orden_desde|default_if_none:'' }}" style="width:5rem"></div>
+  <div><label for="f-oh">hasta</label><input id="f-oh" name="orden_hasta" type="number" min="1" max="99" value="{{ f.orden_hasta|default_if_none:'' }}" style="width:5rem"></div>
+  <div><label for="f-estado">Estado</label><select id="f-estado" name="estado"><option value="">Todos</option>{% for k, n in estados %}<option value="{{ k }}" {% if f.estado == k %}selected{% endif %}>{{ n }}</option>{% endfor %}</select></div>
+  <div><label for="f-act">Mostrar</label><select id="f-act" name="activos"><option value="1" {% if f.activos == "1" %}selected{% endif %}>Solo activos</option><option value="0" {% if f.activos == "0" %}selected{% endif %}>Solo inactivos</option><option value="todos" {% if f.activos == "todos" %}selected{% endif %}>Todos</option></select></div>
+  <div><label for="f-q">Buscar código</label><input id="f-q" name="q" value="{{ f.q }}" placeholder="02-VEN.01 (o uno antiguo)"></div>
+  <div><button class="btn" type="submit">Filtrar</button> <a class="btn btn-2" href="{% url 'planificacion' %}?vista={{ vista }}">Limpiar</a></div>
+</form>
+
+<p class="meta">{{ n_procesos }} proceso{{ n_procesos|pluralize }} · {{ n_tareas }} tarea{{ n_tareas|pluralize }} · {{ n_subtareas }} subtarea{{ n_subtareas|pluralize }}</p>
+
+{% if hay_dependencias %}<section class="card"><h2>Orden y paralelismo</h2><ol class="etapas">{% for e in etapas %}<li><strong>Etapa {{ e.numero }}</strong>{% if e.numero == 1 %} · primero{% endif %}{% if e.en_paralelo %} · <span class="pill p-ok">en paralelo</span>{% endif %}
+  <div>{% for p in e.procesos %}<span class="chip">{{ p.codigo }}</span>{% endfor %}</div></li>{% endfor %}</ol></section>{% endif %}
+
+{% if vista == "arbol" %}
+<section class="arbol" aria-label="Árbol de la planificación">
+  {% for n in arbol %}
+  <details class="nodo n1" {% if f.proceso or f.filtra_hojas or arbol|length < 4 %}open{% endif %}>
+    <summary><span class="cod">{{ n.proceso.codigo }}</span> <strong>{{ n.proceso.nombre }}</strong>
+      <span class="pill p-grey">{{ n.proceso.get_estado_plan_display }}</span>{% if not n.proceso.activo %} <span class="pill p-grey">Inactivo</span>{% endif %}
+      <span class="meta">· orden {{ n.proceso.orden }} · {{ n.tareas|length }} tarea{{ n.tareas|length|pluralize }} · {{ n.n_subtareas }} subtarea{{ n.n_subtareas|pluralize }}
+        {% if n.proceso.responsable %}· {{ n.proceso.responsable.nombre }}{% endif %}
+        {% if n.depende_de %}· depende de {% for d in n.depende_de %}{{ d.sigla }}{% if not forloop.last %}, {% endif %}{% endfor %}{% else %}· no depende de otro{% endif %}</span></summary>
+    {% if n.proceso.fecha_inicio or n.proceso.fecha_termino or n.proceso.observaciones %}<p class="meta nota">{% if n.proceso.fecha_inicio %}Inicio {{ n.proceso.fecha_inicio|date:"d-m-Y" }}{% endif %}{% if n.proceso.fecha_termino %} · Término {{ n.proceso.fecha_termino|date:"d-m-Y" }}{% endif %}{% if n.proceso.observaciones %} · {{ n.proceso.observaciones }}{% endif %}</p>{% endif %}
+    {% for nt in n.tareas %}
+    <details class="nodo n2" {% if f.filtra_hojas %}open{% endif %}>
+      <summary><span class="cod">{{ nt.tarea.codigo }}</span> {{ nt.tarea.nombre }}{% if not nt.tarea.activa %} <span class="pill p-grey">Inactiva</span>{% endif %}
+        <span class="meta">· {{ nt.subtareas|length }} subtarea{{ nt.subtareas|length|pluralize }}{% if nt.tarea.responsable %} · {{ nt.tarea.responsable.nombre }}{% endif %}</span></summary>
+      <ul class="n3">{% for t in nt.subtareas %}
+        <li><span class="cod">{{ t.codigo }}</span> {{ t.subtarea }} <span class="meta">· {{ t.cargo_ejecuta.nombre }} · {{ t.get_estado_plan_display }}{% if t.fecha_inicio %} · {{ t.fecha_inicio|date:"d-m-Y" }}{% endif %}{% if t.fecha_termino %} → {{ t.fecha_termino|date:"d-m-Y" }}{% endif %}</span>{% if not t.activa %} <span class="pill p-grey">Inactiva</span>{% endif %}{% if t.observaciones %}<span class="meta"> · {{ t.observaciones }}</span>{% endif %}</li>
+      {% empty %}<li class="vacio">Sin subtareas.</li>{% endfor %}</ul>
+    </details>
+    {% empty %}<p class="vacio nota">Este proceso aún no tiene tareas.</p>{% endfor %}
+  </details>
+  {% empty %}<p class="vacio">No hay nada con esos filtros.</p>{% endfor %}
+</section>
+{% else %}
+<section class="card"><div class="tabla-scroll"><table class="tbl tabla-plan">
+  <thead><tr><th>Nivel</th><th>Código</th><th>Proceso / Tarea / Subtarea</th><th>Responsable</th><th>Estado</th><th>Inicio</th><th>Término</th><th>Observaciones</th><th>Activo</th></tr></thead><tbody>
+  {% for r in filas %}<tr class="nivel{{ r.nivel }}"><td>{% if r.nivel == 1 %}Proceso{% elif r.nivel == 2 %}Tarea{% else %}Subtarea{% endif %}</td><td><strong>{{ r.codigo }}</strong></td>
+    <td class="sangria{{ r.nivel }}">{% if r.nivel == 1 %}{{ r.proceso }}{% if r.depende_de %} <span class="meta">(depende de {{ r.depende_de }})</span>{% endif %}{% elif r.nivel == 2 %}{{ r.tarea }}{% else %}{{ r.subtarea }}{% endif %}</td>
+    <td>{{ r.responsable|default:"—" }}</td><td>{{ r.estado }}</td><td>{{ r.fecha_inicio|date:"d-m-Y"|default:"—" }}</td><td>{{ r.fecha_termino|date:"d-m-Y"|default:"—" }}</td><td>{{ r.observaciones|default:"" }}</td><td>{% if r.activo %}Sí{% else %}No{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="9" class="vacio">No hay nada con esos filtros.</td></tr>{% endfor %}
+</tbody></table></div></section>
+{% endif %}
+{% endblock %}

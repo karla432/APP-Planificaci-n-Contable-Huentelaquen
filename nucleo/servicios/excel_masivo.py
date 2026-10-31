@@ -23,7 +23,7 @@ from django.db import transaction
 from django.db.models import Count, Q
 
 from nucleo.models import Proceso, Tarea
-from nucleo.servicios import auditoria, importador
+from nucleo.servicios import auditoria, estructura, importador
 from nucleo.servicios.errores import ErrorDeNegocio
 from nucleo.servicios.mantenedor import _exigir_edita_tareas
 from nucleo.servicios.reglas_texto import MESES, describir
@@ -133,6 +133,34 @@ def exportar_tareas() -> bytes:
     return _bytes(wb)
 
 
+# ---- La planificación completa (solo lectura: no se vuelve a cargar) ---------------------------------------------------------
+
+
+def exportar_planificacion(filas) -> bytes:
+    """La estructura de tres niveles, tal como se ve en pantalla (con los filtros aplicados). Para leer y compartir; para editar en masa se usa la planilla de tareas."""
+    wb = openpyxl.Workbook()
+    hoja = wb.active
+    hoja.title = "Planificación"
+    encabezados = ["Nivel", "Código", "Orden del proceso", "Proceso", "Tarea", "Subtarea", "Responsable", "Estado", "Fecha de inicio", "Fecha de término", "Observaciones", "Activo", "Depende de"]
+    for i, e in enumerate(encabezados, start=1):
+        c = hoja.cell(row=1, column=i, value=e)
+        c.font, c.fill = Font(bold=True), GRIS
+    for n, f in enumerate(filas, start=2):
+        valores = [{1: "Proceso", 2: "Tarea", 3: "Subtarea"}[f.nivel], f.codigo, f.orden, f.proceso, f.tarea, f.subtarea, f.responsable, f.estado, f.fecha_inicio, f.fecha_termino,
+                   f.observaciones, "Sí" if f.activo else "No", f.depende_de]
+        for col, v in enumerate(valores, start=1):
+            c = _poner(hoja, n, col, v)
+            if f.nivel == 1:
+                c.font = Font(bold=True)
+            if hasattr(v, "year"):
+                c.number_format = "dd-mm-yyyy"
+    for col, ancho in zip("ABCDEFGHIJKLM", (10, 18, 10, 34, 34, 54, 22, 13, 13, 13, 30, 8, 20)):
+        hoja.column_dimensions[col].width = ancho
+    hoja.freeze_panes = "C2"
+    hoja.auto_filter.ref = hoja.dimensions
+    return _bytes(wb)
+
+
 # ---- Procesos ---------------------------------------------------------------------------------------------------
 
 
@@ -140,17 +168,18 @@ def exportar_procesos() -> bytes:
     wb = openpyxl.Workbook()
     hoja = wb.active
     hoja.title = "Procesos"
-    for i, e in enumerate(["Orden", "Código", "Proceso", "Tareas activas", "Activo"], start=1):
+    for i, e in enumerate(["Orden", "Código", "Sigla", "Proceso", "Tareas activas", "Activo"], start=1):
         c = hoja.cell(row=1, column=i, value=e)
         c.font, c.fill = Font(bold=True), GRIS
     procesos = Proceso.objects.annotate(n=Count("tareas", filter=Q(tareas__activa=True))).order_by("orden", "nombre")
     for n, p in enumerate(procesos, start=2):
-        for col, v in enumerate([p.orden, p.codigo, p.nombre, p.n, "Sí" if p.activo else "No"], start=1):
+        for col, v in enumerate([p.orden, p.codigo, p.sigla, p.nombre, p.n, "Sí" if p.activo else "No"], start=1):
             _poner(hoja, n, col, v)
-    for col, ancho in zip("ABCDE", (8, 10, 44, 14, 8)):
+    for col, ancho in zip("ABCDEF", (8, 12, 8, 44, 14, 8)):
         hoja.column_dimensions[col].width = ancho
     hoja.cell(row=len(procesos) + 4, column=1, value="Para reordenar cambia la columna «Orden» (o mueve las filas) y vuelve a cargar. «Activo»: Sí o No. "
-              "Un proceso nuevo se agrega con su nombre. El «Código» no se cambia. Los procesos que no estén en el archivo quedan como están, después de los demás.")
+              "Un proceso nuevo se agrega con su nombre (y su sigla de 3 letras, si no la propone la app). El «Código» lo genera la app: al cambiar el orden o la sigla se actualiza solo. "
+              "Los procesos que no estén en el archivo quedan como están, después de los demás.")
     return _bytes(wb)
 
 
@@ -206,7 +235,7 @@ def cargar_procesos(usuario, contenido: bytes, nombre_archivo: str = "") -> dict
     if inicio is None:
         raise ErrorDeNegocio("El Excel no tiene la columna «Proceso».")
     cols = {importador.normalizar(c).casefold(): i for i, c in enumerate(filas[inicio]) if c}
-    i_nombre, i_orden, i_activo = cols["proceso"], cols.get("orden"), cols.get("activo")
+    i_nombre, i_orden, i_activo, i_sigla = cols["proceso"], cols.get("orden"), cols.get("activo"), cols.get("sigla")
     pedidos, vistos = [], set()
     for n, r in enumerate(filas[inicio + 1:], start=1):
         nombre = importador.normalizar(r[i_nombre]) if i_nombre < len(r) else ""
@@ -218,27 +247,33 @@ def cargar_procesos(usuario, contenido: bytes, nombre_archivo: str = "") -> dict
         orden = r[i_orden] if i_orden is not None and i_orden < len(r) else None
         orden = float(orden) if isinstance(orden, (int, float)) and not isinstance(orden, bool) else float(n)
         activo = _si_no(r[i_activo]) if i_activo is not None and i_activo < len(r) else None
-        pedidos.append((orden, n, nombre, activo))
+        sigla = importador.normalizar(r[i_sigla]).upper() if i_sigla is not None and i_sigla < len(r) else ""
+        pedidos.append((orden, n, nombre, activo, sigla))
     if not pedidos:
         raise ErrorDeNegocio("El Excel no trae procesos.")
     existentes = {p.nombre.casefold(): p for p in Proceso.objects.all()}
     creados = reordenados = cambios_activo = 0
     en_archivo = []
-    for orden, _, nombre, activo in sorted(pedidos):
+    for orden, _, nombre, activo, sigla in sorted(pedidos):
         p = existentes.get(nombre.casefold())
         if p is None:
-            p = Proceso(nombre=nombre, activo=True if activo is None else activo, orden=10**4)  # el orden definitivo se asigna abajo
+            if Proceso.objects.count() >= estructura.MAX_PROCESOS:
+                raise ErrorDeNegocio(f"Se admiten hasta {estructura.MAX_PROCESOS} procesos.")
+            p = Proceso(nombre=nombre, activo=True if activo is None else activo, sigla=estructura.validar_sigla(sigla) if sigla else "")  # el orden definitivo se asigna abajo
             p.save()
             creados += 1
-        elif activo is not None and activo != p.activo:
-            p.activo = activo
-            p.save(update_fields=["activo"])
-            cambios_activo += 1
+        else:
+            if sigla and sigla != p.sigla:
+                p.sigla = estructura.validar_sigla(sigla, excepto=p)  # cambia el código de todo el proceso, con historial
+                p.save()
+            if activo is not None and activo != p.activo:
+                estructura.fijar_activo_proceso(usuario, p, activo)
+                cambios_activo += 1
         en_archivo.append(p.pk)
     resto = [p.pk for p in Proceso.objects.exclude(pk__in=en_archivo).order_by("orden", "nombre")]
-    for i, pk in enumerate(en_archivo + resto, start=1):
-        if Proceso.objects.filter(pk=pk).exclude(orden=i).update(orden=i):
-            reordenados += 1
+    antes = dict(Proceso.objects.values_list("pk", "orden"))
+    estructura.reordenar_procesos(usuario, en_archivo + resto, motivo="Orden de la carga desde Excel", validar_permiso=False)
+    reordenados = sum(1 for pk, orden in Proceso.objects.values_list("pk", "orden") if antes.get(pk) != orden)
     resumen = {"creados": creados, "reordenados": reordenados, "activo_cambiado": cambios_activo, "en_archivo": len(en_archivo)}
     auditoria.registrar("procesos.cargados", usuario=usuario, entidad="Proceso", despues={**resumen, "archivo": nombre_archivo, "sha256": hashlib.sha256(contenido).hexdigest()})
     return resumen

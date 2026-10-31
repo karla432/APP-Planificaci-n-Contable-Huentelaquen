@@ -84,7 +84,7 @@ def test_las_pantallas_de_tareas_y_procesos_ofrecen_descargar_y_cargar(mundo):
 
 def test_la_lista_de_tareas_sigue_el_orden_de_proceso(mundo):
     html = cli(mundo["jefa"]).get(reverse("mant_tareas")).content.decode()
-    assert html.index("PRO-01-TAR-01-SUB-01") < html.index("PRO-02-TAR-01-SUB-01") < html.index("PRO-03-TAR-01-SUB-01")
+    assert html.index("01-SEG.01.001") < html.index("02-VEN.01.001") < html.index("03-VST.01.001")
 
 
 # ---- Cargar tareas: dos pasos -------------------------------------------------------------------------------------

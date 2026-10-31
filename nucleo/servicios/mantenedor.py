@@ -4,7 +4,7 @@ Un cambio en una tarea rige desde el período siguiente que se abra: las ocurren
 """
 import re
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
@@ -12,8 +12,8 @@ from django.db import transaction
 from django.db.models import Max
 
 from nucleo import permisos
-from nucleo.models import Asignacion, Cargo, Colaborador, Proceso, Tarea
-from nucleo.servicios import auditoria, codigos, reloj
+from nucleo.models import ESTADOS_PLAN, Asignacion, Cargo, Colaborador, Proceso, Tarea, TareaPrincipal
+from nucleo.servicios import auditoria, estructura, reloj
 from nucleo.servicios.errores import ErrorDeNegocio, PermisoDenegado
 from nucleo.servicios.importador import CARGO_JEFA, _clave, normalizar
 from nucleo.servicios.recurrencia import AJUSTES, TIPOS
@@ -41,6 +41,10 @@ class DatosTarea:
     activa: bool = True
     cargo_revisa_id: int | None = None  # quien revisa (o recibe, si la tarea es de un externo); vacío = sin revisor
     minutos: int | None = None  # minutos estimados por ejecución
+    estado_plan: str = "pendiente"  # planificación: estado, fechas y observaciones de la subtarea
+    fecha_inicio: date | None = None
+    fecha_termino: date | None = None
+    observaciones: str = ""
 
 
 def _validar(d: DatosTarea) -> str:
@@ -51,6 +55,10 @@ def _validar(d: DatosTarea) -> str:
         raise ErrorDeNegocio("Falta la subtarea.")
     if d.tipo not in TIPOS:
         raise ErrorDeNegocio(f"La periodicidad «{d.tipo}» no existe.")
+    if d.estado_plan not in dict(ESTADOS_PLAN):
+        raise ErrorDeNegocio("El estado elegido no existe.")
+    if d.fecha_inicio and d.fecha_termino and d.fecha_termino < d.fecha_inicio:
+        raise ErrorDeNegocio("La fecha de término no puede ser anterior a la fecha de inicio.")
     if d.ajuste not in AJUSTES:
         raise ErrorDeNegocio("El ajuste para días inhábiles debe ser «siguiente» o «anterior».")
     if d.tipo == "SEMANAL" and d.dia_semana not in range(5):
@@ -88,7 +96,8 @@ def _instantanea(t: Tarea) -> dict:
         "cargo_revisa": t.cargo_revisa.nombre if t.cargo_revisa else None, "regla_tipo": t.regla_tipo, "regla_dia_semana": t.regla_dia_semana,
         "regla_n": t.regla_n, "regla_dia": t.regla_dia, "regla_meses": t.regla_meses, "regla_ajuste": t.regla_ajuste, "regla_franja": t.regla_franja,
         "referencia_normativa": t.referencia_normativa, "activa": t.activa, "requiere_revision": t.requiere_revision,
-        "minutos_estimados": t.minutos_estimados,
+        "minutos_estimados": t.minutos_estimados, "codigo": t.codigo, "estado_plan": t.estado_plan, "fecha_inicio": str(t.fecha_inicio or ""),
+        "fecha_termino": str(t.fecha_termino or ""), "observaciones": t.observaciones,
     }
 
 
@@ -109,6 +118,12 @@ def _aplicar(t: Tarea, d: DatosTarea, motivo: str):
     t.regla_meses = ",".join(str(m) for m in sorted(d.meses))
     t.regla_ajuste, t.regla_franja, t.regla_estado = d.ajuste, d.franja, "confirmado"
     t.referencia_normativa, t.activa = d.referencia.strip(), d.activa
+    t.estado_plan, t.fecha_inicio, t.fecha_termino, t.observaciones = d.estado_plan, d.fecha_inicio, d.fecha_termino, d.observaciones.strip()
+    if t.activa:  # una subtarea activa necesita su proceso y su tarea activos
+        if not proceso.activo:
+            raise ErrorDeNegocio("El proceso está desactivado: actívalo antes de activar sus tareas.")
+        if TareaPrincipal.objects.filter(proceso=proceso, nombre__iexact=normalizar(d.tarea_principal), activa=False).exists():
+            raise ErrorDeNegocio("La tarea principal está desactivada: actívala antes de activar sus subtareas.")
     t.requiere_revision, t.motivo_revision = bool(motivo), motivo
 
 
@@ -131,8 +146,7 @@ def crear_tarea(usuario, d: DatosTarea) -> Tarea:
     motivo = _validar(d)
     clave = _exigir_no_repetida(d)
     proceso = Proceso.objects.get(pk=d.proceso_id)
-    t = Tarea(codigo=codigos.codigo_de_tarea(proceso, normalizar(d.tarea_principal)), clave_estable=clave,
-              secuencia=(Tarea.objects.aggregate(m=Max("secuencia"))["m"] or 0) + 1)  # una tarea nueva se procesa al final
+    t = Tarea(clave_estable=clave, secuencia=(Tarea.objects.aggregate(m=Max("secuencia"))["m"] or 0) + 1)  # una tarea nueva se procesa al final
     _aplicar(t, d, motivo)
     t.save()
     auditoria.registrar("tarea.creada", usuario=usuario, entidad="Tarea", entidad_id=t.pk, despues=_instantanea(t))
@@ -166,12 +180,9 @@ def _nombre_de_proceso(nombre: str, excepto: Proceso | None = None) -> str:
     return nombre
 
 
-@transaction.atomic
-def crear_proceso(usuario, nombre: str) -> Proceso:
-    _exigir_edita_tareas(usuario)
-    p = Proceso.objects.create(nombre=_nombre_de_proceso(nombre))
-    auditoria.registrar("proceso.creado", usuario=usuario, entidad="Proceso", entidad_id=p.pk, despues={"nombre": p.nombre})
-    return p
+def crear_proceso(usuario, nombre: str, sigla: str = "") -> Proceso:
+    """Crea un proceso al final del orden (la sigla la propone la app si no se indica). Ver `estructura.crear_proceso`."""
+    return estructura.crear_proceso(usuario, nombre, sigla)
 
 
 @transaction.atomic
@@ -179,9 +190,9 @@ def renombrar_proceso(usuario, p: Proceso, nombre: str, activo: bool | None = No
     _exigir_edita_tareas(usuario)
     antes = {"nombre": p.nombre, "activo": p.activo}
     p.nombre = _nombre_de_proceso(nombre, excepto=p)
-    if activo is not None:
-        p.activo = activo
     p.save()
+    if activo is not None and activo != p.activo:
+        estructura.fijar_activo_proceso(usuario, p, activo)  # desactivar un proceso desactiva también sus tareas y subtareas
     auditoria.registrar("proceso.editado", usuario=usuario, entidad="Proceso", entidad_id=p.pk, antes=antes, despues={"nombre": p.nombre, "activo": p.activo})
     return p
 

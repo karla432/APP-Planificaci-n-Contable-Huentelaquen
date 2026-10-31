@@ -57,29 +57,127 @@ def horas_texto(minutos) -> str:
     return f"{minutos / 60:.2f}".rstrip("0").rstrip(".").replace(".", ",")
 
 
-class Proceso(models.Model):
+ESTADOS_PLAN = [("pendiente", "Pendiente"), ("en_curso", "En curso"), ("completado", "Completado"), ("bloqueado", "Bloqueado")]
+
+
+class Planificable(models.Model):
+    """Campos de planificación comunes a los tres niveles (proceso, tarea, subtarea)."""
+
+    estado_plan = models.CharField(max_length=12, choices=ESTADOS_PLAN, default="pendiente")
+    fecha_inicio = models.DateField(null=True, blank=True)
+    fecha_termino = models.DateField(null=True, blank=True)
+    observaciones = models.TextField(blank=True)
+
+    class Meta:
+        abstract = True
+
+    def clean(self):
+        super().clean()
+        if self.fecha_inicio and self.fecha_termino and self.fecha_termino < self.fecha_inicio:
+            from django.core.exceptions import ValidationError
+            raise ValidationError({"fecha_termino": "La fecha de término no puede ser anterior a la de inicio."})
+
+
+def _fechas_validas(nombre: str):
+    return models.CheckConstraint(
+        condition=models.Q(fecha_inicio__isnull=True) | models.Q(fecha_termino__isnull=True) | models.Q(fecha_termino__gte=models.F("fecha_inicio")), name=nombre)
+
+
+class Proceso(Planificable):
+    """Nivel 1. Código OO-PPP: OO es el orden de ejecución (campo aparte) y PPP la sigla de tres letras."""
+
     nombre = models.CharField(max_length=160, unique=True)
     activo = models.BooleanField(default=True)
-    orden = models.PositiveSmallIntegerField(default=0, help_text="Orden en que se procesan (el del Excel). Se puede cambiar; el código no cambia.")
-    codigo = models.CharField(max_length=10, unique=True, blank=True, help_text="PRO-01, PRO-02… Lo asigna la app y no cambia.")
+    orden = models.PositiveSmallIntegerField(default=0, help_text="Orden de ejecución (1, 2, 3…). Único. Cambiarlo actualiza el prefijo de todos los códigos del proceso.")
+    sigla = models.CharField(max_length=3, unique=True, blank=True, help_text="Tres letras mayúsculas que identifican al proceso (VEN, COM…).")
+    codigo = models.CharField(max_length=10, unique=True, blank=True, help_text="OO-PPP, por ejemplo 02-VEN. Lo genera la app.")
+    responsable = models.ForeignKey("Cargo", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
 
     class Meta:
         ordering = ["orden", "nombre"]
+        constraints = [models.UniqueConstraint(fields=["orden"], name="proceso_orden_unico"), _fechas_validas("proceso_fechas_validas")]
 
     def save(self, *args, **kwargs):
+        from nucleo import siglas
+        from nucleo.servicios import codigos
         if not self.orden:
             self.orden = (Proceso.objects.aggregate(m=models.Max("orden"))["m"] or 0) + 1
-        if not self.codigo:
-            numeros = [int(c[4:]) for c in Proceso.objects.values_list("codigo", flat=True) if c[4:].isdigit()]
-            self.codigo = f"PRO-{(max(numeros) if numeros else 0) + 1:02d}"
+        if not self.sigla:
+            self.sigla = siglas.derivar(self.nombre, set(Proceso.objects.exclude(pk=self.pk).values_list("sigla", flat=True)))
+        self.sigla = self.sigla.upper()
+        anterior, self.codigo = self.codigo, f"{self.orden:02d}-{self.sigla}"
         super().save(*args, **kwargs)
+        if anterior and anterior != self.codigo:
+            codigos.al_cambiar_el_codigo_del_proceso(self, anterior)
 
     def __str__(self):
         return self.nombre
 
 
-class Tarea(models.Model):
-    codigo = models.CharField(max_length=30, unique=True)  # PRO-01-TAR-03-SUB-02: proceso, tarea principal y subtarea
+class TareaPrincipal(Planificable):
+    """Nivel 2. Código OO-PPP.TT. La app llama «Tarea» a este nivel y «Subtarea» al siguiente (el modelo `Tarea`)."""
+
+    proceso = models.ForeignKey(Proceso, on_delete=models.PROTECT, related_name="tareas_principales")
+    nombre = models.CharField(max_length=300)
+    numero = models.PositiveSmallIntegerField(default=0, help_text="Correlativo dentro del proceso (TT).")
+    codigo = models.CharField(max_length=16, unique=True, blank=True)
+    activa = models.BooleanField(default=True)
+    responsable = models.ForeignKey("Cargo", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+
+    class Meta:
+        ordering = ["proceso__orden", "numero"]
+        constraints = [
+            models.UniqueConstraint(fields=["proceso", "numero"], name="tarea_principal_numero_unico"),
+            models.UniqueConstraint(fields=["proceso", "nombre"], name="tarea_principal_nombre_unico"),
+            _fechas_validas("tarea_principal_fechas_validas"),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self.numero:
+            self.numero = (TareaPrincipal.objects.filter(proceso=self.proceso).aggregate(m=models.Max("numero"))["m"] or 0) + 1
+        if self.numero > 99:
+            raise ValueError("Un proceso admite hasta 99 tareas (el correlativo TT tiene dos dígitos).")
+        self.codigo = f"{self.proceso.codigo}.{self.numero:02d}"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.codigo} {self.nombre}"
+
+
+class DependenciaProceso(models.Model):
+    """`proceso` solo puede empezar cuando termina `depende_de`. Sin ciclos (se valida en el servicio)."""
+
+    proceso = models.ForeignKey(Proceso, on_delete=models.CASCADE, related_name="dependencias")
+    depende_de = models.ForeignKey(Proceso, on_delete=models.CASCADE, related_name="dependientes")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["proceso", "depende_de"], name="dependencia_unica"),
+            models.CheckConstraint(condition=~models.Q(proceso=models.F("depende_de")), name="dependencia_no_a_si_mismo"),
+        ]
+
+
+class CambioDeCodigo(models.Model):
+    """Historial: cuando un código cambia (reordenar, cambiar sigla o mover una subtarea) el anterior queda aquí y sigue siendo buscable."""
+
+    nivel = models.PositiveSmallIntegerField()
+    objeto_id = models.PositiveIntegerField()
+    codigo_anterior = models.CharField(max_length=30, db_index=True)
+    codigo_nuevo = models.CharField(max_length=30)
+    motivo = models.CharField(max_length=160, blank=True)
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    momento = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-id"]
+
+
+class Tarea(Planificable):
+    """Nivel 3 (la «Subtarea»). Código OO-PPP.TT.SSS. Lleva la regla de recurrencia, el responsable y todo lo que se ejecuta mes a mes."""
+
+    codigo = models.CharField(max_length=30, unique=True)  # 02-VEN.01.003: se genera solo
+    padre = models.ForeignKey(TareaPrincipal, null=True, blank=True, on_delete=models.PROTECT, related_name="subtareas")
+    numero = models.PositiveSmallIntegerField(default=0, help_text="Correlativo dentro de la tarea (SSS).")
     clave_estable = models.CharField(max_length=64, unique=True)  # hash de proceso + tarea + subtarea normalizados
     proceso = models.ForeignKey(Proceso, on_delete=models.PROTECT, related_name="tareas")
     tarea_principal = models.CharField(max_length=300)
@@ -110,6 +208,13 @@ class Tarea(models.Model):
 
     class Meta:
         ordering = ["secuencia", "codigo"]
+        constraints = [models.UniqueConstraint(fields=["padre", "numero"], name="subtarea_numero_unico"), _fechas_validas("subtarea_fechas_validas")]
+
+    def save(self, *args, **kwargs):
+        if kwargs.get("update_fields") is None:
+            from nucleo.servicios import codigos
+            codigos.preparar_subtarea(self)  # asegura la tarea (nivel 2), el correlativo y el código
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.codigo} {self.subtarea[:60]}"

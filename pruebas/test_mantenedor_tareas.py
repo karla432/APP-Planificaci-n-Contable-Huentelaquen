@@ -30,10 +30,10 @@ def datos(mundo, **cambios):
 
 def test_crear_una_tarea_con_codigo_regla_horas_y_revisor(mundo):
     t = mantenedor.crear_tarea(mundo["u"]["jefa"], datos(mundo, cargo_revisa_id=mundo["ger"].pk, minutos=45))
-    assert t.codigo == f"{mundo['proceso'].codigo}-TAR-01-SUB-01" and t.cargo_ejecuta == mundo["cont"] and t.cargo_revisa == mundo["ger"]
+    assert t.codigo == f"{mundo['proceso'].codigo}.01.001" and t.cargo_ejecuta == mundo["cont"] and t.cargo_revisa == mundo["ger"]
     assert (t.regla_tipo, t.regla_n) == ("CIERRE_DIA_HABIL", 2) and t.activa and not t.requiere_revision
     assert t.minutos_estimados == 45 and float(t.ejecuciones_mes) == 1  # una vez al mes: es del cierre
-    assert mantenedor.crear_tarea(mundo["u"]["ger"], datos(mundo, subtarea="Otra subtarea")).codigo.endswith("-TAR-01-SUB-02")  # misma tarea principal: sigue la subtarea
+    assert mantenedor.crear_tarea(mundo["u"]["ger"], datos(mundo, subtarea="Otra subtarea")).codigo.endswith(".01.002")  # misma tarea: sigue la subtarea
     assert EventoAuditoria.objects.filter(accion="tarea.creada", entidad_id=str(t.pk)).exists()
 
 
@@ -117,7 +117,7 @@ def test_el_codigo_y_la_clave_no_cambian_al_editar_el_texto(mundo):
     t = mantenedor.crear_tarea(mundo["u"]["jefa"], datos(mundo))
     clave = t.clave_estable
     t = mantenedor.editar_tarea(mundo["u"]["jefa"], t, datos(mundo, subtarea="Texto corregido"))
-    assert t.codigo.endswith("-TAR-01-SUB-01") and t.clave_estable == clave and t.subtarea == "Texto corregido"
+    assert t.codigo.endswith(".01.001") and t.clave_estable == clave and t.subtarea == "Texto corregido"
 
 
 def test_desactivar_no_borra(mundo):
@@ -157,10 +157,10 @@ def test_codigo_pro_tar_sub_una_tarea_principal_nueva_abre_numero_y_sus_subtarea
     a1 = mantenedor.crear_tarea(mundo["u"]["jefa"], datos(mundo, tarea_principal="Libro de compras", subtarea="Cotejar"))
     b1 = mantenedor.crear_tarea(mundo["u"]["jefa"], datos(mundo, tarea_principal="Libro de ventas", subtarea="Cotejar ventas"))
     a2 = mantenedor.crear_tarea(mundo["u"]["jefa"], datos(mundo, tarea_principal="Libro de compras", subtarea="Corregir diferencias"))
-    assert (a1.codigo, b1.codigo, a2.codigo) == (f"{pro}-TAR-01-SUB-01", f"{pro}-TAR-02-SUB-01", f"{pro}-TAR-01-SUB-02")
+    assert (a1.codigo, b1.codigo, a2.codigo) == (f"{pro}.01.001", f"{pro}.02.001", f"{pro}.01.002")
     assert a1.secuencia < b1.secuencia < a2.secuencia  # lo nuevo se procesa al final
 
 
 def test_un_proceso_nuevo_toma_el_codigo_y_el_orden_siguientes(mundo):
     p1, p2 = mundo["proceso"], mantenedor.crear_proceso(mundo["u"]["jefa"], "Proceso nuevo")
-    assert p2.codigo == "PRO-" + f"{int(p1.codigo[4:]) + 1:02d}" and p2.orden == p1.orden + 1
+    assert p2.orden == p1.orden + 1 and p2.codigo == f"{p2.orden:02d}-{p2.sigla}" and len(p2.sigla) == 3

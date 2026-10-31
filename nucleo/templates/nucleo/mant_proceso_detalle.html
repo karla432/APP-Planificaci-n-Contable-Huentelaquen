@@ -1,0 +1,58 @@
+{% extends "nucleo/base.html" %}
+{% block titulo %}{{ p.codigo }} · {{ p.nombre }}{% endblock %}
+{% block contenido %}
+<p class="kick"><a href="{% url 'mant_procesos' %}">Mantenedor · Procesos</a></p>
+<h1 class="ancho">{{ p.codigo }} · {{ p.nombre }}</h1>
+<p class="meta">Orden de ejecución <strong>{{ p.orden }}</strong> · sigla <strong>{{ p.sigla }}</strong> · {% if p.activo %}<span class="pill p-ok">Activo</span>{% else %}<span class="pill p-grey">Inactivo</span>{% endif %}
+  · <a href="{% url 'planificacion' %}?proceso={{ p.pk }}">Ver su árbol</a> · <a href="{% url 'mant_tareas' %}?proceso={{ p.pk }}">Editar sus subtareas</a></p>
+
+<section class="card"><h2>Datos del proceso</h2>
+  <form method="post" class="formulario">{% csrf_token %}<input type="hidden" name="accion" value="guardar">
+    <label for="nombre">Nombre</label><input id="nombre" name="nombre" value="{{ p.nombre }}" required maxlength="160">
+    <label for="sigla">Sigla (3 letras)</label><input id="sigla" name="sigla" value="{{ p.sigla }}" required maxlength="3" minlength="3" pattern="[A-Za-z]{3}" style="text-transform:uppercase" title="Tres letras, sin tildes">
+    <p class="meta">Cambiar la sigla cambia el código de todo el proceso (queda el anterior en el historial). El orden no se cambia aquí: usa ▲ ▼ en la lista de procesos.</p>
+    {% include "nucleo/_plan_campos.html" with obj=p prefijo="" %}
+    <p><button class="btn" type="submit">Guardar</button></p>
+  </form>
+  <form method="post" class="filtros">{% csrf_token %}<input type="hidden" name="accion" value="activo"><input type="hidden" name="valor" value="{% if p.activo %}0{% else %}1{% endif %}">
+    <label class="check"><input type="checkbox" name="con_hijos"> {% if p.activo %}(se desactivan también sus tareas y subtareas){% else %}Activar también sus tareas y subtareas{% endif %}</label>
+    <button class="btn btn-2" type="submit">{% if p.activo %}Desactivar proceso{% else %}Activar proceso{% endif %}</button></form>
+</section>
+
+<section class="card"><h2>De qué depende</h2>
+  <p class="meta">Este proceso solo puede empezar cuando terminen los que marques. Solo se pueden elegir procesos que van antes en el orden. Los que no dependen entre sí pueden ir en paralelo.</p>
+  <form method="post">{% csrf_token %}<input type="hidden" name="accion" value="dependencias">
+    <fieldset>{% for q in posibles %}<label class="check"><input type="checkbox" name="depende_de" value="{{ q.pk }}" {% if q.pk in depende_de %}checked{% endif %}> {{ q.codigo }} · {{ q.nombre }}</label>{% empty %}<p class="meta">Es el primer proceso: no tiene a quién esperar.</p>{% endfor %}</fieldset>
+    {% if posibles %}<p><button class="btn btn-2" type="submit">Guardar dependencias</button></p>{% endif %}</form>
+  {% if dependientes %}<p class="meta">Esperan a este proceso: {% for d in dependientes %}<span class="chip">{{ d.codigo }}</span>{% endfor %}</p>{% endif %}
+</section>
+
+<section class="card"><h2>Tareas del proceso</h2>
+  <form method="post" class="filtros">{% csrf_token %}<input type="hidden" name="accion" value="tarea_crear">
+    <div><label for="nueva-tarea">Nueva tarea</label><input id="nueva-tarea" name="nombre" required maxlength="300"></div><div><button class="btn" type="submit">Agregar tarea</button></div></form>
+  <div class="tabla-scroll"><table class="tbl"><thead><tr><th>Código</th><th>Tarea</th><th class="n">Subtareas</th><th>Responsable</th><th>Estado</th><th>Inicio</th><th>Término</th><th>Observaciones</th><th></th></tr></thead><tbody>
+  {% for t in tareas %}
+    <tr><td><strong>{{ t.codigo }}</strong>{% if not t.activa %}<br><span class="pill p-grey">Inactiva</span>{% endif %}
+      <form id="t{{ t.pk }}" method="post">{% csrf_token %}<input type="hidden" name="accion" value="tarea_guardar"><input type="hidden" name="tarea" value="{{ t.pk }}"></form></td>
+      <td><input form="t{{ t.pk }}" name="nombre" value="{{ t.nombre }}" required maxlength="300" aria-label="Nombre de {{ t.codigo }}"></td><td class="n">{{ t.n }}</td>
+      <td><select form="t{{ t.pk }}" name="responsable" aria-label="Responsable de {{ t.codigo }}"><option value="">—</option>{% for c in cargos %}<option value="{{ c.pk }}" {% if t.responsable_id == c.pk %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}</select></td>
+      <td><select form="t{{ t.pk }}" name="estado_plan" aria-label="Estado de {{ t.codigo }}">{% for k, n in estados %}<option value="{{ k }}" {% if t.estado_plan == k %}selected{% endif %}>{{ n }}</option>{% endfor %}</select></td>
+      <td><input form="t{{ t.pk }}" type="date" name="fecha_inicio" value="{{ t.fecha_inicio|date:'Y-m-d' }}" aria-label="Inicio de {{ t.codigo }}"></td>
+      <td><input form="t{{ t.pk }}" type="date" name="fecha_termino" value="{{ t.fecha_termino|date:'Y-m-d' }}" aria-label="Término de {{ t.codigo }}"></td>
+      <td><input form="t{{ t.pk }}" name="observaciones" value="{{ t.observaciones }}" aria-label="Observaciones de {{ t.codigo }}"></td>
+      <td><button class="btn btn-2 btn-sm" form="t{{ t.pk }}" type="submit">Guardar</button>
+        <form method="post" style="display:inline">{% csrf_token %}<input type="hidden" name="accion" value="tarea_activa"><input type="hidden" name="tarea" value="{{ t.pk }}"><input type="hidden" name="valor" value="{% if t.activa %}0{% else %}1{% endif %}">
+          <button class="btn btn-2 btn-sm" type="submit">{% if t.activa %}Desactivar{% else %}Activar{% endif %}</button></form></td></tr>
+  {% empty %}<tr><td colspan="9" class="vacio">Este proceso aún no tiene tareas.</td></tr>{% endfor %}
+  </tbody></table></div>
+  <p class="meta">Desactivar una tarea desactiva sus subtareas. Para agregar subtareas usa <a href="{% url 'mant_tarea_nueva' %}">Nueva subtarea</a> y elige esta tarea.</p>
+</section>
+<script>
+(function () {
+  document.querySelectorAll('input[name=fecha_inicio]').forEach(function (ini) {
+    var form = ini.form, fin = form ? form.querySelector('input[name=fecha_termino]') : ini.closest('form').querySelector('input[name=fecha_termino]');
+    function limite() { if (fin) fin.min = ini.value || ''; } ini.addEventListener('change', limite); limite();
+  });
+})();
+</script>
+{% endblock %}

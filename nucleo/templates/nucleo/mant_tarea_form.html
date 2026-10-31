@@ -7,7 +7,9 @@
 <form method="post" class="card formulario">{% csrf_token %}
   <label for="proceso">Proceso</label>
   <select id="proceso" name="proceso" required>{% for p in procesos %}<option value="{{ p.pk }}" {% if v.proceso == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.nombre }}</option>{% endfor %}</select>
-  <label for="tarea_principal">Tarea principal</label><input id="tarea_principal" name="tarea_principal" value="{{ v.tarea_principal }}" required>
+  <label for="tarea_principal">Tarea (la subtarea queda dentro de ella)</label><input id="tarea_principal" name="tarea_principal" value="{{ v.tarea_principal }}" list="tareas-existentes" required autocomplete="off">
+  <datalist id="tareas-existentes">{% for t in tareas_existentes %}<option value="{{ t.nombre }}">{{ t.codigo }} · {{ t.proceso.nombre }}</option>{% endfor %}</datalist>
+  <p class="meta">Si la tarea ya existe en el proceso, la subtarea se agrega a ella; si no, se crea. El código (por ejemplo 02-VEN.01.003) lo genera la app.</p>
   <label for="subtarea">Subtarea</label><textarea id="subtarea" name="subtarea" rows="2" required>{{ v.subtarea }}</textarea>
   <label for="cargo_ejecuta">Responsable (quien la ejecuta)</label>
   <select id="cargo_ejecuta" name="cargo_ejecuta" required>{% for c in cargos %}<option value="{{ c.pk }}" {% if v.cargo_ejecuta == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nombre }}{% if c.es_externo %} (externo){% endif %}</option>{% endfor %}</select>
@@ -27,6 +29,11 @@
   <div class="grupo" data-para="DIA_FIJO FIN_DE_MES MESES"><label for="ajuste">Si cae en día inhábil, pasa al día hábil…</label>
     <select id="ajuste" name="ajuste"><option value="siguiente" {% if v.ajuste == "siguiente" %}selected{% endif %}>siguiente</option><option value="anterior" {% if v.ajuste == "anterior" %}selected{% endif %}>anterior</option></select></div>
 
+  <fieldset><legend>Planificación</legend>
+    <label for="estado_plan">Estado</label><select id="estado_plan" name="estado_plan">{% for k, n in estados %}<option value="{{ k }}" {% if v.estado_plan == k %}selected{% endif %}>{{ n }}</option>{% endfor %}</select>
+    <label for="fecha_inicio">Fecha de inicio</label><input id="fecha_inicio" name="fecha_inicio" type="date" value="{{ v.fecha_inicio }}">
+    <label for="fecha_termino">Fecha de término</label><input id="fecha_termino" name="fecha_termino" type="date" value="{{ v.fecha_termino }}">
+    <label for="observaciones">Observaciones</label><textarea id="observaciones" name="observaciones" rows="2">{{ v.observaciones }}</textarea></fieldset>
   <label for="referencia">Referencia normativa (opcional)</label><textarea id="referencia" name="referencia" rows="2">{{ v.referencia }}</textarea>
   <label class="check"><input type="checkbox" name="activa" {% if v.activa %}checked{% endif %}> Tarea activa</label>
   <p><button class="btn" type="submit">Guardar</button> <a class="btn btn-2" href="{% url 'mant_tareas' %}">Cancelar</a></p>
@@ -36,6 +43,8 @@
   var tipo = document.getElementById('tipo');
   function mostrar() { document.querySelectorAll('.grupo').forEach(function (g) { g.hidden = g.dataset.para.split(' ').indexOf(tipo.value) < 0; }); }
   tipo.addEventListener('change', mostrar); mostrar();
+  var ini = document.getElementById('fecha_inicio'), fin = document.getElementById('fecha_termino');
+  function limite() { fin.min = ini.value || ''; } ini.addEventListener('change', limite); limite();
 })();
 </script>
 {% endblock %}

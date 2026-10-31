@@ -130,3 +130,13 @@ a.tarjeta .area { display: block; font-size: 11px; font-weight: 700; letter-spac
 .kpis { display: flex; flex-wrap: wrap; gap: 12px 32px; } .kpi b { display: block; font-family: var(--hu-serif); font-size: 2.2rem; line-height: 1; color: var(--hu-maroon); } .kpi span { color: var(--hu-gray); font-size: 13px; } .kpi.rojo b { color: var(--hu-risk); }
 @media (max-width: 900px) { .cifra-grande { font-size: 4.5rem; } }
 .card h3 { margin: 22px 0 8px; } .card details { margin-top: 14px; } .card form.filtros { margin-top: 14px; }
+/* Planificación: árbol y tabla */
+.arbol { margin-bottom: 24px; } .nodo { border: 1px solid var(--hu-card-line); background: var(--hu-card); margin: 0 0 8px; padding: 0; } .nodo > summary { cursor: pointer; padding: 10px 14px; list-style: none; } .nodo > summary::-webkit-details-marker { display: none; }
+.nodo > summary::before { content: "▸"; display: inline-block; width: 1.1em; color: var(--hu-red); } .nodo[open] > summary::before { content: "▾"; }
+.n1 > summary { font-size: 1.05rem; background: #fff; } .n2 { margin: 0 12px 8px 28px; background: #FCFAFA; } .n2 > summary { padding: 8px 12px; }
+.cod { display: inline-block; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; color: var(--hu-maroon); background: var(--hu-pink-2); padding: 1px 7px; margin-right: 6px; }
+.n3 { list-style: none; margin: 0; padding: 4px 14px 10px 34px; } .n3 li { padding: 5px 0; border-top: 1px solid var(--hu-line); } .nota { padding: 0 14px 8px 34px; }
+.tabla-plan tr.nivel1 td { background: #fff; font-weight: 700; } .tabla-plan tr.nivel2 td { background: #FCFAFA; } .sangria2 { padding-left: 28px !important; } .sangria3 { padding-left: 52px !important; }
+.chip { display: inline-block; background: var(--hu-pink-2); color: var(--hu-maroon); padding: 1px 8px; margin: 2px 4px 2px 0; font-size: 13px; border: 1px solid var(--hu-card-line); }
+.etapas { margin: 8px 0 0 18px; padding: 0; } .etapas li { margin-bottom: 8px; } .mover form { display: flex; gap: 4px; } .mover .btn[disabled] { opacity: .35; cursor: default; }
+code { font-family: ui-monospace, Menlo, Consolas, monospace; background: var(--hu-pink-2); padding: 0 5px; }

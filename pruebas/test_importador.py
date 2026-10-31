@@ -117,7 +117,7 @@ def test_aplicar_crea_tareas_en_orden_con_codigos_horas_y_sin_personas():
     importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
     assert Tarea.objects.count() == 195 and Proceso.objects.count() == 35
     primeras = list(Tarea.objects.order_by("secuencia").values_list("codigo", "secuencia", flat=False)[:2])
-    assert primeras == [("PRO-01-TAR-01-SUB-01", 1), ("PRO-01-TAR-02-SUB-01", 2)] and Tarea.objects.order_by("secuencia").last().secuencia == 195
+    assert primeras == [("01-SEG.01.001", 1), ("01-SEG.02.001", 2)] and Tarea.objects.order_by("secuencia").last().secuencia == 195
     assert Colaborador.objects.count() == 0  # las personas las crea el administrador
     cuentas = Counter(Tarea.objects.values_list("cargo_ejecuta__nombre", flat=True))
     assert (cuentas["Jefa de Control"], cuentas["Contador Senior"], cuentas["Asistente Contable"], cuentas["Gerente AyF"]) == (80, 54, 29, 20)
@@ -196,7 +196,8 @@ def test_reimportar_un_excel_actualizado_muestra_altas_cambios_y_bajas(tmp_path)
     vp = importador.previsualizar(nuevo)
     assert (len(vp.altas), len(vp.cambios), len(vp.bajas)) == (1, 1, 1) and vp.procesos_nuevos == ["Proceso nuevo"]
     importador.aplicar(vp, usuario=None)
-    assert Tarea.objects.get(subtarea="Subtarea nueva").codigo == "PRO-36-TAR-01-SUB-01"  # proceso nuevo: sigue al último (35)
+    t_nueva = Tarea.objects.get(subtarea="Subtarea nueva")
+    assert t_nueva.codigo.startswith("36-") and t_nueva.codigo.endswith(".01.001")  # proceso nuevo: sigue al último (35)
     assert Tarea.objects.filter(activa=False).count() == 1  # no se borra físicamente
     assert Tarea.objects.get(secuencia=1).cargo_ejecuta.nombre == "Asistente Contable"
 
@@ -230,7 +231,7 @@ def test_los_procesos_quedan_en_el_orden_del_excel_y_no_en_orden_alfabetico():
     importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
     assert list(Proceso.objects.values_list("nombre", flat=True)) == esperado
     assert esperado != sorted(esperado)  # el Excel no está ordenado por el alfabeto
-    assert list(Proceso.objects.values_list("codigo", flat=True))[:3] == ["PRO-01", "PRO-02", "PRO-03"]
+    assert list(Proceso.objects.values_list("codigo", flat=True))[:3] == ["01-SEG", "02-VEN", "03-VST"]
     assert Proceso.objects.get(nombre="Revisión día 9").orden == esperado.index("Revisión día 9") + 1
 
 
@@ -239,6 +240,6 @@ def test_todos_los_codigos_tienen_la_forma_pro_tar_sub_y_son_unicos():
     import re
     importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
     codigos = list(Tarea.objects.values_list("codigo", flat=True))
-    assert all(re.fullmatch(r"PRO-\d{2}-TAR-\d{2}-SUB-\d{2}", c) for c in codigos) and len(set(codigos)) == len(codigos) == 195
+    assert all(re.fullmatch(r"\d{2}-[A-Z]{3}\.\d{2}\.\d{3}", c) for c in codigos) and len(set(codigos)) == len(codigos) == 195
     for t in Tarea.objects.select_related("proceso"):
-        assert t.codigo.startswith(t.proceso.codigo + "-")
+        assert t.codigo.startswith(t.proceso.codigo + ".")

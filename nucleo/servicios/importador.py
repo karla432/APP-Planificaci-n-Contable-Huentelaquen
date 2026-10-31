@@ -23,8 +23,10 @@ from pathlib import Path
 import openpyxl
 from django.db import transaction
 
+from nucleo import siglas
+from nucleo.servicios import estructura
 from nucleo.models import Cargo, Proceso, Tarea
-from nucleo.servicios import auditoria, codigos
+from nucleo.servicios import auditoria
 from nucleo.servicios.calendario import Calendario
 from nucleo.servicios.recurrencia import Regla, ReglaIncompleta, ReglaInvalida, fechas_limite
 
@@ -346,11 +348,20 @@ def _aplicar_valores(tarea: Tarea, valores: dict):
             setattr(tarea, k, v)
 
 
+def _proceso(nombre: str) -> Proceso:
+    existente = Proceso.objects.filter(nombre=nombre).first()
+    if existente:
+        return existente
+    ocupadas = set(Proceso.objects.values_list("sigla", flat=True))
+    sigla = siglas.SIGLAS_HACIENDA.get(nombre)
+    return Proceso.objects.create(nombre=nombre, sigla=sigla if sigla and sigla not in ocupadas else siglas.derivar(nombre, ocupadas))
+
+
 @transaction.atomic
 def aplicar(vp: VistaPrevia, usuario, detalle: dict | None = None) -> dict:
     for f in vp.altas:
-        proceso, _ = Proceso.objects.get_or_create(nombre=f.proceso)  # un proceso nuevo queda al final, en el orden en que aparece en el Excel
-        tarea = Tarea(codigo=codigos.codigo_de_tarea(proceso, f.tarea_principal), clave_estable=f.clave, proceso=proceso, tarea_principal=f.tarea_principal, subtarea=f.subtarea)
+        proceso = _proceso(f.proceso)  # un proceso nuevo queda al final, en el orden en que aparece en el Excel
+        tarea = Tarea(clave_estable=f.clave, proceso=proceso, tarea_principal=f.tarea_principal, subtarea=f.subtarea)  # el código se genera solo
         _aplicar_valores(tarea, _valores(f))
         tarea.save()
     for tarea, f, diff in vp.cambios:
@@ -362,9 +373,10 @@ def aplicar(vp: VistaPrevia, usuario, detalle: dict | None = None) -> dict:
     for clave, orden in vp.secuencias.items():  # el orden de proceso es el del Excel
         Tarea.objects.filter(clave_estable=clave).update(secuencia=orden)
     # El orden de los procesos es el del archivo; los que el archivo no menciona quedan después, como estaban.
-    resto = [p.nombre for p in Proceso.objects.exclude(nombre__in=vp.orden_procesos)]
-    for i, nombre in enumerate(vp.orden_procesos + resto, start=1):
-        Proceso.objects.filter(nombre=nombre).update(orden=i)
+    por_nombre = {p.nombre: p.pk for p in Proceso.objects.all()}
+    en_archivo = [por_nombre[n] for n in vp.orden_procesos if n in por_nombre]
+    resto = [p.pk for p in Proceso.objects.exclude(pk__in=en_archivo)]
+    estructura.reordenar_procesos(usuario, en_archivo + resto, motivo="Orden de la carga desde Excel", validar_permiso=False)  # cambia los códigos de forma controlada
     resumen = {"altas": len(vp.altas), "cambios": len(vp.cambios), "bajas": len(vp.bajas),
                "requieren_revision": len(vp.requieren_revision), "externas": len(vp.externas)}
     auditoria.registrar("importacion.aplicada", usuario=usuario, entidad="Tarea", despues={**resumen, **(detalle or {})})

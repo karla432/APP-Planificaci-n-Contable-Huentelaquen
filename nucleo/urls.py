@@ -1,7 +1,7 @@
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
-from nucleo import views, views_checklist_cargos, views_apertura, views_informes, views_mantenedor
+from nucleo import views, views_apertura, views_checklist_cargos, views_informes, views_mantenedor, views_planificacion
 from nucleo.autenticacion import FormularioDeIngreso
 
 urlpatterns = [
@@ -15,6 +15,8 @@ urlpatterns = [
     path("informes/cronograma/", views_informes.cronograma, name="informe_cronograma"),
     path("informes/carga/", views_informes.carga_del_equipo, name="informe_carga"),
     path("checklist/cargos/", views_checklist_cargos.cargos, name="checklist_cargos"),
+    path("planificacion/", views_planificacion.planificacion, name="planificacion"),
+    path("planificacion/exportar/", views_planificacion.planificacion_exportar, name="planificacion_exportar"),
     path("cierre/abrir/", views_apertura.abrir_mes, name="abrir_mes"),
     path("mantenedor/tareas/", views_mantenedor.tareas, name="mant_tareas"),
     path("mantenedor/tareas/exportar/", views_mantenedor.tareas_exportar, name="mant_tareas_exportar"),
@@ -22,6 +24,7 @@ urlpatterns = [
     path("mantenedor/tareas/nueva/", views_mantenedor.tarea_nueva, name="mant_tarea_nueva"),
     path("mantenedor/tareas/<int:pk>/", views_mantenedor.tarea_editar, name="mant_tarea_editar"),
     path("mantenedor/procesos/", views_mantenedor.procesos, name="mant_procesos"),
+    path("mantenedor/procesos/<int:pk>/", views_mantenedor.proceso_detalle, name="mant_proceso_detalle"),
     path("mantenedor/procesos/exportar/", views_mantenedor.procesos_exportar, name="mant_procesos_exportar"),
     path("mantenedor/procesos/cargar/", views_mantenedor.procesos_cargar, name="mant_procesos_cargar"),
     path("mantenedor/usuarios/", views_mantenedor.usuarios, name="mant_usuarios"),

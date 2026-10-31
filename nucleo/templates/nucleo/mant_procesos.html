@@ -2,21 +2,45 @@
 {% block titulo %}Mantenedor de procesos{% endblock %}
 {% block contenido %}
 <div class="encabezado"><div><p class="kick">Mantenedor</p><h1>Procesos</h1></div>
-  <a class="btn btn-2" href="{% url 'mant_procesos_exportar' %}">Descargar Excel</a></div>
-<form method="post" action="{% url 'mant_procesos_cargar' %}" enctype="multipart/form-data" class="card filtros">{% csrf_token %}
-  <div><label for="archivo-p">Cargar procesos desde Excel (orden, activo y procesos nuevos)</label><input id="archivo-p" type="file" name="archivo" accept=".xlsx" required></div>
-  <div><button class="btn btn-2" type="submit">Cargar Excel</button></div>
-  <p class="meta" style="flex-basis:100%">Descarga la planilla, cambia la columna «Orden» o «Activo», agrega procesos nuevos al final y súbela de nuevo. Los procesos se siguen en el orden indicado.</p></form>
-<form method="post" class="card filtros">{% csrf_token %}<input type="hidden" name="accion" value="crear">
-  <div><label for="nuevo">Nuevo proceso</label><input id="nuevo" name="nombre" required></div><div><button class="btn" type="submit">Agregar</button></div></form>
+  <div class="acciones"><a class="btn btn-2" href="{% url 'planificacion' %}">Ver árbol y tabla</a><a class="btn btn-2" href="{% url 'mant_procesos_exportar' %}">Descargar Excel</a></div></div>
+<p class="sub">El número de la izquierda es el <strong>orden de ejecución</strong>. Es independiente de la sigla de 3 letras: si cambias el orden, el prefijo del código de cada proceso, tarea y subtarea se actualiza solo y el código anterior queda en el historial.</p>
+
+<section class="card"><h2>Secuencia de ejecución</h2>
+  {% if hay_dependencias %}
+    <p class="meta">Cada etapa empieza cuando terminan las anteriores de las que depende. <strong>Los procesos de una misma etapa pueden ejecutarse en paralelo.</strong></p>
+    <ol class="etapas">{% for e in etapas %}<li><strong>Etapa {{ e.numero }}</strong>{% if e.numero == 1 %} · se ejecuta primero{% endif %}{% if e.en_paralelo %} · <span class="pill p-ok">en paralelo</span>{% endif %}
+      <div>{% for p in e.procesos %}<span class="chip">{{ p.codigo }} · {{ p.nombre }}</span>{% endfor %}</div></li>{% endfor %}</ol>
+  {% else %}
+    <p class="meta">Aún no hay dependencias definidas: los procesos se ejecutan en el orden de la lista y todos podrían empezar a la vez. Para indicar que uno espera a otro, abre el proceso y marca de cuáles depende.</p>
+  {% endif %}
+</section>
+
+<section class="card"><h2>Nuevo proceso</h2>
+  <form method="post" class="filtros">{% csrf_token %}<input type="hidden" name="accion" value="crear">
+    <div><label for="nuevo">Nombre</label><input id="nuevo" name="nombre" required maxlength="160"></div>
+    <div><label for="sigla">Sigla (3 letras, opcional)</label><input id="sigla" name="sigla" maxlength="3" minlength="3" pattern="[A-Za-z]{3}" placeholder="VEN" style="text-transform:uppercase" title="Tres letras, sin tildes"></div>
+    <div><button class="btn" type="submit">Agregar al final</button></div></form>
+  <form method="post" class="filtros">{% csrf_token %}<input type="hidden" name="accion" value="catalogo">
+    <div><button class="btn btn-2" type="submit">Cargar el catálogo base (11 procesos)</button></div>
+    <p class="meta" style="flex-basis:100%">Agrega al final los procesos del catálogo base que aún no existan (PLA, VEN, CXC, COM, CXP, TES, INV, ACT, CON, IMP, CIE), con sus dependencias propuestas. Todo se puede editar después. Los que ya existen no se tocan.</p></form>
+  <form method="post" action="{% url 'mant_procesos_cargar' %}" enctype="multipart/form-data" class="filtros">{% csrf_token %}
+    <div><label for="archivo-p">O cargar desde Excel (orden, sigla, activo y procesos nuevos)</label><input id="archivo-p" type="file" name="archivo" accept=".xlsx" required></div>
+    <div><button class="btn btn-2" type="submit">Cargar Excel</button></div></form>
+</section>
+
 <section class="card"><div class="tabla-scroll"><table class="tbl">
-  <thead><tr><th>Proceso</th><th class="n">Tareas</th><th>Activo</th><th></th></tr></thead><tbody>
+  <thead><tr><th class="n">Orden</th><th>Código</th><th>Proceso</th><th class="n">Tareas</th><th class="n">Subtareas</th><th>Depende de</th><th>Activo</th><th>Mover</th><th></th></tr></thead><tbody>
   {% for p in procesos %}
-    <tr><form method="post">{% csrf_token %}<input type="hidden" name="accion" value="editar"><input type="hidden" name="proceso" value="{{ p.pk }}">
-      <td><label class="oculto" for="n{{ p.pk }}">Nombre</label><input id="n{{ p.pk }}" name="nombre" value="{{ p.nombre }}" required></td>
-      <td class="n">{{ p.n_tareas }} tarea{{ p.n_tareas|pluralize }}</td>
-      <td><label class="check"><input type="checkbox" name="activo" {% if p.activo %}checked{% endif %}> Activo</label></td>
-      <td><button class="btn btn-2 btn-sm" type="submit">Guardar</button></td></form></tr>
-  {% empty %}<tr><td colspan="4" class="vacio">Aún no hay procesos.</td></tr>{% endfor %}
+    <tr><td class="n"><strong>{{ p.orden }}</strong></td><td><strong>{{ p.codigo }}</strong></td>
+      <td><form id="f{{ p.pk }}" method="post">{% csrf_token %}<input type="hidden" name="accion" value="editar"><input type="hidden" name="proceso" value="{{ p.pk }}"></form>
+        <label class="oculto" for="n{{ p.pk }}">Nombre</label><input id="n{{ p.pk }}" form="f{{ p.pk }}" name="nombre" value="{{ p.nombre }}" required maxlength="160"></td>
+      <td class="n">{{ p.n_tareas }}</td><td class="n">{{ p.n_subtareas }}</td>
+      <td>{% for d in p.depende_de %}<span class="chip">{{ d.sigla }}</span>{% empty %}<span class="meta">—</span>{% endfor %}</td>
+      <td><label class="check"><input type="checkbox" form="f{{ p.pk }}" name="activo" {% if p.activo %}checked{% endif %}> Activo</label></td>
+      <td class="mover">
+        <form method="post">{% csrf_token %}<input type="hidden" name="proceso" value="{{ p.pk }}"><button class="btn btn-2 btn-sm" name="accion" value="subir" type="submit" {% if forloop.first %}disabled{% endif %} aria-label="Subir {{ p.nombre }}">▲</button>
+          <button class="btn btn-2 btn-sm" name="accion" value="bajar" type="submit" {% if forloop.last %}disabled{% endif %} aria-label="Bajar {{ p.nombre }}">▼</button></form></td>
+      <td><button class="btn btn-2 btn-sm" form="f{{ p.pk }}" type="submit">Guardar</button> <a class="btn btn-2 btn-sm" href="{% url 'mant_proceso_detalle' p.pk %}">Abrir</a></td></tr>
+  {% empty %}<tr><td colspan="9" class="vacio">Aún no hay procesos. Agrega uno o carga el catálogo base.</td></tr>{% endfor %}
 </tbody></table></div></section>
 {% endblock %}

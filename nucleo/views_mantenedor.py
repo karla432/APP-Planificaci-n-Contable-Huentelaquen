@@ -1,4 +1,5 @@
 """Pantallas del Mantenedor: Tareas, Procesos y Usuarios. El permiso se valida aquí y otra vez en los servicios."""
+from datetime import date
 from functools import wraps
 
 from django.contrib import messages
@@ -10,8 +11,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from nucleo import permisos
-from nucleo.models import Cargo, Colaborador, Proceso, Tarea
-from nucleo.servicios import agenda, auditoria, excel_masivo, mantenedor, reglas_texto, reloj
+from nucleo.models import ESTADOS_PLAN, Cargo, Colaborador, Proceso, Tarea, TareaPrincipal
+from nucleo.servicios import agenda, auditoria, estructura, excel_masivo, mantenedor, reglas_texto, reloj
 from nucleo.servicios.errores import ErrorDeNegocio, PermisoDenegado
 
 TIPOS = [
@@ -50,6 +51,15 @@ def _entero(valor):
         return None
 
 
+def _fecha(texto: str):
+    if not (texto or "").strip():
+        return None
+    try:
+        return date.fromisoformat(texto.strip())
+    except ValueError:
+        raise ErrorDeNegocio("Una de las fechas no es válida (usa día, mes y año).") from None
+
+
 def _minutos(horas: str):
     try:
         return round(float(horas.replace(",", ".")) * 60)
@@ -85,19 +95,22 @@ def tareas(request):
 def _valores_de(t: Tarea | None) -> dict:
     if t is None:
         return {"proceso": "", "tarea_principal": "", "subtarea": "", "cargo_ejecuta": "", "tipo": "CIERRE_DIA_HABIL", "dia_semana": "", "franja": "", "n": "", "dia": "",
-                "meses": [], "ajuste": "siguiente", "referencia": "", "activa": True, "cargo_revisa": "", "horas": ""}
+                "meses": [], "ajuste": "siguiente", "referencia": "", "activa": True, "cargo_revisa": "", "horas": "", "estado_plan": "pendiente", "fecha_inicio": "",
+                "fecha_termino": "", "observaciones": ""}
     return {"proceso": str(t.proceso_id), "tarea_principal": t.tarea_principal, "subtarea": t.subtarea, "cargo_ejecuta": str(t.cargo_ejecuta_id), "tipo": t.regla_tipo,
             "dia_semana": "" if t.regla_dia_semana is None else str(t.regla_dia_semana), "franja": t.regla_franja, "n": "" if t.regla_n is None else str(t.regla_n),
             "dia": "" if t.regla_dia is None else str(t.regla_dia), "meses": [m for m in t.regla_meses.split(",") if m], "ajuste": t.regla_ajuste,
             "referencia": t.referencia_normativa, "activa": t.activa, "cargo_revisa": str(t.cargo_revisa_id or ""),
-            "horas": "" if t.minutos_estimados is None else str(round(t.minutos_estimados / 60, 2)).replace(".", ",")}
+            "horas": "" if t.minutos_estimados is None else str(round(t.minutos_estimados / 60, 2)).replace(".", ","), "estado_plan": t.estado_plan,
+            "fecha_inicio": str(t.fecha_inicio or ""), "fecha_termino": str(t.fecha_termino or ""), "observaciones": t.observaciones}
 
 
 def _valores_de_post(post) -> dict:
     return {"proceso": post.get("proceso", ""), "tarea_principal": post.get("tarea_principal", ""), "subtarea": post.get("subtarea", ""), "cargo_ejecuta": post.get("cargo_ejecuta", ""),
             "tipo": post.get("tipo", ""), "dia_semana": post.get("dia_semana", ""), "franja": post.get("franja", ""), "n": post.get("n", ""), "dia": post.get("dia", ""),
             "meses": post.getlist("meses"), "ajuste": post.get("ajuste", "siguiente"), "referencia": post.get("referencia", ""), "activa": post.get("activa") == "on", "cargo_revisa": post.get("cargo_revisa", ""),
-            "horas": post.get("horas", "")}
+            "horas": post.get("horas", ""), "estado_plan": post.get("estado_plan", "pendiente"), "fecha_inicio": post.get("fecha_inicio", ""),
+            "fecha_termino": post.get("fecha_termino", ""), "observaciones": post.get("observaciones", "")}
 
 
 def _datos_de(v: dict) -> mantenedor.DatosTarea:
@@ -105,6 +118,7 @@ def _datos_de(v: dict) -> mantenedor.DatosTarea:
         proceso_id=_entero(v["proceso"]) or 0, tarea_principal=v["tarea_principal"], subtarea=v["subtarea"], cargo_ejecuta_id=_entero(v["cargo_ejecuta"]) or 0, tipo=v["tipo"],
         dia_semana=_entero(v["dia_semana"]), franja=v["franja"], n=_entero(v["n"]), dia=_entero(v["dia"]), meses=tuple(m for m in (_entero(x) for x in v["meses"]) if m),
         ajuste=v["ajuste"], referencia=v["referencia"], activa=v["activa"], cargo_revisa_id=_entero(v["cargo_revisa"]), minutos=_minutos(v["horas"]),
+        estado_plan=v["estado_plan"], fecha_inicio=_fecha(v["fecha_inicio"]), fecha_termino=_fecha(v["fecha_termino"]), observaciones=v["observaciones"],
     )
 
 
@@ -126,7 +140,7 @@ def _formulario_tarea(request, tarea: Tarea | None):
             error = str(e)
     return render(request, "nucleo/mant_tarea_form.html", {
         "tarea": tarea, "v": valores, "error": error, "procesos": Proceso.objects.filter(activo=True), "cargos": Cargo.objects.filter(activo=True),
-        "tipos": TIPOS, "dias": DIAS, "meses": MESES,
+        "tipos": TIPOS, "dias": DIAS, "meses": MESES, "estados": ESTADOS_PLAN, "tareas_existentes": TareaPrincipal.objects.select_related("proceso").order_by("proceso__orden", "numero"),
     })
 
 
@@ -146,19 +160,87 @@ def tarea_editar(request, pk):
 @con_roles(*EDITA_TAREAS)
 def procesos(request):
     if request.method == "POST":
+        accion = request.POST.get("accion")
         try:
-            if request.POST.get("accion") == "crear":
-                mantenedor.crear_proceso(request.user, request.POST.get("nombre", ""))
+            if accion == "crear":
+                p = estructura.crear_proceso(request.user, request.POST.get("nombre", ""), request.POST.get("sigla", ""))
+                messages.success(request, f"Proceso {p.codigo} creado al final del orden.")
+            elif accion in ("subir", "bajar"):
+                p = get_object_or_404(Proceso, pk=request.POST.get("proceso"))
+                estructura.mover_proceso(request.user, p, accion)
+                p.refresh_from_db()
+                messages.success(request, f"«{p.nombre}» ahora es {p.codigo}. Los códigos de sus tareas y subtareas se actualizaron.")
+            elif accion == "catalogo":
+                r = estructura.cargar_catalogo_base(request.user)
+                messages.success(request, f"Catálogo base: {len(r['creados'])} procesos agregados al final, {len(r['ya_existian'])} ya existían."
+                                 + (f" Dependencias omitidas por el orden actual: {', '.join(r['dependencias_omitidas'])}." if r["dependencias_omitidas"] else ""))
             else:
                 p = get_object_or_404(Proceso, pk=request.POST.get("proceso"))
                 mantenedor.renombrar_proceso(request.user, p, request.POST.get("nombre", ""), activo=request.POST.get("activo") == "on")
-            messages.success(request, "Proceso guardado.")
+                messages.success(request, "Proceso guardado.")
         except PermisoDenegado as e:
             return _prohibido(request, str(e))
         except ErrorDeNegocio as e:
             messages.error(request, str(e))
         return redirect("mant_procesos")
-    return render(request, "nucleo/mant_procesos.html", {"procesos": Proceso.objects.annotate(n_tareas=Count("tareas")).order_by("orden", "nombre")})
+    lista = list(Proceso.objects.annotate(n_tareas=Count("tareas_principales", distinct=True), n_subtareas=Count("tareas", distinct=True)).order_by("orden"))
+    deps = estructura.dependencias_de()
+    for p in lista:
+        p.depende_de = deps.get(p.pk, [])
+    return render(request, "nucleo/mant_procesos.html", {"procesos": lista, "etapas": estructura.etapas(), "hay_dependencias": bool(deps)})
+
+
+def _fecha_o_none(post, clave):
+    return _fecha(post.get(clave, ""))
+
+
+def _plan(post, prefijo: str = "") -> estructura.DatosPlan:
+    return estructura.DatosPlan(responsable_id=_entero(post.get(prefijo + "responsable")), estado_plan=post.get(prefijo + "estado_plan", "pendiente"),
+                                fecha_inicio=_fecha_o_none(post, prefijo + "fecha_inicio"), fecha_termino=_fecha_o_none(post, prefijo + "fecha_termino"),
+                                observaciones=post.get(prefijo + "observaciones", ""))
+
+
+@con_roles(*EDITA_TAREAS)
+def proceso_detalle(request, pk):
+    """Un proceso: sus datos de planificación, de qué depende y sus tareas (nivel 2). Las subtareas se editan en Mantenedor → Tareas."""
+    p = get_object_or_404(Proceso, pk=pk)
+    if request.method == "POST":
+        accion = request.POST.get("accion")
+        try:
+            if accion == "guardar":
+                estructura.editar_proceso(request.user, p, request.POST.get("nombre", ""), request.POST.get("sigla", ""), _plan(request.POST))
+                p.refresh_from_db()
+                messages.success(request, f"Proceso {p.codigo} guardado.")
+            elif accion == "dependencias":
+                estructura.fijar_dependencias(request.user, p, request.POST.getlist("depende_de"))
+                messages.success(request, "Dependencias guardadas.")
+            elif accion == "activo":
+                estructura.fijar_activo_proceso(request.user, p, request.POST.get("valor") == "1", con_hijos=request.POST.get("con_hijos") == "on")
+                messages.success(request, "Estado del proceso actualizado.")
+            elif accion == "tarea_crear":
+                tp = estructura.crear_tarea_principal(request.user, p, request.POST.get("nombre", ""))
+                messages.success(request, f"Tarea {tp.codigo} creada.")
+            elif accion == "tarea_guardar":
+                tp = get_object_or_404(TareaPrincipal, pk=request.POST.get("tarea"), proceso=p)
+                estructura.editar_tarea_principal(request.user, tp, request.POST.get("nombre", ""), _plan(request.POST))
+                messages.success(request, f"Tarea {tp.codigo} guardada.")
+            elif accion == "tarea_activa":
+                tp = get_object_or_404(TareaPrincipal, pk=request.POST.get("tarea"), proceso=p)
+                estructura.fijar_activa_tarea_principal(request.user, tp, request.POST.get("valor") == "1", con_hijos=request.POST.get("con_hijos") == "on")
+                messages.success(request, f"Tarea {tp.codigo} actualizada.")
+            else:
+                raise ErrorDeNegocio("Acción desconocida.")
+        except PermisoDenegado as e:
+            return _prohibido(request, str(e))
+        except ErrorDeNegocio as e:
+            messages.error(request, str(e))
+        return redirect("mant_proceso_detalle", pk=p.pk)
+    tareas = list(TareaPrincipal.objects.filter(proceso=p).select_related("responsable").annotate(n=Count("subtareas")).order_by("numero"))
+    deps = estructura.dependencias_de().get(p.pk, [])
+    return render(request, "nucleo/mant_proceso_detalle.html", {
+        "p": p, "tareas": tareas, "cargos": Cargo.objects.filter(activo=True), "estados": ESTADOS_PLAN, "depende_de": {d.pk for d in deps}, "depende_de_lista": deps,
+        "posibles": Proceso.objects.filter(orden__lt=p.orden), "dependientes": Proceso.objects.filter(dependencias__depende_de=p),
+    })
 
 
 # ---- Descarga y carga masiva en Excel ----------------------------------------------------------------------

@@ -19,6 +19,9 @@
     <a class="nav-i{% if url_actual == 'informe_cumplimiento' %} nav-on{% endif %}" href="{% url 'informe_cumplimiento' %}">Cumplimiento por colaborador</a>
     <a class="nav-i{% if url_actual == 'informe_carga' %} nav-on{% endif %}" href="{% url 'informe_carga' %}">Carga del equipo</a>
 
+    <div class="nav-sec">Planificación</div>
+    <a class="nav-i{% if url_actual == 'planificacion' %} nav-on{% endif %}" href="{% url 'planificacion' %}">Árbol y tabla</a>
+
     <div class="nav-sec">Check List</div>
     <a class="nav-i{% if url_actual == 'hoy' %} nav-on{% endif %}" href="{% url 'hoy' %}">Mi día</a>
     <a class="nav-i{% if url_actual == 'semana' %} nav-on{% endif %}" href="{% url 'semana' %}">Mi semana</a>

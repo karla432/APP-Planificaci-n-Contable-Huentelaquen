@@ -50,7 +50,7 @@ def editado(contenido: bytes, cambios):
 def test_la_planilla_de_tareas_sale_en_el_orden_de_proceso_con_sus_codigos(base):
     f = filas(excel_masivo.exportar_tareas())
     assert len(f) == 195
-    assert f[0][0] == "PRO-01-TAR-01-SUB-01" and f[0][1] == "Seguimiento"
+    assert f[0][0] == "01-SEG.01.001" and f[0][1] == "Seguimiento"
     procesos = []
     for r in f:
         if r[1] not in procesos:
@@ -145,7 +145,7 @@ def test_una_fila_nueva_crea_la_tarea_con_su_codigo_pro_tar_sub(base, jefa):
     r = excel_masivo.aplicar_tareas(jefa, editado(excel_masivo.exportar_tareas(), agregar), "x.xlsx")
     assert r["altas"] == 1
     t = Tarea.objects.get(subtarea="Revisar correos nuevos")
-    assert t.codigo.startswith("PRO-01-TAR-") and t.minutos_estimados == 15 and t.cargo_ejecuta.nombre == "Asistente Contable"
+    assert t.codigo.startswith("01-SEG.0") and t.minutos_estimados == 15 and t.cargo_ejecuta.nombre == "Asistente Contable"
 
 
 def test_las_tareas_que_faltan_en_el_archivo_se_desactivan_solo_con_confirmacion(base, jefa):
@@ -252,8 +252,8 @@ def test_el_archivo_en_espera_solo_acepta_su_propio_codigo(jefa):
 
 def test_la_planilla_de_procesos_trae_orden_codigo_y_tareas(base):
     hoja = libro(excel_masivo.exportar_procesos())["Procesos"]
-    assert [c.value for c in hoja[1]] == ["Orden", "Código", "Proceso", "Tareas activas", "Activo"]
-    assert [c.value for c in hoja[2]] == [1, "PRO-01", "Seguimiento", 2, "Sí"]
+    assert [c.value for c in hoja[1]] == ["Orden", "Código", "Sigla", "Proceso", "Tareas activas", "Activo"]
+    assert [c.value for c in hoja[2]] == [1, "01-SEG", "SEG", "Seguimiento", 2, "Sí"]
     assert hoja.max_row >= 36
 
 
@@ -265,21 +265,22 @@ def test_reordenar_procesos_desde_el_excel(base, jefa):
     r = excel_masivo.cargar_procesos(jefa, salida.getvalue(), "p.xlsx")
     nombres = list(Proceso.objects.values_list("nombre", flat=True))
     assert nombres[-1] == "Seguimiento" and nombres[0] == "Ventas Sala de Ventas" and r["reordenados"] >= 1
-    assert Proceso.objects.get(nombre="Seguimiento").codigo == "PRO-01"  # el código no cambia
+    assert Proceso.objects.get(nombre="Seguimiento").sigla == "SEG"  # la sigla es su identidad; el prefijo del código sigue al orden
+    assert Proceso.objects.get(nombre="Seguimiento").codigo == "35-SEG"
 
 
 def test_activar_desactivar_y_crear_procesos(base, jefa):
     wb = libro(excel_masivo.exportar_procesos())
-    wb["Procesos"]["E3"] = "No"
+    wb["Procesos"]["F3"] = "No"
     hoja = wb["Procesos"]
     hoja.insert_rows(2)
-    for col, v in enumerate([None, None, "Proceso nuevo", None, "Sí"], start=1):
+    for col, v in enumerate([None, None, None, "Proceso nuevo", None, "Sí"], start=1):
         hoja.cell(row=2, column=col, value=v)
     salida = io.BytesIO()
     wb.save(salida)
     r = excel_masivo.cargar_procesos(jefa, salida.getvalue(), "p.xlsx")
     assert r["creados"] == 1 and r["activo_cambiado"] == 1
-    assert Proceso.objects.get(nombre="Proceso nuevo").orden == 1 and Proceso.objects.get(nombre="Proceso nuevo").codigo == "PRO-36"
+    assert Proceso.objects.get(nombre="Proceso nuevo").orden == 1 and Proceso.objects.get(nombre="Proceso nuevo").codigo.startswith("01-")
     assert EventoAuditoria.objects.filter(accion="procesos.cargados").exists()
 
 
