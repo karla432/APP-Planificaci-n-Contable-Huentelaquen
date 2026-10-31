@@ -84,7 +84,11 @@ def carga_del_equipo(request):
         f.etiqueta, f.clase = etiquetas[f.semaforo]
     mas_cargado = max(filas, key=lambda f: f.total, default=None)
     cierre = carga.por_dia_de_cierre()
+    hoy = reloj.hoy()
+    periodo = Periodo.objects.filter(anio=hoy.year, mes=hoy.month).first() or Periodo.objects.first()
+    reales = sorted(carga.real_vs_estimado(periodo), key=lambda f: (agenda.orden_de(f.colaborador, hoy), f.colaborador.nombre)) if periodo else []
     return render(request, "nucleo/informe_carga.html", {
+        "periodo": periodo, "reales": reales,
         "filas": filas, "mas_cargado": mas_cargado, "cierre": cierre, "dias": carga.DIAS_DEL_CIERRE, "sin_horas": carga.tareas_sin_horas(),
         "capacidad": parametros.entero("horas_disponibles_mes"),
     })

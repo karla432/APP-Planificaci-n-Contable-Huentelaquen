@@ -7,7 +7,7 @@ hasta que los colaboradores registren horas reales.
 """
 from dataclasses import dataclass, field
 
-from nucleo.models import Cargo, Tarea
+from nucleo.models import Cargo, Ocurrencia, Tarea
 from nucleo.servicios import parametros
 
 DIAS_DEL_CIERRE = range(1, 11)
@@ -99,4 +99,40 @@ def por_dia_de_cierre() -> list[CargaDelCierre]:
                 filas[t.cargo_ejecuta_id].horas[t.regla_n] += h
             if t.cargo_revisa_id in filas:
                 filas[t.cargo_revisa_id].horas[t.regla_n] += h * pct
+    return list(filas.values())
+
+
+@dataclass
+class RealVsEstimado:
+    """Por persona y mes: lo que se estimó contra lo que anotó. Solo se comparan las tareas hechas que tienen horas reales."""
+    colaborador: object
+    hechas: int = 0
+    con_horas: int = 0
+    horas_estimadas: float = 0.0
+    horas_reales: float = 0.0
+
+    @property
+    def sin_horas(self) -> int:
+        return self.hechas - self.con_horas
+
+    @property
+    def diferencia_pct(self):
+        if not self.con_horas or not self.horas_estimadas:
+            return None
+        return round((self.horas_reales - self.horas_estimadas) * 100 / self.horas_estimadas, 1)
+
+
+def real_vs_estimado(periodo) -> list[RealVsEstimado]:
+    filas: dict[int, RealVsEstimado] = {}
+    qs = Ocurrencia.objects.filter(periodo=periodo, tipo_marca="HECHA", colaborador__isnull=False).exclude(estado=Ocurrencia.NO_APLICA).select_related("tarea", "colaborador")
+    for o in qs:
+        f = filas.setdefault(o.colaborador_id, RealVsEstimado(o.colaborador))
+        if o.estado not in (Ocurrencia.HECHA, Ocurrencia.REVISADA):
+            continue
+        f.hechas += 1
+        if o.minutos_reales is not None:
+            f.con_horas += 1
+            f.horas_reales += o.minutos_reales / 60
+            estimado = o.minutos_estimados if o.minutos_estimados is not None else o.tarea.minutos_estimados
+            f.horas_estimadas += (estimado or 0) / 60
     return list(filas.values())

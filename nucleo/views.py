@@ -108,7 +108,7 @@ def en_construccion(request, titulo):
     return render(request, "nucleo/en_construccion.html", {"titulo": titulo})
 
 
-ACCIONES = {"hecha", "recibida", "revisar", "devolver", "bloquear", "retomar", "comentar"}
+ACCIONES = {"hecha", "recibida", "revisar", "devolver", "bloquear", "retomar", "comentar", "horas"}
 
 
 @login_required
@@ -118,7 +118,7 @@ def detalle(request, pk):
     o = get_object_or_404(Ocurrencia.objects.select_related("tarea__proceso", "cargo_ejecuta", "cargo_revisa", "colaborador", "periodo"), pk=pk)
     return render(request, "nucleo/detalle.html", {
         "o": o, "hoy": reloj.hoy(), "acciones": ejecucion.acciones_disponibles(o, request.user), "historial": ejecucion.historial_de(o),
-        "puede_comentar": permisos.rol_de(request.user) in permisos.QUE_MARCAN and o.periodo.estado != "cerrado",
+        "puede_horas": ejecucion.puede_registrar_horas(o, request.user), "puede_comentar": permisos.rol_de(request.user) in permisos.QUE_MARCAN and o.periodo.estado != "cerrado",
         "periodicidad": reglas_texto.describir(o.tarea.regla(), o.tarea.regla_franja), "atrasada": o.estado in ("pendiente", "devuelta", "bloqueada") and o.fecha_limite < reloj.hoy(),
         "dia_del_cierre": o.regla_copia.get("n") if o.regla_copia.get("tipo") == "CIERRE_DIA_HABIL" else None,
     })
@@ -132,7 +132,9 @@ def ocurrencia_accion(request, pk, accion):
     o = get_object_or_404(Ocurrencia.objects.select_related("periodo", "tarea"), pk=pk)
     try:
         if accion == "hecha":
-            ejecucion.marcar_hecha(o, request.user)
+            ejecucion.marcar_hecha(o, request.user, minutos_reales=ejecucion.parsear_horas(request.POST.get("horas", "")))
+        elif accion == "horas":
+            ejecucion.registrar_horas(o, request.user, ejecucion.parsear_horas(request.POST.get("horas", "")))
         elif accion == "recibida":
             ejecucion.marcar_recibida(o, request.user)
         elif accion == "comentar":

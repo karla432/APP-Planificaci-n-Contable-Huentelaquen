@@ -50,6 +50,13 @@ class Asignacion(models.Model):
         ordering = ["cargo", "desde"]
 
 
+def horas_texto(minutos) -> str:
+    """90 → «1,5»; 120 → «2»; 105 → «1,75». Vacío si no hay dato."""
+    if minutos is None:
+        return ""
+    return f"{minutos / 60:.2f}".rstrip("0").rstrip(".").replace(".", ",")
+
+
 class Proceso(models.Model):
     nombre = models.CharField(max_length=160, unique=True)
     activo = models.BooleanField(default=True)
@@ -109,7 +116,7 @@ class Tarea(models.Model):
 
     @property
     def horas_estimadas(self) -> str:
-        return "" if self.minutos_estimados is None else str(round(self.minutos_estimados / 60, 2)).replace(".", ",")
+        return horas_texto(self.minutos_estimados)
 
     def regla(self) -> Regla:
         meses = tuple(int(m) for m in self.regla_meses.split(",") if m.strip())
@@ -182,13 +189,17 @@ class Ocurrencia(models.Model):
     comentario_devolucion = models.TextField(blank=True)
     por_excepcion = models.BooleanField(default=False)
     motivo_excepcion = models.TextField(blank=True)
-    minutos_reales = models.PositiveIntegerField(null=True, blank=True)  # los registran los colaboradores más adelante
+    minutos_reales = models.PositiveIntegerField(null=True, blank=True)  # los anota quien ejecuta la tarea, al marcarla hecha o después
     minutos_estimados = models.PositiveIntegerField(null=True, blank=True)  # copia de la tarea al generarse
     motivo_bloqueo = models.TextField(blank=True)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["tarea", "periodo", "fecha_limite"], name="ocurrencia_unica")]
         ordering = ["fecha_limite", "tarea__codigo"]
+
+    @property
+    def horas_reales(self) -> str:
+        return horas_texto(self.minutos_reales)
 
 
 class SolicitudNoAplica(models.Model):

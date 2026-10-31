@@ -14,19 +14,23 @@
     <div><dt>{% if o.tipo_marca == "RECIBIDA" %}Recibe{% else %}Revisa y aprueba{% endif %}</dt><dd>{% if o.cargo_revisa %}{{ o.cargo_revisa.nombre }}{% else %}Sin revisor{% endif %}</dd></div>
     <div><dt>Vence</dt><dd>{% if dia_del_cierre %}Día {{ dia_del_cierre }} · {% endif %}{{ o.fecha_limite|date:"l d-m-Y" }}</dd></div>
     <div><dt>Periodicidad</dt><dd>{{ periodicidad }}</dd></div>
+    <div><dt>Horas reales</dt><dd>{% if o.minutos_reales %}{{ o.horas_reales }} h{% else %}Aún sin anotar{% endif %}</dd></div>
     <div><dt>Horas estimadas</dt><dd>{% if o.tarea.minutos_estimados %}{{ o.tarea.horas_estimadas }} h <span class="pill p-warn">Estimado</span>{% if o.tarea.fuente_horas == "gerente" %}<br><span class="mini">Definidas por la Gerente AyF</span>{% endif %}{% else %}Sin estimar{% endif %}</dd></div>
     {% if o.tarea.referencia_normativa %}<div style="grid-column:1/-1"><dt>Referencia normativa</dt><dd>{{ o.tarea.referencia_normativa }}</dd></div>{% endif %}
   </dl>
 </section>
 <section class="card"><h2>Acciones</h2>
   {% if acciones %}<div class="acciones">
-    {% if "hecha" in acciones %}<form method="post" action="{% url 'ocurrencia_accion' o.pk 'hecha' %}">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}"><button class="btn" type="submit">Marcar hecha</button></form>{% endif %}
+    {% if "hecha" in acciones %}<form method="post" action="{% url 'ocurrencia_accion' o.pk 'hecha' %}" class="devolver">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}"><label for="mh">Horas reales (opcional)</label><input id="mh" name="horas" inputmode="decimal" size="6" placeholder="1,5" autocomplete="off"><button class="btn" type="submit">Marcar hecha</button></form>{% endif %}
     {% if "retomar" in acciones %}<form method="post" action="{% url 'ocurrencia_accion' o.pk 'retomar' %}">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}"><button class="btn" type="submit">Retomar tarea</button></form>{% endif %}
     {% if "recibida" in acciones %}<form method="post" action="{% url 'ocurrencia_accion' o.pk 'recibida' %}">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}"><button class="btn" type="submit">Marcar recibido</button></form>{% endif %}
     {% if "revisar" in acciones %}<form method="post" action="{% url 'ocurrencia_accion' o.pk 'revisar' %}">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}"><button class="btn" type="submit">Revisar</button></form>{% endif %}
     {% if "bloquear" in acciones %}<form method="post" action="{% url 'ocurrencia_accion' o.pk 'bloquear' %}" class="devolver">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}"><label for="mb">Motivo para bloquear</label><input id="mb" name="comentario" required><button class="btn btn-2" type="submit">Marcar bloqueada</button></form>{% endif %}
     {% if "devolver" in acciones %}<form method="post" action="{% url 'ocurrencia_accion' o.pk 'devolver' %}" class="devolver">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}"><label for="md">Comentario para devolver</label><input id="md" name="comentario" required><button class="btn btn-2" type="submit">Devolver</button></form>{% endif %}
-  </div>{% else %}<p class="meta">Solo lectura: no tienes acciones sobre esta tarea ahora.</p>{% endif %}
+  </div>{% elif not puede_horas %}<p class="meta">Solo lectura: no tienes acciones sobre esta tarea ahora.</p>{% endif %}
+  {% if puede_horas %}<form method="post" action="{% url 'ocurrencia_accion' o.pk 'horas' %}" class="devolver">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}">
+    <label for="rh">Registrar horas reales</label><input id="rh" name="horas" inputmode="decimal" size="6" placeholder="1,5" value="{{ o.horas_reales }}" required autocomplete="off">
+    <button class="btn btn-2" type="submit">Guardar horas</button></form><p class="meta">Escribe las horas con coma (1,5) o como horas y minutos (1:30). Puedes corregirlas mientras el mes esté abierto.</p>{% endif %}
 </section>
 <section class="card"><h2>Historial y comentarios</h2>
   <ul class="historial">{% for h in historial %}<li><strong>{{ h.quien }}</strong> · {{ h.texto }}{% if h.comentario %}: {{ h.comentario }}{% endif %}<small>{{ h.momento|date:"d-m-Y H:i" }}</small></li>{% empty %}<li class="vacio">Aún sin movimientos.</li>{% endfor %}</ul>

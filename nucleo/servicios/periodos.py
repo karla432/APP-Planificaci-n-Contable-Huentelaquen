@@ -121,7 +121,7 @@ def abrir_mes(anio: int, mes: int, usuario, inicio_medicion: date | None = None)
     Ocurrencia.objects.bulk_create([
         Ocurrencia(
             tarea=i.tarea, periodo=periodo, fecha_limite=i.fecha, cargo_ejecuta=i.tarea.cargo_ejecuta, colaborador=i.colaborador,
-            cargo_revisa=i.tarea.cargo_revisa, regla_copia=_regla_a_dict(i.tarea.regla()),
+            cargo_revisa=i.tarea.cargo_revisa, regla_copia=_regla_a_dict(i.tarea.regla()), minutos_estimados=i.tarea.minutos_estimados,
             tipo_marca="RECIBIDA" if i.tarea.cargo_ejecuta.es_externo else "HECHA",
         )
         for i in vp.ocurrencias

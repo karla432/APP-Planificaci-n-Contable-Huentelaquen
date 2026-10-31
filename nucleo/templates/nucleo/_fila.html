@@ -10,7 +10,7 @@
       {% if o.por_excepcion %}· <strong class="etiqueta etiqueta-ambar">Marcada por excepción</strong>{% endif %}
     </p>
     {% if o.estado == "bloqueada" and o.motivo_bloqueo %}<p class="comentario">Bloqueada: {{ o.motivo_bloqueo }}</p>{% endif %}
-    {% if o.tarea.minutos_estimados %}<p class="meta">Estimado: {{ o.tarea.horas_estimadas }} h</p>{% endif %}
+    {% if o.tarea.minutos_estimados or o.minutos_reales %}<p class="meta">{% if o.tarea.minutos_estimados %}Estimado: {{ o.tarea.horas_estimadas }} h{% endif %}{% if o.minutos_reales %} · Real: {{ o.horas_reales }} h{% endif %}</p>{% endif %}
     {% if o.estado == "devuelta" and o.comentario_devolucion %}<p class="comentario">Comentario de la revisora: {{ o.comentario_devolucion }}</p>{% endif %}
     {% if o.tarea.referencia_normativa %}<details><summary>Referencia</summary><p>{{ o.tarea.referencia_normativa }}</p></details>{% endif %}
   </div>
@@ -18,7 +18,11 @@
     {% if modo == "mia" and o.estado == "bloqueada" %}
       <form method="post" action="{% url 'ocurrencia_accion' o.pk 'retomar' %}">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}"><button class="btn" type="submit">Retomar tarea</button></form>
     {% elif modo == "mia" %}
-      <form method="post" action="{% url 'ocurrencia_accion' o.pk 'hecha' %}">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}"><button class="btn" type="submit">Marcar hecha</button></form>
+      <form method="post" action="{% url 'ocurrencia_accion' o.pk 'hecha' %}" class="devolver">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}">
+        <label for="h{{ o.pk }}">Horas reales (opcional)</label>
+        <input id="h{{ o.pk }}" name="horas" inputmode="decimal" size="6" placeholder="1,5" autocomplete="off">
+        <button class="btn" type="submit">Marcar hecha</button>
+      </form>
       <form method="post" action="{% url 'ocurrencia_accion' o.pk 'bloquear' %}" class="devolver">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}">
         <label for="b{{ o.pk }}">Motivo para bloquear</label>
         <input id="b{{ o.pk }}" name="comentario" required>

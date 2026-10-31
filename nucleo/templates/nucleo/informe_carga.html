@@ -3,7 +3,7 @@
 {% block contenido %}
 <p class="kick">Informes · Carga del equipo <span class="pill p-warn">Estimado</span></p>
 {% if mas_cargado %}<h1 class="ancho">{{ mas_cargado.cargo.nombre }} es quien más carga lleva: {{ mas_cargado.ocupacion_pct }} % de su capacidad.</h1>{% else %}<h1>Carga del equipo</h1>{% endif %}
-<p class="sub">Horas estimadas de ejecución y de revisión al mes, contra {{ capacidad }} h de capacidad por persona. Son <strong>estimaciones</strong>: las horas reales las registrarán los colaboradores más adelante.
+<p class="sub">Horas estimadas de ejecución y de revisión al mes, contra {{ capacidad }} h de capacidad por persona. Lo de arriba son <strong>estimaciones</strong>; las horas reales que anota cada persona aparecen al final.
   {% if sin_horas %}<strong>{{ sin_horas }} tarea{{ sin_horas|pluralize }} sin horas estimadas.</strong>{% endif %}</p>
 <section class="card" style="margin-top:16px"><h2>Carga mensual por persona</h2>
   <div class="tabla-scroll"><table class="tbl">
@@ -21,5 +21,16 @@
   {% for f in cierre %}<tr><td><strong>{{ f.cargo.nombre }}</strong></td><td class="n">{{ f.disponible_por_dia|floatformat:1 }} h</td>
     {% for d, h in f.horas.items %}<td class="n">{% if h > f.disponible_por_dia %}<span class="pill p-red">{{ h|floatformat:1 }}</span>{% elif h %}{{ h|floatformat:1 }}{% else %}·{% endif %}</td>{% endfor %}</tr>{% endfor %}
   </tbody></table></div>
+</section>
+<section class="card"><h2>Horas reales del mes{% if periodo %} · {{ periodo }}{% endif %}</h2>
+  <p class="meta">Lo que cada persona anotó al marcar sus tareas, contra lo estimado <strong>de esas mismas tareas</strong>. Solo se comparan las tareas hechas que tienen horas reales.</p>
+  <div class="tabla-scroll"><table class="tbl">
+    <thead><tr><th>Persona</th><th class="n">Tareas hechas</th><th class="n">Con horas anotadas</th><th class="n">H estimadas</th><th class="n">H reales</th><th class="n">Diferencia</th></tr></thead>
+    <tbody>{% for f in reales %}<tr><td><strong>{{ f.colaborador.nombre }}</strong></td><td class="n">{{ f.hechas }}</td>
+      <td class="n">{{ f.con_horas }}{% if f.sin_horas %} <small>({{ f.sin_horas }} sin anotar)</small>{% endif %}</td>
+      <td class="n">{% if f.con_horas %}{{ f.horas_estimadas|floatformat:1 }}{% else %}—{% endif %}</td><td class="n">{% if f.con_horas %}{{ f.horas_reales|floatformat:1 }}{% else %}—{% endif %}</td>
+      <td class="n">{% if f.diferencia_pct is None %}—{% elif f.diferencia_pct > 0 %}<span class="pill p-warn">+{{ f.diferencia_pct|floatformat:1 }} %</span>{% else %}<span class="pill p-ok">{{ f.diferencia_pct|floatformat:1 }} %</span>{% endif %}</td></tr>
+    {% empty %}<tr><td colspan="6" class="vacio">Aún no hay tareas con horas reales.</td></tr>{% endfor %}</tbody>
+  </table></div>
 </section>
 {% endblock %}

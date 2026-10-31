@@ -53,8 +53,28 @@ def _marcar(o: Ocurrencia, usuario, accion: str, **extra):
     auditoria.registrar(accion, usuario=usuario, entidad="Ocurrencia", entidad_id=o.pk, antes=antes, despues=_estado(o), motivo=extra.get("motivo_excepcion", ""))
 
 
+def parsear_horas(texto) -> int | None:
+    """«1,5», «1.5» o «1:30» → minutos. Vacío → None (las horas son opcionales). Lo que no se entiende se rechaza con un mensaje claro."""
+    t = (texto or "").strip()
+    if not t:
+        return None
+    try:
+        if ":" in t:
+            horas, minutos = (int(x) for x in t.split(":"))
+            if not 0 <= minutos < 60:
+                raise ValueError
+            total = horas * 60 + minutos
+        else:
+            total = round(float(t.replace(",", ".")) * 60)
+    except (ValueError, OverflowError):
+        raise ErrorDeNegocio("Escribe las horas como 1,5 o como 1:30 (horas y minutos).") from None
+    if not 1 <= total <= 24 * 60:
+        raise ErrorDeNegocio("Las horas deben ser más de 0 y no más de 24.")
+    return total
+
+
 @transaction.atomic
-def marcar_hecha(o: Ocurrencia, usuario):
+def marcar_hecha(o: Ocurrencia, usuario, minutos_reales: int | None = None):
     rol = _exigir_rol(usuario)
     if o.tipo_marca == "RECIBIDA":
         raise PermisoDenegado("Las tareas de responsables externos las marca como «Recibido» quien las revisa.")
@@ -63,7 +83,7 @@ def marcar_hecha(o: Ocurrencia, usuario):
     if o.estado not in (Ocurrencia.PENDIENTE, Ocurrencia.DEVUELTA):
         raise ErrorDeNegocio(f"Solo se puede marcar una tarea pendiente o devuelta (estado actual: {o.estado}).")
     _exigir_periodo_abierto(o)
-    _marcar(o, usuario, "ocurrencia.hecha")
+    _marcar(o, usuario, "ocurrencia.hecha", **({"minutos_reales": minutos_reales} if minutos_reales is not None else {}))
 
 
 @transaction.atomic
@@ -209,6 +229,30 @@ def resolver_no_aplica(s: SolicitudNoAplica, usuario, aprobar: bool):
 # ---- Qué puede hacer cada persona, comentarios e historial -------------------------------------------------
 
 
+def puede_registrar_horas(o: Ocurrencia, usuario) -> bool:
+    rol = permisos.rol_de(usuario)
+    return rol is not None and o.tipo_marca == "HECHA" and o.estado != Ocurrencia.NO_APLICA and o.periodo.estado != "cerrado" and _es_dueno(usuario, rol, o)
+
+
+@transaction.atomic
+def registrar_horas(o: Ocurrencia, usuario, minutos: int | None):
+    """Quien ejecuta la tarea anota (o corrige) las horas reales que ocupó. Cada cambio queda en la bitácora."""
+    rol = _exigir_rol(usuario)
+    if o.tipo_marca == "RECIBIDA":
+        raise PermisoDenegado("Las tareas de responsables externos no llevan horas.")
+    if not _es_dueno(usuario, rol, o):
+        raise PermisoDenegado("Solo quien ejecuta la tarea anota sus horas.")
+    if o.estado == Ocurrencia.NO_APLICA:
+        raise ErrorDeNegocio("Una tarea que no aplica no lleva horas.")
+    _exigir_periodo_abierto(o)
+    if minutos is None:
+        raise ErrorDeNegocio("Indica las horas que ocupaste.")
+    antes = {"minutos_reales": o.minutos_reales}
+    o.minutos_reales = minutos
+    o.save(update_fields=["minutos_reales"])
+    auditoria.registrar("ocurrencia.horas_reales", usuario=usuario, entidad="Ocurrencia", entidad_id=o.pk, antes=antes, despues={"minutos_reales": minutos}, motivo=f"{minutos / 60:.2f} h".replace(".", ","))
+
+
 def acciones_disponibles(o: Ocurrencia, usuario) -> list[str]:
     """Las acciones que esta persona puede ejecutar ahora sobre la tarea (la pantalla solo ofrece estas; el servidor igual las valida)."""
     rol = permisos.rol_de(usuario)
@@ -241,7 +285,7 @@ def comentar(o: Ocurrencia, usuario, texto: str):
 TEXTOS_DEL_HISTORIAL = {
     "ocurrencia.hecha": "Marcó hecha", "ocurrencia.hecha_por_excepcion": "Marcó hecha por excepción", "ocurrencia.recibida": "Marcó recibido",
     "ocurrencia.revisada": "Revisó", "ocurrencia.devuelta": "Devolvió", "ocurrencia.bloqueada": "Marcó bloqueada", "ocurrencia.retomada": "Retomó la tarea",
-    "ocurrencia.comentario": "Comentó", "no_aplica.solicitada": "Pidió «no aplica»", "no_aplica.aprobada": "Aprobó «no aplica»", "no_aplica.rechazada": "Rechazó «no aplica»",
+    "ocurrencia.comentario": "Comentó", "ocurrencia.horas_reales": "Anotó horas reales", "no_aplica.solicitada": "Pidió «no aplica»", "no_aplica.aprobada": "Aprobó «no aplica»", "no_aplica.rechazada": "Rechazó «no aplica»",
 }
 
 
