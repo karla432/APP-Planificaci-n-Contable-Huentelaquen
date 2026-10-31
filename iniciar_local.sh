@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 python -m pip install -q -r requirements.txt
 [ -e .entorno_desarrollo ] || : > .entorno_desarrollo
 export PLANIFICACION_DB_PATH="$PWD/db_local.sqlite3"
-export PLANIFICACION_HOY="${PLANIFICACION_HOY:-2026-12-04}"
+export PLANIFICACION_HOY="${PLANIFICACION_HOY:-2026-11-09}"
 export PLANIFICACION_SIN_CLAVE=1  # solo desarrollo local
 NUEVA=0; [ -e db_local.sqlite3 ] || NUEVA=1
 python manage.py migrate -v0   # siempre aplica las actualizaciones de la base (no borra nada)

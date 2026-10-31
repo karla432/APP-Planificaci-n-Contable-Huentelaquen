@@ -80,6 +80,7 @@ def semana(request):
         "dias": agenda.semana_de(c["elegida"], referencia, c["hoy"]) if c["elegida"] else [],
         "lunes": lunes, "viernes": lunes + timedelta(days=4),
         "fecha_anterior": (lunes - timedelta(days=7)).isoformat(), "fecha_siguiente": (lunes + timedelta(days=7)).isoformat(),
+        "hay_anterior": agenda.primer_dia() is None or lunes - timedelta(days=3) >= agenda.primer_dia(),  # el viernes anterior ya es de un mes abierto
     })
     return render(request, "nucleo/semana.html", c)
 
@@ -98,6 +99,7 @@ def mes(request):
     siguiente = (primero + timedelta(days=32)).replace(day=1)
     c.update({
         "primero": primero, "mes_anterior": anterior.strftime("%Y-%m"), "mes_siguiente": siguiente.strftime("%Y-%m"),
+        "hay_anterior": agenda.primer_dia() is None or anterior >= agenda.primer_dia(),
         "datos": agenda.mes_de(c["elegida"], primero.year, primero.month, c["hoy"]) if c["elegida"] else None,
     })
     return render(request, "nucleo/mes.html", c)

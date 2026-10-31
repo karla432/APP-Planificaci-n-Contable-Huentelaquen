@@ -3,7 +3,7 @@
 {% block nombre_vista %}semana{% endblock %}
 {% block vista %}
 <div class="navegar">
-  <a class="btn btn-2 btn-sm" href="{% url 'semana' %}?fecha={{ fecha_anterior }}{% if persona_qs %}&{{ persona_qs }}{% endif %}">‹ Semana anterior</a>
+  {% if hay_anterior %}<a class="btn btn-2 btn-sm" href="{% url 'semana' %}?fecha={{ fecha_anterior }}{% if persona_qs %}&{{ persona_qs }}{% endif %}">‹ Semana anterior</a>{% else %}<span class="btn btn-2 btn-sm" aria-disabled="true" style="opacity:.4">‹ Semana anterior</span>{% endif %}
   <strong>Semana del {{ lunes|date:"d-m-Y" }} al {{ viernes|date:"d-m-Y" }}</strong>
   <a class="btn btn-2 btn-sm" href="{% url 'semana' %}?fecha={{ fecha_siguiente }}{% if persona_qs %}&{{ persona_qs }}{% endif %}">Semana siguiente ›</a>
 </div>

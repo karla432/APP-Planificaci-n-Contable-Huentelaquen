@@ -11,7 +11,7 @@ base = Path(__file__).resolve().parent
 env = {
     **os.environ,
     "PLANIFICACION_DB_PATH": str(base / "db_local.sqlite3"),
-    "PLANIFICACION_HOY": os.environ.get("PLANIFICACION_HOY", "2026-12-04"),  # simula el Día 4 del cierre de diciembre
+    "PLANIFICACION_HOY": os.environ.get("PLANIFICACION_HOY", "2026-11-09"),  # simula el lunes 09-11 (Día 6 del cierre de noviembre)
     "PLANIFICACION_SIN_CLAVE": "1",  # solo desarrollo local; en producción la app se niega a arrancar
 }
 

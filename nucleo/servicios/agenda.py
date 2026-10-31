@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from nucleo import permisos
 from dataclasses import dataclass, field
 
-from nucleo.models import Feriado, Ocurrencia
+from nucleo.models import Feriado, Ocurrencia, Periodo
 from nucleo.servicios import reloj
 from nucleo.servicios import kpi
 from nucleo.servicios.calendario import JORNADA_HORAS
@@ -62,6 +62,12 @@ class DiaSemana:
     horas: int
     feriado: str = ""
     items: list = field(default_factory=list)
+
+
+def primer_dia() -> date | None:
+    """El primer día del primer mes abierto: el calendario no retrocede más atrás (hoy, noviembre de 2026)."""
+    p = Periodo.objects.order_by("anio", "mes").first()
+    return date(p.anio, p.mes, 1) if p else None
 
 
 def semana_de(colaborador, referencia: date, hoy: date) -> list[DiaSemana]:

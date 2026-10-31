@@ -3,7 +3,7 @@
 {% block nombre_vista %}mes{% endblock %}
 {% block vista %}
 <div class="navegar">
-  <a class="btn btn-2 btn-sm" href="{% url 'mes' %}?mes={{ mes_anterior }}{% if persona_qs %}&{{ persona_qs }}{% endif %}">‹ Mes anterior</a>
+  {% if hay_anterior %}<a class="btn btn-2 btn-sm" href="{% url 'mes' %}?mes={{ mes_anterior }}{% if persona_qs %}&{{ persona_qs }}{% endif %}">‹ Mes anterior</a>{% else %}<span class="btn btn-2 btn-sm" aria-disabled="true" style="opacity:.4">‹ Mes anterior</span>{% endif %}
   <strong style="text-transform:capitalize">{{ primero|date:"F Y" }}</strong>
   <a class="btn btn-2 btn-sm" href="{% url 'mes' %}?mes={{ mes_siguiente }}{% if persona_qs %}&{{ persona_qs }}{% endif %}">Mes siguiente ›</a>
 </div>

@@ -18,7 +18,7 @@
 3. Entra a http://127.0.0.1:8000 con `gerente`, `jefa`, `contadora` o `asistente` y la clave `Ejemplo-local-2026`.
 4. Cuando yo suba cambios: `git pull` y vuelve a abrir. Para empezar de cero, borra `db_local.sqlite3`.
 
-La fecha simulada es el viernes 04-12-2026 (Día 4 del cierre), para ver el cierre de diciembre. Los datos son de ejemplo.
+La fecha simulada es el lunes 09-11-2026 (Día 6 del cierre de noviembre); el calendario empieza en noviembre y diciembre se abre después desde «Abrir mes». Los datos son de ejemplo.
 
 ## Cuentas reales
 Se crean solo en el servidor, después de G3, con claves de **12 o más caracteres** que cada persona cambia al primer ingreso. Nombres, correos y claves reales **no** se guardan en el repositorio.

@@ -15,8 +15,8 @@ if errorlevel 1 ( echo Fallo la instalacion de dependencias. & pause & exit /b 1
 
 if not exist .entorno_desarrollo type nul > .entorno_desarrollo
 set PLANIFICACION_DB_PATH=%CD%\db_local.sqlite3
-rem Simula que hoy es el viernes 04-12-2026 (Dia 4 del cierre) para ver el cierre de diciembre. Borra esta linea para usar la fecha real.
-set PLANIFICACION_HOY=2026-12-04
+rem Simula que hoy es el lunes 09-11-2026 (Dia 6 del cierre de noviembre). Borra esta linea para usar la fecha real.
+set PLANIFICACION_HOY=2026-11-09
 rem Modo de prueba: en la pantalla de ingreso aparece "Entrar sin clave". Solo funciona en tu computador, nunca en el servidor.
 set PLANIFICACION_SIN_CLAVE=1
 

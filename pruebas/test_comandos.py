@@ -28,12 +28,13 @@ def test_el_reloj_ignora_la_variable_en_produccion(monkeypatch, settings):
     assert reloj.hoy() != date(2026, 12, 4)
 
 
-def test_datos_de_ejemplo_arma_un_mes_de_diciembre_navegable():
+def test_datos_de_ejemplo_arma_noviembre_como_primer_mes_navegable():
     call_command("datos_de_ejemplo", "--password", "ejemplo-ejemplo-1")
     assert Tarea.objects.count() == 195  # 195 filas del Excel, una repetida, más la revisión del día 9
     assert Colaborador.objects.filter(usuario__isnull=False).count() == 4
-    assert Periodo.objects.filter(anio=2026, mes=12, estado="abierto").exists()
-    assert Ocurrencia.objects.filter(periodo__mes=12).exists()
+    assert list(Periodo.objects.values_list("anio", "mes")) == [(2026, 11)]  # el calendario empieza en noviembre; diciembre se abre después
+    assert Periodo.objects.get(mes=11).inicio_medicion == date(2026, 11, 5)
+    assert Ocurrencia.objects.filter(periodo__mes=11).exists() and not Ocurrencia.objects.filter(fecha_limite__lt=date(2026, 11, 5)).exists()
     roles = {permisos.rol_de(c.usuario) for c in Colaborador.objects.filter(usuario__isnull=False)}
     assert roles == {"GERENTE", "JEFATURA", "COLABORADOR"}
 
