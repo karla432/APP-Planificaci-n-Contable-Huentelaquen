@@ -107,6 +107,11 @@ def convertir_regla(periodicidad, cuando) -> Conversion:
     elif per_l == "puntual":
         if cua_l.startswith("al "):
             return Conversion(Regla("EVENTO"))
+        con_dia = re.match(r"dia (\d{1,2}) de (.+)", cua_l)
+        if con_dia and 1 <= int(con_dia.group(1)) <= 31:
+            meses = tuple(sorted({n for nombre, n in MESES.items() if re.search(rf"\b{nombre}\b", con_dia.group(2))}))
+            if meses:
+                return Conversion(Regla("MESES", meses=meses, dia=int(con_dia.group(1)), ajuste="siguiente"))
         meses = tuple(sorted({n for nombre, n in MESES.items() if re.search(rf"\b{nombre}\b", cua_l)}))
         if meses:
             return _revision("Faltan el día del mes en que vence (el Excel solo indica los meses).", Regla("MESES", meses=meses))
@@ -160,6 +165,7 @@ class VistaPrevia:
     externas_sin_receptor: list = field(default_factory=list)  # el Excel no dice quién las recibe: se propone a la Jefa
     inconsistencias_fecha: list = field(default_factory=list)  # (FilaImport, texto)
     secuencias: dict = field(default_factory=dict)  # clave estable → orden en el Excel
+    orden_procesos: list = field(default_factory=list)  # procesos en el orden en que aparecen en el Excel
     total_filas: int = 0
 
 
@@ -191,8 +197,8 @@ def _con_tarea_del_dia_9(filas: list) -> list:
 
 
 def leer_excel(ruta) -> list[FilaImport]:
-    wb = openpyxl.load_workbook(Path(ruta), data_only=True)
-    hoja = wb["Planificación"] if "Planificación" in wb.sheetnames else wb["Tareas"]
+    wb = openpyxl.load_workbook(ruta if hasattr(ruta, "read") else Path(ruta), data_only=True)
+    hoja = wb["Planificación"] if "Planificación" in wb.sheetnames else wb["Tareas"] if "Tareas" in wb.sheetnames else wb.worksheets[0]
     filas = list(hoja.iter_rows(values_only=True))
     inicio = next(i for i, r in enumerate(filas) if r and "Proceso" in r)
     columnas = {normalizar(nombre): i for i, nombre in enumerate(filas[inicio]) if nombre}
@@ -276,11 +282,13 @@ def _chequear_fecha(fila: FilaImport, cal: Calendario) -> str | None:
     return None
 
 
-def previsualizar(ruta, calendario: Calendario | None = None) -> VistaPrevia:
+def previsualizar(ruta, calendario: Calendario | None = None, incluir_dia_9: bool = True) -> VistaPrevia:
     if calendario is None:
         from nucleo.models import Feriado
         calendario = Calendario(Feriado.objects.filter(confirmado=True).values_list("fecha", flat=True))
-    filas = _con_tarea_del_dia_9(leer_excel(ruta))
+    filas = leer_excel(ruta)
+    if incluir_dia_9:  # la carga masiva desde la pantalla no la resucita si alguien la quitó a propósito
+        filas = _con_tarea_del_dia_9(filas)
     vp = VistaPrevia(total_filas=len(filas))
     existentes = {t.clave_estable: t for t in Tarea.objects.select_related("cargo_ejecuta", "cargo_revisa")}
     procesos = set(Proceso.objects.values_list("nombre", flat=True))
@@ -294,6 +302,8 @@ def previsualizar(ruta, calendario: Calendario | None = None) -> VistaPrevia:
         vistas.add(f.clave)
         f.secuencia = len(vp.secuencias) + 1  # el orden cuenta solo las tareas que se importan (sin repetidas)
         vp.secuencias[f.clave] = f.secuencia
+        if f.proceso not in vp.orden_procesos:
+            vp.orden_procesos.append(f.proceso)
         f.conversion = convertir_regla(f.periodicidad, f.cuando)
         valores = _valores(f)
         if valores["requiere_revision"]:
@@ -337,7 +347,7 @@ def _aplicar_valores(tarea: Tarea, valores: dict):
 
 
 @transaction.atomic
-def aplicar(vp: VistaPrevia, usuario) -> dict:
+def aplicar(vp: VistaPrevia, usuario, detalle: dict | None = None) -> dict:
     for f in vp.altas:
         proceso, _ = Proceso.objects.get_or_create(nombre=f.proceso)  # un proceso nuevo queda al final, en el orden en que aparece en el Excel
         tarea = Tarea(codigo=codigos.codigo_de_tarea(proceso, f.tarea_principal), clave_estable=f.clave, proceso=proceso, tarea_principal=f.tarea_principal, subtarea=f.subtarea)
@@ -351,7 +361,11 @@ def aplicar(vp: VistaPrevia, usuario) -> dict:
         tarea.save(update_fields=["activa"])
     for clave, orden in vp.secuencias.items():  # el orden de proceso es el del Excel
         Tarea.objects.filter(clave_estable=clave).update(secuencia=orden)
+    # El orden de los procesos es el del archivo; los que el archivo no menciona quedan después, como estaban.
+    resto = [p.nombre for p in Proceso.objects.exclude(nombre__in=vp.orden_procesos)]
+    for i, nombre in enumerate(vp.orden_procesos + resto, start=1):
+        Proceso.objects.filter(nombre=nombre).update(orden=i)
     resumen = {"altas": len(vp.altas), "cambios": len(vp.cambios), "bajas": len(vp.bajas),
                "requieren_revision": len(vp.requieren_revision), "externas": len(vp.externas)}
-    auditoria.registrar("importacion.aplicada", usuario=usuario, entidad="Tarea", despues=resumen)
+    auditoria.registrar("importacion.aplicada", usuario=usuario, entidad="Tarea", despues={**resumen, **(detalle or {})})
     return resumen

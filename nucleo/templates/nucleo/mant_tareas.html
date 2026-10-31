@@ -2,7 +2,8 @@
 {% block titulo %}Mantenedor de tareas{% endblock %}
 {% block contenido %}
 <div class="encabezado"><div><p class="kick">Mantenedor</p><h1>Tareas</h1></div>
-  <a class="btn" href="{% url 'mant_tarea_nueva' %}">+ Nueva tarea</a></div>
+  <div class="acciones"><a class="btn btn-2" href="{% url 'mant_tareas_exportar' %}">Descargar Excel</a><a class="btn btn-2" href="{% url 'mant_tareas_cargar' %}">Cargar Excel</a>
+  <a class="btn" href="{% url 'mant_tarea_nueva' %}">+ Nueva tarea</a></div></div>
 <form method="get" class="card filtros">
   <div><label for="f-proceso">Proceso</label><select id="f-proceso" name="proceso"><option value="">Todos</option>{% for p in procesos %}<option value="{{ p.pk }}" {% if f.proceso == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.nombre }}</option>{% endfor %}</select></div>
   <div><label for="f-cargo">Responsable</label><select id="f-cargo" name="cargo"><option value="">Todos</option>{% for c in cargos %}<option value="{{ c.pk }}" {% if f.cargo == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}</select></div>

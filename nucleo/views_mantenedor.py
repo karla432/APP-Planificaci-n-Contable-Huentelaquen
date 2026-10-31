@@ -5,11 +5,13 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from nucleo import permisos
 from nucleo.models import Cargo, Colaborador, Proceso, Tarea
-from nucleo.servicios import agenda, mantenedor, reglas_texto, reloj
+from nucleo.servicios import agenda, auditoria, excel_masivo, mantenedor, reglas_texto, reloj
 from nucleo.servicios.errores import ErrorDeNegocio, PermisoDenegado
 
 TIPOS = [
@@ -157,6 +159,104 @@ def procesos(request):
             messages.error(request, str(e))
         return redirect("mant_procesos")
     return render(request, "nucleo/mant_procesos.html", {"procesos": Proceso.objects.annotate(n_tareas=Count("tareas")).order_by("orden", "nombre")})
+
+
+# ---- Descarga y carga masiva en Excel ----------------------------------------------------------------------
+
+
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+ETIQUETAS_DE_CAMPO = {
+    "cargo_ejecuta": "Responsable", "cargo_revisa": "Revisa", "periodicidad_excel": "Periodicidad", "cuando_excel": "Cuándo", "regla_tipo": "Tipo de regla",
+    "regla_dia_semana": "Día de la semana", "regla_n": "Día hábil del cierre", "regla_dia": "Día del mes", "regla_meses": "Meses", "regla_ajuste": "Ajuste si es inhábil",
+    "regla_franja": "Franja", "referencia_normativa": "Observación", "minutos_estimados": "Minutos estimados", "ejecuciones_mes": "Ejecuciones al mes",
+    "fuente_horas": "Quién definió las horas", "dia_cierre": "Día de cierre (Excel)", "revisa_excel": "Revisa (Excel)", "regla_estado": "Estado de la regla",
+    "requiere_revision": "Requiere revisión", "motivo_revision": "Motivo de revisión",
+}
+
+
+def _descarga(contenido: bytes, prefijo: str):
+    r = HttpResponse(contenido, content_type=XLSX)
+    r["Content-Disposition"] = f'attachment; filename="{excel_masivo.nombre_de_descarga(prefijo, reloj.hoy())}"'
+    r["Cache-Control"] = "no-store"
+    return r
+
+
+def _archivo_subido(request) -> tuple[bytes, str]:
+    f = request.FILES.get("archivo")
+    if f is None:
+        raise ErrorDeNegocio("Elige primero el archivo Excel.")
+    return f.read(excel_masivo.MAX_BYTES + 1), f.name[:120]
+
+
+@con_roles(*EDITA_TAREAS)
+def tareas_exportar(request):
+    contenido = excel_masivo.exportar_tareas()
+    auditoria.registrar("tareas.descargadas", usuario=request.user, entidad="Tarea", despues={"filas": Tarea.objects.filter(activa=True).count()})
+    return _descarga(contenido, "tareas")
+
+
+@con_roles(*EDITA_TAREAS)
+def procesos_exportar(request):
+    return _descarga(excel_masivo.exportar_procesos(), "procesos")
+
+
+def _contexto_de_la_vista_previa(vp, nombre: str) -> dict:
+    cambios = [(t, f, [(ETIQUETAS_DE_CAMPO.get(k, k), "" if a is None else a, "" if d is None else d) for k, (a, d) in diff.items()]) for t, f, diff in vp.cambios]
+    return {"vp": vp, "nombre_archivo": nombre, "problemas": excel_masivo.problemas_para_aplicar(vp), "cambios": cambios[:40], "mas_cambios": max(len(cambios) - 40, 0),
+            "altas": vp.altas[:40], "mas_altas": max(len(vp.altas) - 40, 0), "bajas": vp.bajas[:40], "mas_bajas": max(len(vp.bajas) - 40, 0)}
+
+
+@con_roles(*EDITA_TAREAS)
+def tareas_cargar(request):
+    """Cargar tareas en dos pasos: 1) subir el Excel y ver la vista previa; 2) confirmar. Nada se guarda en el primer paso."""
+    sesion = request.session.get("carga_masiva") or {}
+    if request.method == "POST":
+        accion = request.POST.get("accion")
+        try:
+            if accion == "revisar":
+                contenido, nombre = _archivo_subido(request)
+                vp = excel_masivo.previsualizar_tareas(request.user, contenido, nombre)
+                excel_masivo.borrar_en_espera(sesion.get("token", ""))
+                request.session["carga_masiva"] = {"token": excel_masivo.guardar_en_espera(contenido), "nombre": nombre}
+                return render(request, "nucleo/mant_tareas_cargar.html", _contexto_de_la_vista_previa(vp, nombre))
+            if accion == "cancelar":
+                excel_masivo.borrar_en_espera(sesion.get("token", ""))
+                request.session.pop("carga_masiva", None)
+                messages.success(request, "Carga cancelada: no se cambió nada.")
+                return redirect("mant_tareas")
+            if accion == "aplicar":
+                contenido = excel_masivo.leer_en_espera(sesion.get("token", ""))
+                try:
+                    r = excel_masivo.aplicar_tareas(request.user, contenido, sesion.get("nombre", ""), confirma_desactivar=request.POST.get("confirmo") == "on")
+                except ErrorDeNegocio as e:
+                    messages.error(request, str(e))
+                    vp = excel_masivo.previsualizar_tareas(request.user, contenido, sesion.get("nombre", ""))
+                    return render(request, "nucleo/mant_tareas_cargar.html", _contexto_de_la_vista_previa(vp, sesion.get("nombre", "")))
+                excel_masivo.borrar_en_espera(sesion.get("token", ""))
+                request.session.pop("carga_masiva", None)
+                messages.success(request, f"Carga aplicada: {r['altas']} tareas nuevas, {r['cambios']} modificadas y {r['bajas']} desactivadas. Rige desde el próximo mes que se abra.")
+                return redirect("mant_tareas")
+            raise ErrorDeNegocio("Acción desconocida.")
+        except PermisoDenegado as e:
+            return _prohibido(request, str(e))
+        except ErrorDeNegocio as e:
+            messages.error(request, str(e))
+        return redirect("mant_tareas_cargar")
+    return render(request, "nucleo/mant_tareas_cargar.html", {"vp": None})
+
+
+@con_roles(*EDITA_TAREAS)
+@require_POST
+def procesos_cargar(request):
+    try:
+        contenido, nombre = _archivo_subido(request)
+        r = excel_masivo.cargar_procesos(request.user, contenido, nombre)
+        messages.success(request, f"Procesos cargados: {r['creados']} nuevos, {r['reordenados']} cambiaron de lugar y {r['activo_cambiado']} cambiaron de estado.")
+    except PermisoDenegado as e:
+        return _prohibido(request, str(e))
+    except ErrorDeNegocio as e:
+        messages.error(request, str(e))
+    return redirect("mant_procesos")
 
 
 # ---- Usuarios --------------------------------------------------------------------------------------------

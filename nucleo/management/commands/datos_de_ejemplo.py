@@ -54,6 +54,8 @@ class Command(BaseCommand):
                 hecha = datetime(2026, 12, 4, 10, 0, tzinfo=SCL)  # hecha tarde
             o.estado, o.primera_hecha_en, o.hecha_en = Ocurrencia.HECHA, hecha, hecha
             o.hecha_por = o.colaborador.usuario
+            if o.minutos_estimados and i % 3 != 2:  # horas reales de EJEMPLO: algunas por debajo y otras por encima de lo estimado
+                o.minutos_reales = round(o.minutos_estimados * (0.8, 1.0, 1.35)[i % 3] / 5) * 5 or 5
             if i % 11 == 4 and o.cargo_revisa_id:  # ya revisada por quien corresponde
                 o.estado, o.revisada_en, o.primera_revision_en = Ocurrencia.REVISADA, hecha, hecha
             o.save()

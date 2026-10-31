@@ -1,7 +1,12 @@
 {% extends "nucleo/base.html" %}
 {% block titulo %}Mantenedor de procesos{% endblock %}
 {% block contenido %}
-<p class="kick">Mantenedor</p><h1>Procesos</h1>
+<div class="encabezado"><div><p class="kick">Mantenedor</p><h1>Procesos</h1></div>
+  <a class="btn btn-2" href="{% url 'mant_procesos_exportar' %}">Descargar Excel</a></div>
+<form method="post" action="{% url 'mant_procesos_cargar' %}" enctype="multipart/form-data" class="card filtros">{% csrf_token %}
+  <div><label for="archivo-p">Cargar procesos desde Excel (orden, activo y procesos nuevos)</label><input id="archivo-p" type="file" name="archivo" accept=".xlsx" required></div>
+  <div><button class="btn btn-2" type="submit">Cargar Excel</button></div>
+  <p class="meta" style="flex-basis:100%">Descarga la planilla, cambia la columna «Orden» o «Activo», agrega procesos nuevos al final y súbela de nuevo. Los procesos se siguen en el orden indicado.</p></form>
 <form method="post" class="card filtros">{% csrf_token %}<input type="hidden" name="accion" value="crear">
   <div><label for="nuevo">Nuevo proceso</label><input id="nuevo" name="nombre" required></div><div><button class="btn" type="submit">Agregar</button></div></form>
 <section class="card"><div class="tabla-scroll"><table class="tbl">

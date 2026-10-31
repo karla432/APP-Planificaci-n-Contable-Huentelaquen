@@ -1,0 +1,50 @@
+{% extends "nucleo/base.html" %}
+{% block titulo %}Cargar tareas desde Excel{% endblock %}
+{% block contenido %}
+<p class="kick">Mantenedor · Tareas</p><h1>Cargar tareas desde Excel</h1>
+{% if not vp %}
+<section class="card"><h2>Cómo funciona</h2>
+  <ol>
+    <li><strong>Descarga</strong> la planilla con las tareas actuales: <a href="{% url 'mant_tareas_exportar' %}">Descargar Excel</a>.</li>
+    <li>Edítala en Excel (cambia, agrega o ordena filas; la hoja «Instrucciones» explica cada columna).</li>
+    <li><strong>Súbela</strong> aquí. Primero verás una <strong>vista previa</strong> de lo que cambiaría; <strong>nada se guarda</strong> hasta que confirmes.</li>
+  </ol>
+  <form method="post" enctype="multipart/form-data" class="filtros">{% csrf_token %}<input type="hidden" name="accion" value="revisar">
+    <div><label for="archivo">Archivo Excel (.xlsx, hasta 5 MB)</label><input id="archivo" type="file" name="archivo" accept=".xlsx" required></div>
+    <div><button class="btn" type="submit">Ver vista previa</button> <a class="btn btn-2" href="{% url 'mant_tareas' %}">Volver</a></div>
+  </form>
+</section>
+{% else %}
+<p class="sub">Archivo: <strong>{{ nombre_archivo }}</strong> · {{ vp.total_filas }} filas leídas. <strong>Aún no se guardó nada.</strong></p>
+<div class="indicadores">
+  <div class="card"><p class="meta">Tareas nuevas</p><p class="cifra">{{ vp.altas|length }}</p></div>
+  <div class="card"><p class="meta">Tareas modificadas</p><p class="cifra">{{ vp.cambios|length }}</p></div>
+  <div class="card"><p class="meta">Se desactivan</p><p class="cifra">{{ vp.bajas|length }}</p></div>
+</div>
+{% if problemas %}<div class="aviso-caja"><strong>No se puede aplicar todavía:</strong><ul>{% for p in problemas %}<li>{{ p }}</li>{% endfor %}</ul>Corrige el Excel y súbelo de nuevo.</div>{% endif %}
+{% if vp.duplicadas %}<p class="aviso-caja">{{ vp.duplicadas|length }} fila{{ vp.duplicadas|length|pluralize }} repetida{{ vp.duplicadas|length|pluralize }} (mismo proceso, tarea y subtarea): se usa la primera. Filas: {% for f in vp.duplicadas %}{{ f.fila }}{% if not forloop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
+{% if vp.requieren_revision %}<p class="aviso-caja">{{ vp.requieren_revision|length }} tarea{{ vp.requieren_revision|length|pluralize }} quedará{{ vp.requieren_revision|length|pluralize:",n" }} «requiere revisión» (periodicidad que la app no entiende o incompleta). No se generan hasta corregirlas.</p>{% endif %}
+{% if vp.procesos_nuevos %}<p class="meta">Procesos nuevos que se crean: {{ vp.procesos_nuevos|join:", " }}.</p>{% endif %}
+
+{% if altas %}<section class="card"><h2>Tareas nuevas</h2><div class="tabla-scroll"><table class="tbl"><thead><tr><th>Fila</th><th>Proceso</th><th>Tarea principal</th><th>Subtarea</th><th>Responsable</th><th>Cuándo</th></tr></thead><tbody>
+  {% for f in altas %}<tr><td>{{ f.fila }}</td><td>{{ f.proceso }}</td><td>{{ f.tarea_principal }}</td><td>{{ f.subtarea }}</td><td>{{ f.ejecuta }}</td><td>{{ f.periodicidad }} · {{ f.cuando }}</td></tr>{% endfor %}
+  </tbody></table></div>{% if mas_altas %}<p class="meta">… y {{ mas_altas }} más.</p>{% endif %}</section>{% endif %}
+
+{% if cambios %}<section class="card"><h2>Tareas modificadas</h2><div class="tabla-scroll"><table class="tbl"><thead><tr><th>Código</th><th>Subtarea</th><th>Qué cambia</th></tr></thead><tbody>
+  {% for t, f, diff in cambios %}<tr><td>{{ t.codigo }}</td><td>{{ t.subtarea }}</td><td>{% for campo, antes, despues in diff %}<div><strong>{{ campo }}:</strong> {{ antes|default:"—" }} → {{ despues|default:"—" }}</div>{% endfor %}</td></tr>{% endfor %}
+  </tbody></table></div>{% if mas_cambios %}<p class="meta">… y {{ mas_cambios }} más.</p>{% endif %}</section>{% endif %}
+
+{% if bajas %}<section class="card"><h2>Tareas que se desactivan</h2><p class="meta">Están en la app pero no en el archivo. Se <strong>desactivan</strong> (no se borran) y dejan de generarse desde el próximo mes.</p>
+  <div class="tabla-scroll"><table class="tbl"><thead><tr><th>Código</th><th>Proceso</th><th>Subtarea</th></tr></thead><tbody>
+  {% for t in bajas %}<tr><td>{{ t.codigo }}</td><td>{{ t.proceso.nombre }}</td><td>{{ t.subtarea }}</td></tr>{% endfor %}
+  </tbody></table></div>{% if mas_bajas %}<p class="meta">… y {{ mas_bajas }} más.</p>{% endif %}</section>{% endif %}
+
+<section class="card">
+  <form method="post" class="filtros">{% csrf_token %}
+    {% if vp.bajas %}<label class="check" style="flex-basis:100%"><input type="checkbox" name="confirmo"> Confirmo que se desactivan {{ vp.bajas|length }} tarea{{ vp.bajas|length|pluralize }}</label>{% endif %}
+    <div>{% if not problemas %}<button class="btn" type="submit" name="accion" value="aplicar">Aplicar la carga</button>{% endif %}
+      <button class="btn btn-2" type="submit" name="accion" value="cancelar" formnovalidate>Cancelar</button></div>
+  </form>
+</section>
+{% endif %}
+{% endblock %}
