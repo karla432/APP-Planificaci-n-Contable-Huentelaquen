@@ -112,3 +112,4 @@ input, select, textarea { width: 100%; min-height: 44px; padding: 6px 12px; bord
 .grupo[hidden] { display: none; }
 .oculto { position: absolute; left: -9999px; }
 .tbl input { min-height: 36px; }
+.meta-barra { height: 10px; background: var(--hu-card-line); margin-bottom: 4px; } .meta-barra i { display: block; height: 100%; background: var(--hu-gray); } .meta-barra i.c-ok { background: var(--hu-ok); } .meta-barra i.c-warn { background: var(--hu-warn); } .meta-barra i.c-red { background: var(--hu-risk); }

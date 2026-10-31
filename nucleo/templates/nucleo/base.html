@@ -15,6 +15,7 @@
     <div class="nav-sec">Informes</div>
     <a class="nav-i{% if url_actual == 'informe_panel' %} nav-on{% endif %}" href="{% url 'informe_panel' %}">Panel del cierre</a>
     <a class="nav-i{% if url_actual == 'informe_cumplimiento' %} nav-on{% endif %}" href="{% url 'informe_cumplimiento' %}">Cumplimiento por colaborador</a>
+    <a class="nav-i{% if url_actual == 'informe_carga' %} nav-on{% endif %}" href="{% url 'informe_carga' %}">Carga del equipo</a>
 
     <div class="nav-sec">Check List</div>
     <a class="nav-i{% if url_actual == 'hoy' %} nav-on{% endif %}" href="{% url 'hoy' %}">Mi día</a>

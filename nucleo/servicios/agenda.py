@@ -10,7 +10,7 @@ from nucleo.servicios import kpi
 from nucleo.servicios.calendario import JORNADA_HORAS
 from nucleo.servicios.feriados import calendario_confirmado
 
-PENDIENTES = (Ocurrencia.PENDIENTE, Ocurrencia.DEVUELTA)
+PENDIENTES = (Ocurrencia.PENDIENTE, Ocurrencia.DEVUELTA, Ocurrencia.BLOQUEADA)
 DIAS_PROXIMOS = 7
 
 

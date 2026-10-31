@@ -92,6 +92,37 @@ def marcar_por_excepcion(o: Ocurrencia, usuario, motivo: str):
     _marcar(o, usuario, "ocurrencia.hecha_por_excepcion", por_excepcion=True, motivo_excepcion=motivo.strip())
 
 
+@transaction.atomic
+def marcar_bloqueada(o: Ocurrencia, usuario, motivo: str):
+    """El dueño avisa que no puede avanzar (por ejemplo, falta un insumo). Exige motivo; aparece como riesgo en el panel."""
+    rol = _exigir_rol(usuario)
+    if not _es_dueno(usuario, rol, o):
+        raise PermisoDenegado("Solo puedes bloquear tus propias tareas.")
+    if not (motivo or "").strip():
+        raise ErrorDeNegocio("Bloquear una tarea exige un motivo.")
+    if o.estado not in (Ocurrencia.PENDIENTE, Ocurrencia.DEVUELTA):
+        raise ErrorDeNegocio(f"Solo se puede bloquear una tarea pendiente o devuelta (estado actual: {o.estado}).")
+    _exigir_periodo_abierto(o)
+    antes = _estado(o)
+    o.estado, o.motivo_bloqueo = Ocurrencia.BLOQUEADA, motivo.strip()
+    o.save()
+    auditoria.registrar("ocurrencia.bloqueada", usuario=usuario, entidad="Ocurrencia", entidad_id=o.pk, antes=antes, despues=_estado(o), motivo=o.motivo_bloqueo)
+
+
+@transaction.atomic
+def retomar(o: Ocurrencia, usuario):
+    rol = _exigir_rol(usuario)
+    if not _es_dueno(usuario, rol, o):
+        raise PermisoDenegado("Solo puedes retomar tus propias tareas.")
+    if o.estado != Ocurrencia.BLOQUEADA:
+        raise ErrorDeNegocio(f"Solo se puede retomar una tarea bloqueada (estado actual: {o.estado}).")
+    _exigir_periodo_abierto(o)
+    antes = _estado(o)
+    o.estado = Ocurrencia.PENDIENTE
+    o.save()
+    auditoria.registrar("ocurrencia.retomada", usuario=usuario, entidad="Ocurrencia", entidad_id=o.pk, antes=antes, despues=_estado(o))
+
+
 def _exigir_puede_revisar(o: Ocurrencia, usuario):
     _exigir_rol(usuario)
     if o.tipo_marca == "RECIBIDA":

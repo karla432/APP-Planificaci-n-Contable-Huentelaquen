@@ -10,6 +10,11 @@ INICIALES = {
     "plazo_revision_dias_habiles": ("1", "pendiente_confirmar", "Días hábiles para revisar una tarea hecha. Propuesta de Legión."),
     "minimo_muestra_semaforo": ("10", "pendiente_confirmar", "Tareas vencidas mínimas para colorear el semáforo. Propuesta de Legión."),
     "min_dias_habiles_d7_d10": ("1", "confirmado", "Días hábiles mínimos entre el D7 y el D10 corridos (P2, aprobada por Karla)."),
+    "horas_disponibles_mes": ("160", "pendiente_confirmar", "Horas al mes que una persona dedica a Huentelauquén (valor por defecto de la planificación)."),
+    "dias_habiles_mes": ("21", "pendiente_confirmar", "Días hábiles de un mes típico, para repartir la carga por día."),
+    "pct_horas_revision": ("25", "pendiente_confirmar", "Horas de revisión = este % de las horas de ejecución de la tarea revisada (planificación)."),
+    "carga_ambar": ("90", "pendiente_confirmar", "Desde este % de la capacidad la carga pasa a ámbar."),
+    "carga_rojo": ("110", "pendiente_confirmar", "Sobre este % de la capacidad la carga pasa a rojo."),
     "tiempo_obligatorio": ("0", "confirmado", "1 = exigir minutos al marcar «hecha». Apagado en v1 (DEC-09)."),
 }
 

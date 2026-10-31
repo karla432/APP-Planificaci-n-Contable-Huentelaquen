@@ -17,6 +17,7 @@ from nucleo.servicios.feriados import calendario_confirmado
 
 TIPOS_DE_CIERRE = ("CIERRE_DIA_HABIL", "CIERRE_HITO")
 HECHAS = (Ocurrencia.HECHA, Ocurrencia.REVISADA)
+SIN_HACER = (Ocurrencia.PENDIENTE, Ocurrencia.BLOQUEADA)  # una bloqueada sigue sin hacer
 
 
 def _dia_local(instante) -> date:
@@ -94,7 +95,7 @@ def por_colaborador(periodo, hoy: date) -> list[KpiPersona]:
         k.vencidas += 1
         k.a_tiempo += _a_tiempo(o)
         k.completas += o.primera_hecha_en is not None
-        k.pendientes_vencidas += o.estado == Ocurrencia.PENDIENTE
+        k.pendientes_vencidas += o.estado in SIN_HACER
     return sorted(filas.values(), key=lambda k: k.colaborador.nombre)
 
 
@@ -188,7 +189,7 @@ def ruta_del_cierre(periodo, hoy: date) -> list[RutaDia]:
             continue
         r.total += 1
         r.hechas += o.estado in HECHAS
-        r.atrasadas += o.estado == Ocurrencia.PENDIENTE and o.fecha_limite < hoy
+        r.atrasadas += o.estado in SIN_HACER and o.fecha_limite < hoy
     return [ruta[f] for _, f in dias]
 
 
@@ -215,8 +216,8 @@ def resumen(periodo, hoy: date) -> Resumen:
     for o in _cierre(periodo):
         r.total += 1
         r.hechas += o.estado in HECHAS
-        r.atrasadas += o.estado == Ocurrencia.PENDIENTE and o.fecha_limite < hoy
-        r.vencen_hoy += o.estado == Ocurrencia.PENDIENTE and o.fecha_limite == hoy
+        r.atrasadas += o.estado in SIN_HACER and o.fecha_limite < hoy
+        r.vencen_hoy += o.estado in SIN_HACER and o.fecha_limite == hoy
     for k in por_colaborador(periodo, hoy):
         r.equipo_a_tiempo += k.a_tiempo
         r.equipo_vencidas += k.vencidas
@@ -237,7 +238,7 @@ def avance_por_proceso(periodo, hoy: date) -> list[AvanceProceso]:
         a = filas.setdefault(o.tarea.proceso.nombre, AvanceProceso(o.tarea.proceso.nombre))
         a.total += 1
         a.hechas += o.estado in HECHAS
-        if o.estado == Ocurrencia.PENDIENTE:
+        if o.estado in SIN_HACER:
             if o.fecha_limite < hoy:
                 a.estado = "atrasado"
             elif a.estado != "atrasado":

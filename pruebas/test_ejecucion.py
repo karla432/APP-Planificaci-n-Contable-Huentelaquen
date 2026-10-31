@@ -221,3 +221,47 @@ def test_devolver_cuenta_la_devolucion_y_fija_la_primera_revision_una_sola_vez(m
     ejecucion.revisar(o, mundo["u"]["jefa"])
     o.refresh_from_db()
     assert o.estado == "revisada" and o.veces_devuelta == 1 and o.primera_revision_en == primera
+
+
+# ---- Bloqueada ----------------------------------------------------------------------------------------
+
+
+def test_el_dueno_bloquea_con_motivo_y_la_retoma(mundo):
+    o = mundo["o"]["TAR-0001"]
+    with pytest.raises(ErrorDeNegocio, match="motivo"):
+        ejecucion.marcar_bloqueada(o, mundo["u"]["cont"], motivo="  ")
+    ejecucion.marcar_bloqueada(o, mundo["u"]["cont"], motivo="Falta la liquidación de Lechería")
+    o.refresh_from_db()
+    assert o.estado == "bloqueada" and o.motivo_bloqueo == "Falta la liquidación de Lechería"
+    assert EventoAuditoria.objects.filter(accion="ocurrencia.bloqueada", entidad_id=str(o.pk)).exists()
+    ejecucion.retomar(o, mundo["u"]["cont"])
+    o.refresh_from_db()
+    assert o.estado == "pendiente"
+
+
+@pytest.mark.parametrize("quien", ["anal", "jefa", "ger", "lectura", "admin"])
+def test_nadie_bloquea_ni_retoma_la_tarea_de_otro(mundo, quien):
+    o = mundo["o"]["TAR-0001"]
+    with pytest.raises(PermisoDenegado):
+        ejecucion.marcar_bloqueada(o, mundo["u"][quien], motivo="x")
+    ejecucion.marcar_bloqueada(o, mundo["u"]["cont"], motivo="x")
+    with pytest.raises(PermisoDenegado):
+        ejecucion.retomar(o, mundo["u"][quien])
+
+
+def test_una_tarea_bloqueada_no_se_marca_hecha_hasta_retomarla(mundo):
+    o = mundo["o"]["TAR-0001"]
+    ejecucion.marcar_bloqueada(o, mundo["u"]["cont"], motivo="Falta un insumo")
+    with pytest.raises(ErrorDeNegocio, match="pendiente"):
+        ejecucion.marcar_hecha(o, mundo["u"]["cont"])
+    ejecucion.retomar(o, mundo["u"]["cont"])
+    ejecucion.marcar_hecha(o, mundo["u"]["cont"])
+    o.refresh_from_db()
+    assert o.estado == "hecha"
+
+
+def test_una_hecha_no_se_puede_bloquear(mundo):
+    o = mundo["o"]["TAR-0001"]
+    ejecucion.marcar_hecha(o, mundo["u"]["cont"])
+    with pytest.raises(ErrorDeNegocio):
+        ejecucion.marcar_bloqueada(o, mundo["u"]["cont"], motivo="x")

@@ -6,7 +6,7 @@ from django.shortcuts import render
 
 from nucleo import permisos
 from nucleo.models import Feriado, Ocurrencia, Periodo
-from nucleo.servicios import agenda, kpi, parametros, presentacion, reloj
+from nucleo.servicios import agenda, carga, kpi, parametros, presentacion, reloj
 from nucleo.servicios.feriados import calendario_confirmado
 
 
@@ -71,3 +71,19 @@ def cumplimiento(request):
     if periodo is not None:
         c.update({"cumplimiento": _filas_cumplimiento(periodo, hoy), "insumos": kpi.insumos_por_cargo_externo(periodo, hoy), "revision": kpi.cumplimiento_de_revision(periodo, hoy)})
     return render(request, "nucleo/informe_cumplimiento.html", c)
+
+
+@login_required
+def carga_del_equipo(request):
+    if permisos.rol_de(request.user) is None:
+        return _sin_perfil(request)
+    filas = carga.por_cargo()
+    etiquetas = {"verde": ("Dentro de su capacidad", "ok"), "ambar": ("Al límite", "warn"), "rojo": ("Sobrecargado", "red")}
+    for f in filas:
+        f.etiqueta, f.clase = etiquetas[f.semaforo]
+    mas_cargado = max(filas, key=lambda f: f.total, default=None)
+    cierre = carga.por_dia_de_cierre()
+    return render(request, "nucleo/informe_carga.html", {
+        "filas": filas, "mas_cargado": mas_cargado, "cierre": cierre, "dias": carga.DIAS_DEL_CIERRE, "sin_horas": carga.tareas_sin_horas(),
+        "capacidad": parametros.entero("horas_disponibles_mes"),
+    })

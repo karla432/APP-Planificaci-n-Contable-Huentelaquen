@@ -133,3 +133,26 @@ def test_el_texto_de_los_motivos_se_escapa_contra_xss(mundo):
     cliente(mundo["u"]["jefa"]).post(reverse("ocurrencia_accion", args=[o.pk, "devolver"]), {"comentario": "<script>alert(1)</script>"})
     html = cliente(mundo["u"]["cont"]).get(reverse("hoy")).content.decode()
     assert "<script>alert(1)</script>" not in html and "&lt;script&gt;" in html
+
+
+def test_el_dueno_bloquea_desde_la_pantalla_con_motivo_y_se_ve_el_motivo(mundo):
+    o = mundo["o"]["TAR-0002"]
+    url = reverse("ocurrencia_accion", args=[o.pk, "bloquear"])
+    c = cliente(mundo["u"]["cont"])
+    c.post(url, {"comentario": "  "})
+    o.refresh_from_db()
+    assert o.estado == "pendiente"  # sin motivo no bloquea
+    assert c.post(url, {"comentario": "Falta la liquidación de Lechería"}).status_code == 302
+    o.refresh_from_db()
+    assert o.estado == "bloqueada"
+    html = c.get(reverse("hoy")).content.decode()
+    assert "Bloqueada" in html and "Falta la liquidación de Lechería" in html and "Retomar" in html
+
+
+def test_retomar_y_la_proteccion_de_lo_ajeno(mundo):
+    o = mundo["o"]["TAR-0002"]
+    cliente(mundo["u"]["cont"]).post(reverse("ocurrencia_accion", args=[o.pk, "bloquear"]), {"comentario": "Falta un insumo"})
+    assert cliente(mundo["u"]["jefa"]).post(reverse("ocurrencia_accion", args=[o.pk, "retomar"])).status_code == 403
+    assert cliente(mundo["u"]["cont"]).post(reverse("ocurrencia_accion", args=[o.pk, "retomar"])).status_code == 302
+    o.refresh_from_db()
+    assert o.estado == "pendiente"

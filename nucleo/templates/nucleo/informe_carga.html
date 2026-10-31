@@ -1,0 +1,25 @@
+{% extends "nucleo/base.html" %}
+{% block titulo %}Carga del equipo{% endblock %}
+{% block contenido %}
+<p class="kick">Informes · Carga del equipo <span class="pill p-warn">Estimado</span></p>
+{% if mas_cargado %}<h1 class="ancho">{{ mas_cargado.cargo.nombre }} es quien más carga lleva: {{ mas_cargado.ocupacion_pct }} % de su capacidad.</h1>{% else %}<h1>Carga del equipo</h1>{% endif %}
+<p class="sub">Horas estimadas de ejecución y de revisión al mes, contra {{ capacidad }} h de capacidad por persona. Son <strong>estimaciones</strong>: las horas reales las registrarán los colaboradores más adelante.
+  {% if sin_horas %}<strong>{{ sin_horas }} tarea{{ sin_horas|pluralize }} sin horas estimadas.</strong>{% endif %}</p>
+<section class="card" style="margin-top:16px"><h2>Carga mensual por persona</h2>
+  <div class="tabla-scroll"><table class="tbl">
+    <thead><tr><th>Cargo</th><th class="n">Ejecuta</th><th class="n">Revisa</th><th class="n">H ejecución</th><th class="n">H revisión</th><th class="n">Total h</th><th style="min-width:200px">Ocupación (capacidad {{ capacidad }} h)</th><th>Estado</th></tr></thead>
+    <tbody>{% for f in filas %}<tr><td><strong>{{ f.cargo.nombre }}</strong></td><td class="n">{{ f.tareas_ejecuta }} tareas</td><td class="n">{{ f.tareas_revisa }} tareas</td>
+      <td class="n">{{ f.horas_ejecucion|floatformat:1 }}</td><td class="n">{{ f.horas_revision|floatformat:1 }}</td><td class="n"><strong>{{ f.total|floatformat:1 }}</strong></td>
+      <td><div class="meta-barra"><i class="c-{{ f.clase }}" style="width: {% if f.ocupacion_pct > 100 %}100{% else %}{{ f.ocupacion_pct|stringformat:'f' }}{% endif %}%"></i></div><small>{{ f.ocupacion_pct|floatformat:1 }} % de {{ capacidad }} h</small></td>
+      <td><span class="pill p-{{ f.clase }}">{{ f.etiqueta }}</span></td></tr>{% endfor %}</tbody>
+  </table></div>
+  <p class="meta">Verde: bajo 90 % · Al límite: de 90 % a 110 % · Sobrecargado: sobre 110 % (parámetros editables). Las horas de revisión son el 25 % de las horas de cada tarea revisada.</p>
+</section>
+<section class="card"><h2>Carga del cierre por día hábil</h2>
+  <p class="meta">Horas de las tareas del cierre que vencen cada día (más la revisión), contra lo que deja libre la operación diaria. En rojo, el día que supera esa capacidad.</p>
+  <div class="tabla-scroll"><table class="tbl"><thead><tr><th>Cargo</th><th class="n">Libre al día</th>{% for d in dias %}<th class="n">Día {{ d }}</th>{% endfor %}</tr></thead><tbody>
+  {% for f in cierre %}<tr><td><strong>{{ f.cargo.nombre }}</strong></td><td class="n">{{ f.disponible_por_dia|floatformat:1 }} h</td>
+    {% for d, h in f.horas.items %}<td class="n">{% if h > f.disponible_por_dia %}<span class="pill p-red">{{ h|floatformat:1 }}</span>{% elif h %}{{ h|floatformat:1 }}{% else %}·{% endif %}</td>{% endfor %}</tr>{% endfor %}
+  </tbody></table></div>
+</section>
+{% endblock %}

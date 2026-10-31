@@ -108,7 +108,7 @@ def en_construccion(request, titulo):
     return render(request, "nucleo/en_construccion.html", {"titulo": titulo})
 
 
-ACCIONES = {"hecha", "recibida", "revisar", "devolver"}
+ACCIONES = {"hecha", "recibida", "revisar", "devolver", "bloquear", "retomar"}
 
 
 @login_required
@@ -122,6 +122,10 @@ def ocurrencia_accion(request, pk, accion):
             ejecucion.marcar_hecha(o, request.user)
         elif accion == "recibida":
             ejecucion.marcar_recibida(o, request.user)
+        elif accion == "bloquear":
+            ejecucion.marcar_bloqueada(o, request.user, request.POST.get("comentario", ""))
+        elif accion == "retomar":
+            ejecucion.retomar(o, request.user)
         elif accion == "revisar":
             ejecucion.revisar(o, request.user)
         else:

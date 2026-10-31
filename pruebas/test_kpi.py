@@ -199,3 +199,10 @@ def test_los_dias_clave_del_cierre_son_los_dias_habiles_1_a_10(base):
 def test_la_ruta_del_cierre_tiene_diez_dias_con_su_descripcion(base):
     ruta = kpi.ruta_del_cierre(base["p"], HOY)
     assert len(ruta) == 10 and ruta[8].etiqueta == "Día 9" and ruta[8].descripcion == "Revisión con Gerencia General"
+
+
+def test_una_tarea_bloqueada_vencida_cuenta_como_atrasada_sin_hacer(base):
+    ocurrencia(base, date(2026, 12, 4), estado="bloqueada")
+    k = kpi_de(base)
+    assert (k.vencidas, k.a_tiempo, k.pendientes_vencidas) == (1, 0, 1)
+    assert kpi.resumen(base["p"], HOY).atrasadas == 1
