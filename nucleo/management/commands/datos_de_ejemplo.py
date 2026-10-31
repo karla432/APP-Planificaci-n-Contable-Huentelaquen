@@ -16,7 +16,7 @@ PERSONAS = [  # usuario, nombre de ejemplo, cargo, rol
     ("gerente", "Gerente AyF (ejemplo)", "Gerente AyF", "GERENTE"),
     ("jefa", "Jefa de Gestión y Control (ejemplo)", "Jefa Gestión y Control", "JEFATURA"),
     ("contadora", "Contadora Senior (ejemplo)", "Contadora Senior", "COLABORADOR"),
-    ("analista", "Analista Contable (ejemplo)", "Analista Contable", "COLABORADOR"),
+    ("asistente", "Asistente Contable (ejemplo)", "Asistente Contable", "COLABORADOR"),
 ]
 SCL = ZoneInfo("America/Santiago")
 
@@ -41,7 +41,7 @@ class Command(BaseCommand):
         feriados.abrir_anio(2026, None)
         res = periodos.abrir_mes(2026, 12, usuario=None, inicio_medicion=date(2026, 12, 1))
         self._simular_avance()
-        self.stdout.write(self.style.SUCCESS(f"Ejemplo listo: {res.creadas} ocurrencias en 12-2026, {len(res.avisos)} avisos. Usuarios: gerente, jefa, contadora, analista."))
+        self.stdout.write(self.style.SUCCESS(f"Ejemplo listo: {res.creadas} ocurrencias en 12-2026, {len(res.avisos)} avisos. Usuarios: gerente, jefa, contadora, asistente."))
 
     def _simular_avance(self):
         """Avance de EJEMPLO hasta el 03-12-2026: casi todo a tiempo, algo tarde y algo sin hacer."""

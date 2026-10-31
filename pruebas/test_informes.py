@@ -124,3 +124,20 @@ def test_el_panel_lista_los_feriados_confirmados_del_mes_y_no_inventa_ninguno(mu
     Feriado.objects.all().delete()
     sin = ver(mundo["u"]["lectura"], "informe_panel")
     assert "Feriados del mes" not in sin and "08 de diciembre" not in sin
+
+
+def test_el_cumplimiento_lista_a_las_personas_en_el_orden_de_los_cargos(mundo):
+    """Gerente AyF, Jefa, Contadora Senior, Asistente Contable: el orden que definió Karla, no el alfabético."""
+    from nucleo.models import Cargo
+    for nombre, orden in (("Gerente AyF", 1), ("Jefa Gestión y Control", 2), ("Contadora Senior", 3), ("Asistente Contable", 4)):
+        Cargo.objects.update_or_create(nombre=nombre, defaults={"orden": orden})
+    asistente = cargo("Asistente Contable")
+    ger = persona("Aaa Gerente", cargo("Gerente AyF"))
+    pa = persona("Zzz Asistente", asistente)
+    tarea("TAR-0090", asistente, "CIERRE_DIA_HABIL", revisa=cargo("Jefa Gestión y Control"), n=1)
+    tarea("TAR-0091", cargo("Gerente AyF"), "CIERRE_DIA_HABIL", revisa=cargo("Jefa Gestión y Control"), n=1)
+    periodos.abrir_mes(2026, 12, usuario=None)
+    html = ver(mundo["u"]["lectura"], "informe_cumplimiento")
+    cuadro = html.split("Cumplimiento de revisión")[0]
+    posiciones = [cuadro.index(n) for n in ("Aaa Gerente", "Jefa", "Contadora", "Zzz Asistente")]
+    assert posiciones == sorted(posiciones)

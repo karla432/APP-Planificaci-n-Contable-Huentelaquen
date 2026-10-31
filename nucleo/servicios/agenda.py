@@ -100,3 +100,10 @@ def cargos_de(colaborador, fecha: date) -> str:
     from nucleo.models import Asignacion
     nombres = Asignacion.objects.filter(colaborador=colaborador, desde__lte=fecha).exclude(hasta__lt=fecha).values_list("cargo__nombre", flat=True)
     return ", ".join(nombres)
+
+
+def orden_de(colaborador, fecha: date) -> int:
+    """Posición de la persona en las listas: la del menor `orden` entre los cargos que ejerce (100 si no tiene cargo)."""
+    from nucleo.models import Asignacion
+    ordenes = Asignacion.objects.filter(colaborador=colaborador, desde__lte=fecha).exclude(hasta__lt=fecha).values_list("cargo__orden", flat=True)
+    return min(ordenes, default=100)

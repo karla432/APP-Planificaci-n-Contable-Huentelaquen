@@ -20,8 +20,9 @@ def manage(*args):
     subprocess.run([sys.executable, str(base / "manage.py"), *args], cwd=base, env=env, check=True)
 
 
-if not (base / "db_local.sqlite3").exists():
-    manage("migrate", "-v0")
+es_nueva = not (base / "db_local.sqlite3").exists()
+manage("migrate", "-v0")  # siempre aplica las actualizaciones de la base (no borra nada)
+if es_nueva:
     manage("datos_de_ejemplo", "--password", "Ejemplo-local-2026")
 if "--preparar" not in sys.argv:
     manage("runserver", "8000")

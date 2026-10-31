@@ -29,7 +29,7 @@ def _contexto_checklist(request, pestana):
     """Lo común a Mi día, Mi semana y Mi mes: de quién es la vista, su cumplimiento y los enlaces entre pestañas."""
     rol = permisos.rol_de(request.user)
     propia = permisos.colaborador_de(request.user)
-    personas = list(Colaborador.objects.filter(activo=True, usuario__isnull=False))
+    personas = sorted(Colaborador.objects.filter(activo=True, usuario__isnull=False), key=lambda c: (agenda.orden_de(c, reloj.hoy()), c.nombre))
     elegida = propia
     if request.GET.get("persona"):
         elegida = get_object_or_404(Colaborador, pk=request.GET["persona"], activo=True)

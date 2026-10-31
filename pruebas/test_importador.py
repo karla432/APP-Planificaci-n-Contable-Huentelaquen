@@ -111,7 +111,8 @@ def test_aplicar_crea_tareas_con_codigos_estables_y_sin_personas(django_user_mod
     assert Colaborador.objects.count() == 0  # las personas las crea el administrador
     cuentas = Counter(Tarea.objects.values_list("cargo_ejecuta__nombre", flat=True))
     assert cuentas["Contadora Senior"] == 115
-    assert cuentas["Analista Contable"] == 33  # «Asistente Contable» del Excel (P5)
+    assert cuentas["Asistente Contable"] == 33  # el cargo se llama como en el Excel y como lo definió Karla (31-10-2026)
+    assert not Cargo.objects.filter(nombre="Analista Contable").exists()
     assert cuentas["Jefa Gestión y Control"] == 27
     assert not Cargo.objects.get(nombre="Contadora Senior").es_externo
     for externo in ("Rafael", "RR.HH.", "Bodega", "Jefaturas de área", "Jefatura Lechería", "Gerencia / Directorio"):
@@ -160,7 +161,7 @@ def test_reimportar_un_excel_actualizado_muestra_altas_cambios_y_bajas(tmp_path)
     importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
     wb = openpyxl.load_workbook(EXCEL)
     ws = wb["Tareas"]
-    ws.cell(row=5, column=5).value = "Analista Contable"  # cambia el responsable de la primera tarea (cambio)
+    ws.cell(row=5, column=5).value = "Asistente Contable"  # cambia el responsable de la primera tarea (cambio)
     ws.delete_rows(6)  # sale una tarea (baja)
     ws.append([None, "Proceso nuevo", "Tarea nueva", "Subtarea nueva", "Contadora Senior", None, "Diaria", "Todos los días hábiles", None, None])  # alta
     nuevo = tmp_path / "actualizado.xlsx"
@@ -171,7 +172,7 @@ def test_reimportar_un_excel_actualizado_muestra_altas_cambios_y_bajas(tmp_path)
     importador.aplicar(vp, usuario=None)
     assert Tarea.objects.get(codigo="TAR-0187").subtarea == "Subtarea nueva"  # el código nuevo sigue la secuencia
     assert Tarea.objects.filter(activa=False).count() == 1  # no se borra físicamente
-    assert Tarea.objects.get(codigo="TAR-0001").cargo_ejecuta.nombre == "Analista Contable"
+    assert Tarea.objects.get(codigo="TAR-0001").cargo_ejecuta.nombre == "Asistente Contable"
 
 
 @pytest.mark.django_db
@@ -192,3 +193,11 @@ def test_una_fila_bien_convertida_no_genera_aviso_de_fecha():
     avisadas = {f.fila for f, _ in vp.inconsistencias_fecha}
     lunes = [f for f in importador.leer_excel(EXCEL) if f.cuando == "Lunes"]
     assert lunes and not any(f.fila in avisadas for f in lunes)
+
+
+@pytest.mark.django_db
+def test_los_cargos_quedan_ordenados_como_los_definio_karla():
+    importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
+    nombres = list(Cargo.objects.values_list("nombre", flat=True))
+    assert nombres[:4] == ["Gerente AyF", "Jefa Gestión y Control", "Contadora Senior", "Asistente Contable"]
+    assert set(nombres[4:]) == {"Rafael", "RR.HH.", "Gerencia / Directorio", "Bodega", "Jefaturas de área", "Jefatura Lechería"}  # los externos van después

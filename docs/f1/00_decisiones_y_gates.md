@@ -67,6 +67,11 @@ La validación con `Fecha 1.ª vez` encontró **5 filas cuya fecha no calza con 
 
 **P8:** ¿Es correcto el «Cuándo» (martes, D7) o la fecha? Las filas 178 a 181 tienen fechas escalonadas después del D7: si de verdad se entregan después, no deberían figurar como D7. Mi propuesta si no hay respuesta: se usa «Cuándo».
 
+### 2d. Cargos y orden (31-10-2026)
+
+Karla definió el orden de los cargos del equipo: **1. Gerente AyF · 2. Jefa de Control y Gestión · 3. Contadora Senior · 4. Asistente Contable**; los responsables externos van después.
+**Revierte P5:** el cargo se llama **«Asistente Contable»** (como en el Excel), no «Analista Contable». Las listas, selectores y cuadros de cumplimiento siguen ese orden. En las pantallas uso los nombres del Excel («Contadora Senior», «Jefa Gestión y Control»); si prefieres «Contador Senior» o «Jefa de Control», se cambia en un solo lugar.
+
 ## 3. Datos que faltan y no bloquean
 
 - **Impuestos territoriales y patentes** («Cuotas de abril, junio, septiembre y noviembre» y «Enero y julio»): el Excel no trae el día del mes. Noviembre es mes de uso, así que alguien debe indicar el día. Entra al reporte del importador como «requiere revisión».

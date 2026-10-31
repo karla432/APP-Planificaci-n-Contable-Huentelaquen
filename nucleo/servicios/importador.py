@@ -24,8 +24,10 @@ from nucleo.servicios.recurrencia import Regla, ReglaIncompleta, ReglaInvalida, 
 
 CARGO_JEFA = "Jefa Gestión y Control"
 CARGO_GERENTE = "Gerente AyF"
-ALIAS_DE_CARGO = {"Asistente Contable": "Analista Contable"}  # P5: es el mismo cargo
 CARGOS_EXTERNOS = {"Rafael", "RR.HH.", "Gerencia / Directorio", "Bodega", "Jefaturas de área", "Jefatura Lechería"}
+# Orden de los cargos en las listas (Karla, 31-10-2026): Gerente AyF, Jefa, Contadora Senior, Asistente Contable; después los externos.
+ORDEN_CARGOS = {"Gerente AyF": 1, "Jefa Gestión y Control": 2, "Contadora Senior": 3, "Asistente Contable": 4}
+ORDEN_EXTERNOS = 50
 
 DIAS = {"lunes": 0, "martes": 1, "miércoles": 2, "miercoles": 2, "jueves": 3, "viernes": 4}
 MESES = {
@@ -151,7 +153,7 @@ def leer_excel(ruta) -> list[FilaImport]:
         ejecuta = normalizar(r[idx["ejecuta"]])
         resultado.append(FilaImport(
             fila=n, proceso=normalizar(r[idx["proceso"]]), tarea_principal=normalizar(r[idx["tarea"]]),
-            subtarea=normalizar(r[idx["sub"]]), ejecuta=ALIAS_DE_CARGO.get(ejecuta, ejecuta),
+            subtarea=normalizar(r[idx["sub"]]), ejecuta=ejecuta,
             revisa_excel=normalizar(r[idx["revisa"]]), periodicidad=normalizar(r[idx["per"]]),
             cuando=normalizar(r[idx["cuando"]]), fecha_1ra=r[idx["fecha"]], observacion=normalizar(r[idx["obs"]]),
         ))
@@ -248,7 +250,8 @@ def previsualizar(ruta, calendario: Calendario | None = None) -> VistaPrevia:
 
 
 def _cargo(nombre: str) -> Cargo:
-    cargo, _ = Cargo.objects.get_or_create(nombre=nombre, defaults={"es_externo": nombre in CARGOS_EXTERNOS})
+    cargo, _ = Cargo.objects.get_or_create(nombre=nombre, defaults={
+        "es_externo": nombre in CARGOS_EXTERNOS, "orden": ORDEN_CARGOS.get(nombre, ORDEN_EXTERNOS if nombre in CARGOS_EXTERNOS else 100)})
     return cargo
 
 

@@ -34,8 +34,8 @@ def _filas_cumplimiento(periodo, hoy: date) -> list[dict]:
     filas = []
     for k in kpi.por_colaborador(periodo, hoy):
         texto, clase = presentacion.etiqueta_semaforo(k.semaforo)
-        filas.append({"k": k, "cargos": agenda.cargos_de(k.colaborador, hoy), "etiqueta": texto, "clase": clase})
-    return filas
+        filas.append({"k": k, "cargos": agenda.cargos_de(k.colaborador, hoy), "etiqueta": texto, "clase": clase, "orden": agenda.orden_de(k.colaborador, hoy)})
+    return sorted(filas, key=lambda f: (f["orden"], f["k"].colaborador.nombre))
 
 
 @login_required
