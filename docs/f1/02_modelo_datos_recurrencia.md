@@ -14,7 +14,7 @@ Los instantes se guardan en UTC. Las fechas de negocio (`fecha_limite`, feriados
 | `Colaborador` | usuario, nombre, correo, activo | Solo nombre, correo y cargo. Sin datos médicos |
 | `Asignacion` | cargo, colaborador, desde, hasta | Vigencia: subrogancias y reemplazos |
 | `Proceso` | nombre, activo | 34 en el Excel |
-| `Tarea` | `codigo` (TAR-0001…), proceso, tarea_principal, subtarea, `cargo_ejecuta`, `cargo_revisa`, regla, referencia_normativa, `minutos_estimados` (nulo), `clave_estable` (única), activa, `requiere_revision` | La clave es el hash de proceso + tarea + subtarea normalizados, para reimportar sin duplicar |
+| `Tarea` | `codigo` (PRO-01-TAR-01-SUB-01…: proceso · tarea principal · subtarea; desde el 31-10-2026), proceso, tarea_principal, subtarea, `cargo_ejecuta`, `cargo_revisa`, regla, referencia_normativa, `minutos_estimados` (nulo), `clave_estable` (única), activa, `requiere_revision` | La clave es el hash de proceso + tarea + subtarea normalizados, para reimportar sin duplicar |
 | `TareaPredecesora` | tarea, predecesora | Se modela ya; las alertas son de v2 |
 | `ReglaRecurrencia` | tipo, parametros (JSON), franja, `ajuste_inhabil` (`siguiente`/`anterior`), `estado_dato` | Ver sección 2 |
 | `Anio` | año, estado (`borrador`/`abierto`/`cerrado`) | |

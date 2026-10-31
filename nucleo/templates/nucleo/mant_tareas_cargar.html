@@ -17,9 +17,9 @@
 {% else %}
 <p class="sub">Archivo: <strong>{{ nombre_archivo }}</strong> · {{ vp.total_filas }} filas leídas. <strong>Aún no se guardó nada.</strong></p>
 <div class="indicadores">
-  <div class="card"><p class="meta">Tareas nuevas</p><p class="cifra">{{ vp.altas|length }}</p></div>
-  <div class="card"><p class="meta">Tareas modificadas</p><p class="cifra">{{ vp.cambios|length }}</p></div>
-  <div class="card"><p class="meta">Se desactivan</p><p class="cifra">{{ vp.bajas|length }}</p></div>
+  <div class="card"><p class="meta">Tareas nuevas</p><p class="numero">{{ vp.altas|length }}</p></div>
+  <div class="card"><p class="meta">Tareas modificadas</p><p class="numero">{{ vp.cambios|length }}</p></div>
+  <div class="card"><p class="meta">Se desactivan</p><p class="numero">{{ vp.bajas|length }}</p></div>
 </div>
 {% if problemas %}<div class="aviso-caja"><strong>No se puede aplicar todavía:</strong><ul>{% for p in problemas %}<li>{{ p }}</li>{% endfor %}</ul>Corrige el Excel y súbelo de nuevo.</div>{% endif %}
 {% if vp.duplicadas %}<p class="aviso-caja">{{ vp.duplicadas|length }} fila{{ vp.duplicadas|length|pluralize }} repetida{{ vp.duplicadas|length|pluralize }} (mismo proceso, tarea y subtarea): se usa la primera. Filas: {% for f in vp.duplicadas %}{{ f.fila }}{% if not forloop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
