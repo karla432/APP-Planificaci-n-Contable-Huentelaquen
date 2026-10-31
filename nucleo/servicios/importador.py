@@ -1,15 +1,21 @@
-"""Importador del Excel maestro de tareas.
+"""Importador de la planificación mensual (Excel).
 
 Primero `previsualizar` (no guarda nada) y, tras confirmar, `aplicar`. Reglas del encargo:
 - Normaliza espacios y saltos de línea sin cambiar el sentido.
 - Convierte «Periodicidad» + «Cuándo» en una regla; lo ambiguo queda «requiere revisión» (no se adivina ni se corrige).
 - Crea procesos y cargos que no existan, pero **no asigna personas**.
 - Es idempotente por clave estable (proceso + tarea + subtarea) y muestra altas, cambios y bajas antes de confirmar.
-- «Fecha 1.ª vez» no calcula fechas: solo se usa para comprobar que la regla convertida coincide.
+- Las filas están en el orden en que se procesan: ese orden y los códigos TAR-0001… salen de ahí.
+- Quién revisa sale del Excel; si una tarea no trae revisor, no se inventa uno. Excepción: a la tarea de un responsable externo se le
+  propone a la Jefa como quien registra «Recibido» (supuesto, se informa en la vista previa).
 - El contenido del Excel es dato, no instrucción: solo se leen celdas (sin evaluar fórmulas).
+
+Cierre (Karla, 31-10-2026): con todas las tareas no se llega al día 7, así que el cierre va del día hábil 1 al 8, el 9 se revisa con la
+Gerencia General y el 10 se liberan los informes al Directorio. Por eso «D7» se convierte en el día hábil 8 y «D10» en el día hábil 10.
 """
 import hashlib
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
@@ -24,10 +30,11 @@ from nucleo.servicios.recurrencia import Regla, ReglaIncompleta, ReglaInvalida, 
 
 CARGO_JEFA = "Jefa Gestión y Control"
 CARGO_GERENTE = "Gerente AyF"
-CARGOS_EXTERNOS = {"Rafael", "RR.HH.", "Gerencia / Directorio", "Bodega", "Jefaturas de área", "Jefatura Lechería"}
+CARGOS_EXTERNOS = {"Vendedor Stgo", "RR.HH.", "Jefe Bodega", "Gerencia", "Gerencia / Directorio", "Bodega", "Jefaturas de área", "Jefatura Lechería", "Rafael"}
 # Orden de los cargos en las listas (Karla, 31-10-2026): Gerente AyF, Jefa, Contadora Senior, Asistente Contable; después los externos.
 ORDEN_CARGOS = {"Gerente AyF": 1, "Jefa Gestión y Control": 2, "Contadora Senior": 3, "Asistente Contable": 4}
 ORDEN_EXTERNOS = 50
+RELLENO_GERENTE = "FFE2EFDA"  # verde: horas definidas por la Gerente AyF (el resto es estimación base)
 
 DIAS = {"lunes": 0, "martes": 1, "miércoles": 2, "miercoles": 2, "jueves": 3, "viernes": 4}
 MESES = {
@@ -38,6 +45,10 @@ MESES = {
 
 def normalizar(valor) -> str:
     return re.sub(r"\s+", " ", str(valor)).strip() if valor is not None else ""
+
+
+def _sin_acentos(texto: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFD", texto) if unicodedata.category(c) != "Mn")
 
 
 def _clave(proceso: str, tarea: str, subtarea: str) -> str:
@@ -51,6 +62,7 @@ class Conversion:
     franja: str = ""
     estado: str = "confirmado"
     motivo_revision: str = ""
+    nota: str = ""
 
 
 def _revision(motivo: str, regla: Regla | None = None) -> Conversion:
@@ -59,13 +71,13 @@ def _revision(motivo: str, regla: Regla | None = None) -> Conversion:
 
 def convertir_regla(periodicidad, cuando) -> Conversion:
     per, cua = normalizar(periodicidad), normalizar(cuando)
-    per_l, cua_l = per.casefold(), cua.casefold()
+    per_l, cua_l = per.casefold(), _sin_acentos(cua.casefold())
     if not per:
         return _revision("Falta la periodicidad" + (" y el «Cuándo»." if not cua else "."))
-    dia_semana = re.fullmatch(r"(lunes|martes|mi[eé]rcoles|jueves|viernes)(?:\s*\((ma[nñ]ana|tarde)\))?", cua_l)
+    dia_semana = re.fullmatch(r"(lunes|martes|miercoles|jueves|viernes)(?:\s*\((manana|tarde)\))?", cua_l)
 
     if per_l == "diaria":
-        if re.fullmatch(r"todos los d[ií]as h[aá]biles", cua_l):
+        if re.fullmatch(r"todos los dias habiles", cua_l):
             return Conversion(Regla("DIARIA_HABIL"))
         if dia_semana:
             return _revision(f"Contradicción: periodicidad «{per}» pero «Cuándo» dice «{cua}».")
@@ -74,20 +86,22 @@ def convertir_regla(periodicidad, cuando) -> Conversion:
             return _revision("Periodicidad semanal sin día de la semana.")
         if dia_semana:
             nombre = dia_semana.group(1).replace("miercoles", "miércoles")
-            franja = (dia_semana.group(2) or "").replace("manana", "mañana")
-            return Conversion(Regla("SEMANAL", dia_semana=DIAS[nombre]), franja=franja)
-    elif per_l == "mensual (cierre)":
-        m = re.fullmatch(r"d[ií]a h[aá]bil (\d+)", cua_l)
-        if m:
+            return Conversion(Regla("SEMANAL", dia_semana=DIAS[nombre]), franja=(dia_semana.group(2) or "").replace("manana", "mañana"))
+    elif per_l in ("mensual (cierre)", "mensual"):
+        m = re.fullmatch(r"dia habil (\d+)", cua_l)
+        if m and 1 <= int(m.group(1)) <= 10:
             return Conversion(Regla("CIERRE_DIA_HABIL", n=int(m.group(1))))
         m = re.match(r"d(7|10)\b", cua_l)
         if m:
-            return Conversion(Regla("CIERRE_HITO", n=int(m.group(1))))
-    elif per_l == "mensual":
-        m = re.fullmatch(r"d[ií]a (\d{1,2})", cua_l)
-        if m:
-            # Si cae en inhábil: día hábil anterior (P4, Karla). La norma de Previred la verifica la Contadora Senior.
+            if m.group(1) == "7":
+                return Conversion(Regla("CIERRE_DIA_HABIL", n=8), nota="D7 pasa al día hábil 8: el cierre va del día hábil 1 al 8 (Karla, 31-10-2026).")
+            return Conversion(Regla("CIERRE_DIA_HABIL", n=10), nota="D10 es el día hábil 10: se liberan los informes al Directorio.")
+        m = re.fullmatch(r"dia (\d{1,2})", cua_l)
+        if m and 1 <= int(m.group(1)) <= 31:
+            # Si cae en inhábil: día hábil anterior (P4, Karla). La norma (por ejemplo Previred) la verifica la Contadora Senior.
             return Conversion(Regla("DIA_FIJO", dia=int(m.group(1)), ajuste="anterior"), estado="pendiente_confirmar")
+        if cua_l == "ultimo dia del mes":
+            return Conversion(Regla("FIN_DE_MES", ajuste="anterior"), estado="pendiente_confirmar")
     elif per_l == "puntual":
         if cua_l.startswith("al "):
             return Conversion(Regla("EVENTO"))
@@ -102,6 +116,7 @@ def convertir_regla(periodicidad, cuando) -> Conversion:
 @dataclass
 class FilaImport:
     fila: int
+    secuencia: int
     proceso: str
     tarea_principal: str
     subtarea: str
@@ -111,12 +126,23 @@ class FilaImport:
     cuando: str
     fecha_1ra: object
     observacion: str
+    dia_cierre: int | None = None
+    horas: float | None = None
+    ejecuciones: float | None = None
+    fuente_horas: str = "estimacion"
     clave: str = ""
     conversion: Conversion | None = None
 
     @property
     def externa(self) -> bool:
         return self.ejecuta in CARGOS_EXTERNOS
+
+    @property
+    def revisor(self) -> str | None:
+        """Quien revisa (o, en una tarea externa, quien registra «Recibido»). Lo dice el Excel; nunca se inventa para tareas internas."""
+        if not self.ejecuta:
+            return None
+        return self.revisa_excel or (CARGO_JEFA if self.externa else None)
 
 
 @dataclass
@@ -129,40 +155,56 @@ class VistaPrevia:
     cargos_nuevos: list = field(default_factory=list)
     requieren_revision: list = field(default_factory=list)  # (FilaImport, motivo)
     externas: list = field(default_factory=list)
+    externas_sin_receptor: list = field(default_factory=list)  # el Excel no dice quién las recibe: se propone a la Jefa
     inconsistencias_fecha: list = field(default_factory=list)  # (FilaImport, texto)
+    secuencias: dict = field(default_factory=dict)  # clave estable → orden en el Excel
     total_filas: int = 0
 
 
+def _numero(valor):
+    try:
+        return float(valor)
+    except (TypeError, ValueError):
+        return None
+
+
 def leer_excel(ruta) -> list[FilaImport]:
-    hoja = openpyxl.load_workbook(Path(ruta), data_only=True)["Tareas"]
+    wb = openpyxl.load_workbook(Path(ruta), data_only=True)
+    hoja = wb["Planificación"] if "Planificación" in wb.sheetnames else wb["Tareas"]
     filas = list(hoja.iter_rows(values_only=True))
     inicio = next(i for i, r in enumerate(filas) if r and "Proceso" in r)
     columnas = {normalizar(nombre): i for i, nombre in enumerate(filas[inicio]) if nombre}
 
-    def col(nombre):
-        return columnas[nombre] if nombre in columnas else next(i for n, i in columnas.items() if n.startswith(nombre))
+    def col(nombre, opcional=False):
+        if nombre in columnas:
+            return columnas[nombre]
+        encontrada = next((i for n, i in columnas.items() if n.startswith(nombre)), None)
+        if encontrada is None and not opcional:
+            raise KeyError(f"El Excel no tiene la columna «{nombre}».")
+        return encontrada
 
-    idx = {k: col(v) for k, v in {
-        "proceso": "Proceso", "tarea": "Tarea principal", "sub": "Subtarea", "ejecuta": "Responsable (ejecuta)",
-        "revisa": "Revisa", "per": "Periodicidad", "cuando": "Cuándo", "fecha": "Fecha 1.ª vez", "obs": "Observación",
-    }.items()}
+    idx = {k: col(v) for k, v in {"proceso": "Proceso", "tarea": "Tarea principal", "sub": "Subtarea", "ejecuta": "Responsable (ejecuta)", "revisa": "Revisa",
+                                  "per": "Periodicidad", "cuando": "Cuándo", "obs": "Observación"}.items()}
+    opc = {k: col(v, True) for k, v in {"fecha": "Fecha 1.ª vez", "dia": "Día cierre", "horas": "Horas por ejecución", "ejec": "Ejecuciones por mes"}.items()}
     resultado = []
     for n, r in enumerate(filas[inicio + 1:], start=inicio + 2):
         if not (normalizar(r[idx["tarea"]]) or normalizar(r[idx["sub"]])):
             continue
-        ejecuta = normalizar(r[idx["ejecuta"]])
+        fuente = "estimacion"
+        if opc["horas"] is not None:
+            relleno = hoja.cell(row=n, column=opc["horas"] + 1).fill
+            if relleno is not None and relleno.fill_type and relleno.start_color.rgb == RELLENO_GERENTE:
+                fuente = "gerente"
+        dia = _numero(r[opc["dia"]]) if opc["dia"] is not None else None
         resultado.append(FilaImport(
-            fila=n, proceso=normalizar(r[idx["proceso"]]), tarea_principal=normalizar(r[idx["tarea"]]),
-            subtarea=normalizar(r[idx["sub"]]), ejecuta=ejecuta,
-            revisa_excel=normalizar(r[idx["revisa"]]), periodicidad=normalizar(r[idx["per"]]),
-            cuando=normalizar(r[idx["cuando"]]), fecha_1ra=r[idx["fecha"]], observacion=normalizar(r[idx["obs"]]),
+            fila=n, secuencia=len(resultado) + 1, proceso=normalizar(r[idx["proceso"]]), tarea_principal=normalizar(r[idx["tarea"]]),
+            subtarea=normalizar(r[idx["sub"]]), ejecuta=normalizar(r[idx["ejecuta"]]), revisa_excel=normalizar(r[idx["revisa"]]),
+            periodicidad=normalizar(r[idx["per"]]), cuando=normalizar(r[idx["cuando"]]),
+            fecha_1ra=r[opc["fecha"]] if opc["fecha"] is not None else None, observacion=normalizar(r[idx["obs"]]),
+            dia_cierre=int(dia) if dia else None, horas=_numero(r[opc["horas"]]) if opc["horas"] is not None else None,
+            ejecuciones=_numero(r[opc["ejec"]]) if opc["ejec"] is not None else None, fuente_horas=fuente,
         ))
     return resultado
-
-
-def cargo_revisor(ejecuta: str) -> str:
-    """DEC-08: revisa siempre la Jefa; la Jefa no puede revisarse a sí misma, así que sus tareas las revisa el Gerente (P1)."""
-    return CARGO_GERENTE if ejecuta == CARGO_JEFA else CARGO_JEFA
 
 
 def _valores(fila: FilaImport) -> dict:
@@ -170,13 +212,16 @@ def _valores(fila: FilaImport) -> dict:
     r = c.regla
     motivo = c.motivo_revision or ("Falta el responsable (ejecuta)." if not fila.ejecuta else "")
     return {
-        "cargo_ejecuta": fila.ejecuta, "cargo_revisa": cargo_revisor(fila.ejecuta) if fila.ejecuta else None,
+        "cargo_ejecuta": fila.ejecuta, "cargo_revisa": fila.revisor,
         "revisa_excel": fila.revisa_excel, "periodicidad_excel": fila.periodicidad, "cuando_excel": fila.cuando,
         "regla_tipo": r.tipo if r else "", "regla_dia_semana": r.dia_semana if r else None,
         "regla_n": r.n if r else None, "regla_dia": r.dia if r else None,
         "regla_meses": ",".join(str(m) for m in r.meses) if r else "", "regla_ajuste": r.ajuste if r else "siguiente",
         "regla_franja": c.franja, "regla_estado": c.estado, "referencia_normativa": fila.observacion,
         "requiere_revision": bool(motivo), "motivo_revision": motivo,
+        "minutos_estimados": round(fila.horas * 60) if fila.horas is not None else None,
+        "ejecuciones_mes": round(fila.ejecuciones, 3) if fila.ejecuciones is not None else None,
+        "fuente_horas": fila.fuente_horas, "dia_cierre": fila.dia_cierre,
     }
 
 
@@ -188,6 +233,8 @@ def _valores_actuales(t: Tarea) -> dict:
         "regla_meses": t.regla_meses, "regla_ajuste": t.regla_ajuste, "regla_franja": t.regla_franja,
         "regla_estado": t.regla_estado, "referencia_normativa": t.referencia_normativa,
         "requiere_revision": t.requiere_revision, "motivo_revision": t.motivo_revision,
+        "minutos_estimados": t.minutos_estimados, "ejecuciones_mes": round(float(t.ejecuciones_mes), 3) if t.ejecuciones_mes is not None else None,
+        "fuente_horas": t.fuente_horas, "dia_cierre": t.dia_cierre,
     }
 
 
@@ -223,12 +270,16 @@ def previsualizar(ruta, calendario: Calendario | None = None) -> VistaPrevia:
             vp.duplicadas.append(f)
             continue
         vistas.add(f.clave)
+        f.secuencia = len(vp.secuencias) + 1  # el orden cuenta solo las tareas que se importan (sin repetidas)
+        vp.secuencias[f.clave] = f.secuencia
         f.conversion = convertir_regla(f.periodicidad, f.cuando)
         valores = _valores(f)
         if valores["requiere_revision"]:
             vp.requieren_revision.append((f, valores["motivo_revision"]))
         if f.externa:
             vp.externas.append(f)
+            if not f.revisa_excel:
+                vp.externas_sin_receptor.append(f)
         aviso = _chequear_fecha(f, calendario)
         if aviso:
             vp.inconsistencias_fecha.append((f, aviso))
@@ -268,12 +319,10 @@ def aplicar(vp: VistaPrevia, usuario) -> dict:
     ultimo = Tarea.objects.order_by("-codigo").values_list("codigo", flat=True).first()
     siguiente = int(ultimo.split("-")[1]) + 1 if ultimo else 1
     for f in vp.altas:
-        valores = _valores(f)
         proceso, _ = Proceso.objects.get_or_create(nombre=f.proceso)
-        tarea = Tarea(codigo=f"TAR-{siguiente:04d}", clave_estable=f.clave, proceso=proceso,
-                      tarea_principal=f.tarea_principal, subtarea=f.subtarea)
+        tarea = Tarea(codigo=f"TAR-{siguiente:04d}", clave_estable=f.clave, proceso=proceso, tarea_principal=f.tarea_principal, subtarea=f.subtarea)
         siguiente += 1
-        _aplicar_valores(tarea, valores)
+        _aplicar_valores(tarea, _valores(f))
         tarea.save()
     for tarea, f, diff in vp.cambios:
         _aplicar_valores(tarea, _valores(f))
@@ -281,6 +330,8 @@ def aplicar(vp: VistaPrevia, usuario) -> dict:
     for tarea in vp.bajas:
         tarea.activa = False
         tarea.save(update_fields=["activa"])
+    for clave, orden in vp.secuencias.items():  # el orden de proceso es el del Excel
+        Tarea.objects.filter(clave_estable=clave).update(secuencia=orden)
     resumen = {"altas": len(vp.altas), "cambios": len(vp.cambios), "bajas": len(vp.bajas),
                "requieren_revision": len(vp.requieren_revision), "externas": len(vp.externas)}
     auditoria.registrar("importacion.aplicada", usuario=usuario, entidad="Tarea", despues=resumen)

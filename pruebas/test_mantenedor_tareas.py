@@ -28,17 +28,31 @@ def datos(mundo, **cambios):
 # ---- Crear y editar tareas ---------------------------------------------------------------------------------
 
 
-def test_crear_una_tarea_con_codigo_regla_y_revisora(mundo):
-    t = mantenedor.crear_tarea(mundo["u"]["jefa"], datos(mundo))
-    assert t.codigo == "TAR-0001" and t.cargo_ejecuta == mundo["cont"] and t.cargo_revisa == mundo["jefa"]
+def test_crear_una_tarea_con_codigo_regla_horas_y_revisor(mundo):
+    t = mantenedor.crear_tarea(mundo["u"]["jefa"], datos(mundo, cargo_revisa_id=mundo["ger"].pk, minutos=45))
+    assert t.codigo == "TAR-0001" and t.cargo_ejecuta == mundo["cont"] and t.cargo_revisa == mundo["ger"]
     assert (t.regla_tipo, t.regla_n) == ("CIERRE_DIA_HABIL", 2) and t.activa and not t.requiere_revision
+    assert t.minutos_estimados == 45 and float(t.ejecuciones_mes) == 1  # una vez al mes: es del cierre
     assert mantenedor.crear_tarea(mundo["u"]["ger"], datos(mundo, subtarea="Otra subtarea")).codigo == "TAR-0002"
     assert EventoAuditoria.objects.filter(accion="tarea.creada", entidad_id=str(t.pk)).exists()
 
 
-def test_la_tarea_de_la_jefa_la_revisa_el_gerente(mundo):
+def test_las_ejecuciones_al_mes_salen_de_la_periodicidad(mundo):
+    d = mantenedor.crear_tarea(mundo["u"]["jefa"], datos(mundo, subtarea="Diaria", tipo="DIARIA_HABIL", n=None, minutos=10))
+    s = mantenedor.crear_tarea(mundo["u"]["jefa"], datos(mundo, subtarea="Semanal", tipo="SEMANAL", n=None, dia_semana=0, minutos=10))
+    assert float(d.ejecuciones_mes) == 21 and float(s.ejecuciones_mes) == pytest.approx(4.33)
+
+
+def test_sin_revisor_queda_sin_revisor_no_se_inventa(mundo):
     t = mantenedor.crear_tarea(mundo["u"]["ger"], datos(mundo, cargo_ejecuta_id=mundo["jefa"].pk))
-    assert t.cargo_revisa == mundo["ger"]
+    assert t.cargo_revisa is None
+
+
+def test_la_tarea_de_un_externo_propone_a_la_jefa_como_quien_recibe(mundo):
+    from pruebas.ayudas import cargo as nuevo_cargo
+    bodega = nuevo_cargo("Bodega", externo=True)
+    t = mantenedor.crear_tarea(mundo["u"]["ger"], datos(mundo, cargo_ejecuta_id=bodega.pk))
+    assert t.cargo_revisa == mundo["jefa"]
 
 
 @pytest.mark.parametrize("quien", ["cont", "admin", "lectura"])

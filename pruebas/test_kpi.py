@@ -185,3 +185,17 @@ def test_el_cumplimiento_de_una_persona_suma_todos_los_meses_abiertos(base):
 def test_una_persona_sin_tareas_vencidas_queda_sin_datos(base):
     k = kpi.de_persona(base["j"], HOY)
     assert k.vencidas == 0 and k.semaforo == "sin_datos" and k.a_tiempo_pct is None
+
+
+def test_los_dias_clave_del_cierre_son_los_dias_habiles_1_a_10(base):
+    """El cierre va del día hábil 1 al 8; el 9 se revisa con la Gerencia General y el 10 se liberan los informes al Directorio."""
+    hitos = kpi.hitos_del_mes(2026, 12)
+    assert [h[0] for h in hitos] == [f"Día {n}" for n in range(1, 11)]
+    assert [h[1] for h in hitos] == [date(2026, 12, d) for d in (1, 2, 3, 4, 7, 9, 10, 11, 14, 15)]  # el 08 es feriado
+    assert kpi.descripcion_del_hito(8) == "Cierre completo" and kpi.descripcion_del_hito(9) == "Revisión con Gerencia General"
+    assert kpi.descripcion_del_hito(10) == "Informes al Directorio" and kpi.descripcion_del_hito(3) == ""
+
+
+def test_la_ruta_del_cierre_tiene_diez_dias_con_su_descripcion(base):
+    ruta = kpi.ruta_del_cierre(base["p"], HOY)
+    assert len(ruta) == 10 and ruta[8].etiqueta == "Día 9" and ruta[8].descripcion == "Revisión con Gerencia General"

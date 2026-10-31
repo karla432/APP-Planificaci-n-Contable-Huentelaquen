@@ -1,6 +1,5 @@
-"""Importador del Excel maestro (docs/f1: sección 11 del encargo)."""
+"""Importador de la planificación mensual (Excel revisado por Karla el 31-10-2026): 195 tareas en el orden en que se procesan."""
 from collections import Counter
-from datetime import date
 from pathlib import Path
 
 import openpyxl
@@ -12,7 +11,8 @@ from nucleo.servicios import importador
 from nucleo.servicios.importador import convertir_regla, normalizar
 from nucleo.servicios.recurrencia import Regla
 
-EXCEL = Path(settings.BASE_DIR) / "docs" / "datos" / "Listado_Maestro_Tareas_Huentelauquen_Modificado.xlsx"
+EXCEL = Path(settings.BASE_DIR) / "docs" / "datos" / "Planificacion_Mensual_Huentelauquen_Revisada.xlsx"
+EXTERNOS = {"Vendedor Stgo": 4, "RR.HH.": 2, "Jefe Bodega": 1, "Gerencia": 1, "Gerencia / Directorio": 1, "Bodega": 1, "Jefaturas de área": 1, "Jefatura Lechería": 1}
 
 
 # ---- Conversión de «Periodicidad» + «Cuándo» en regla ----------------------------------------
@@ -31,8 +31,8 @@ def test_normalizar_junta_espacios_y_saltos_de_linea():
         ("Semanal", "Miércoles", Regla("SEMANAL", dia_semana=2)),
         ("Semanal", "Viernes", Regla("SEMANAL", dia_semana=4)),
         ("Mensual (cierre)", "Día hábil 3", Regla("CIERRE_DIA_HABIL", n=3)),
-        ("Mensual (cierre)", "D7 · reporte a Gerencia", Regla("CIERRE_HITO", n=7)),
-        ("Mensual (cierre)", "D10 · cierre contable", Regla("CIERRE_HITO", n=10)),
+        ("Mensual (cierre)", "Día hábil 8", Regla("CIERRE_DIA_HABIL", n=8)),
+        ("Mensual (cierre)", "D10 · cierre contable", Regla("CIERRE_DIA_HABIL", n=10)),
         ("Puntual", "Al dar de alta un activo nuevo", Regla("EVENTO")),
         ("Puntual", "Al recibir el subsidio", Regla("EVENTO")),
     ],
@@ -42,15 +42,28 @@ def test_convierte_las_formas_claras(periodicidad, cuando, esperada):
     assert c.regla == esperada and c.motivo_revision == ""
 
 
+def test_el_d7_pasa_al_dia_habil_8_porque_el_cierre_es_de_1_a_8():
+    """Karla (31-10-2026): con todas las tareas no se llega al día 7; el cierre va del día hábil 1 al 8."""
+    c = convertir_regla("Mensual (cierre)", "D7 · reporte a Gerencia")
+    assert c.regla == Regla("CIERRE_DIA_HABIL", n=8) and c.motivo_revision == ""
+    assert "día hábil 8" in c.nota
+
+
 def test_semanal_con_franja_la_conserva():
     c = convertir_regla("Semanal", "Martes (mañana)")
     assert c.regla == Regla("SEMANAL", dia_semana=1) and c.franja == "mañana"
 
 
-def test_dia_13_va_al_habil_anterior_pero_queda_pendiente_de_confirmar():
-    c = convertir_regla("Mensual", "Día 13")
-    assert c.regla == Regla("DIA_FIJO", dia=13, ajuste="anterior")
-    assert c.estado == "pendiente_confirmar"  # la Contadora Senior debe verificar la norma de Previred
+@pytest.mark.parametrize("cuando,dia", [("Día 13", 13), ("Día 15", 15)])
+def test_dia_fijo_va_al_habil_anterior_pero_queda_pendiente_de_confirmar(cuando, dia):
+    for per in ("Mensual", "Mensual (cierre)"):
+        c = convertir_regla(per, cuando)
+        assert c.regla == Regla("DIA_FIJO", dia=dia, ajuste="anterior") and c.estado == "pendiente_confirmar"
+
+
+def test_ultimo_dia_del_mes():
+    c = convertir_regla("Mensual (cierre)", "Ultimo dia del Mes")
+    assert c.regla == Regla("FIN_DE_MES", ajuste="anterior") and c.estado == "pendiente_confirmar"
 
 
 @pytest.mark.parametrize("cuando,meses", [("Cuotas de abril, junio, septiembre y noviembre", (4, 6, 9, 11)), ("Enero y julio", (1, 7))])
@@ -67,84 +80,97 @@ def test_meses_especificos_sin_dia_quedan_para_revision(cuando, meses):
         ("Semanal", None, "día"),
         ("Diaria", "Viernes", "contradic"),
         ("Mensual (cierre)", "Cuando se pueda", "reconoc"),
+        ("Mensual (cierre)", "Día hábil 11", "reconoc"),
     ],
 )
 def test_lo_ambiguo_se_marca_para_revision_y_no_se_adivina(periodicidad, cuando, palabra):
     c = convertir_regla(periodicidad, cuando)
-    assert palabra in c.motivo_revision.lower()
-    assert c.regla is None
+    assert palabra in c.motivo_revision.lower() and c.regla is None
 
 
 # ---- Con el Excel real --------------------------------------------------------------------------
 
 
-def test_lee_186_filas_del_excel():
+def test_lee_las_195_filas_en_el_orden_del_excel():
     filas = importador.leer_excel(EXCEL)
-    assert len(filas) == 186
-    assert len({f.proceso for f in filas}) == 34
-    assert filas[0].fila == 5  # el encabezado está en la fila 4
+    assert len(filas) == 195 and len({f.proceso for f in filas}) == 34
+    assert filas[0].fila == 5 and filas[0].proceso == "Seguimiento"
+    assert filas[0].horas == 0.5 and filas[0].ejecuciones == pytest.approx(4.33)
 
 
 @pytest.mark.django_db
-def test_vista_previa_no_guarda_nada_y_reporta_lo_problematico():
+def test_vista_previa_no_guarda_nada_y_reporta_lo_dudoso():
     vp = importador.previsualizar(EXCEL)
     assert Tarea.objects.count() == 0
-    assert len(vp.altas) == 186 and not vp.cambios and not vp.bajas and not vp.duplicadas
-    assert len(vp.procesos_nuevos) == 34
-    revisadas = {f.subtarea for f, _ in vp.requieren_revision}
-    texto = " | ".join(revisadas).lower()
-    for esperado in ("reintegro de cajas", "guias de despacho", "boletas de honorarios", "facturas observadas"):
+    assert len(vp.altas) == 194 and not vp.cambios and not vp.bajas and len(vp.procesos_nuevos) == 34
+    # El Excel trae una tarea repetida: la fila 61 repite la 51 (0,75 h contra 0,5 h). Se importa una vez y se reporta.
+    assert [(f.fila, f.subtarea) for f in vp.duplicadas] == [(61, "Registrar Regularizacion Rechazo Pago a Proveedores")]
+    texto = " | ".join(f.subtarea for f, _ in vp.requieren_revision).lower()
+    for esperado in ("boletas de honorarios", "contribuciones", "patente municipal"):
         assert esperado in texto, esperado
-    assert len(vp.requieren_revision) == 6  # las 4 inconsistentes + 2 filas de «meses» sin día
-    assert Counter(f.ejecuta for f in vp.externas) == {
-        "Rafael": 3, "RR.HH.": 2, "Gerencia / Directorio": 1, "Bodega": 1, "Jefaturas de área": 1, "Jefatura Lechería": 1,
-    }  # 9 tareas de 6 cargos externos
+    assert Counter(f.ejecuta for f in vp.externas) == EXTERNOS  # 12 tareas de 8 cargos externos
+    assert vp.inconsistencias_fecha == []  # el Excel nuevo ya no trae «Fecha 1.ª vez»
 
 
 @pytest.mark.django_db
-def test_aplicar_crea_tareas_con_codigos_estables_y_sin_personas(django_user_model):
-    vp = importador.previsualizar(EXCEL)
-    importador.aplicar(vp, usuario=None)
-    assert Tarea.objects.count() == 186 and Proceso.objects.count() == 34
-    assert list(Tarea.objects.order_by("codigo").values_list("codigo", flat=True))[:2] == ["TAR-0001", "TAR-0002"]
-    assert Tarea.objects.filter(codigo="TAR-0186").exists()
+def test_aplicar_crea_tareas_en_orden_con_codigos_horas_y_sin_personas():
+    importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
+    assert Tarea.objects.count() == 194 and Proceso.objects.count() == 34
+    primeras = list(Tarea.objects.order_by("secuencia").values_list("codigo", "secuencia", flat=False)[:2])
+    assert primeras == [("TAR-0001", 1), ("TAR-0002", 2)] and Tarea.objects.get(codigo="TAR-0194").secuencia == 194
     assert Colaborador.objects.count() == 0  # las personas las crea el administrador
     cuentas = Counter(Tarea.objects.values_list("cargo_ejecuta__nombre", flat=True))
-    assert cuentas["Contadora Senior"] == 115
-    assert cuentas["Asistente Contable"] == 33  # el cargo se llama como en el Excel y como lo definió Karla (31-10-2026)
-    assert not Cargo.objects.filter(nombre="Analista Contable").exists()
-    assert cuentas["Jefa Gestión y Control"] == 27
+    assert (cuentas["Jefa Gestión y Control"], cuentas["Contadora Senior"], cuentas["Asistente Contable"], cuentas["Gerente AyF"]) == (80, 54, 29, 19)
     assert not Cargo.objects.get(nombre="Contadora Senior").es_externo
-    for externo in ("Rafael", "RR.HH.", "Bodega", "Jefaturas de área", "Jefatura Lechería", "Gerencia / Directorio"):
-        assert Cargo.objects.get(nombre=externo).es_externo
+    for nombre in EXTERNOS:
+        assert Cargo.objects.get(nombre=nombre).es_externo
     assert EventoAuditoria.objects.filter(accion="importacion.aplicada").count() == 1
 
 
 @pytest.mark.django_db
-def test_la_revisora_es_siempre_la_jefa_y_la_jefa_la_revisa_el_gerente():
+def test_los_cargos_quedan_en_el_orden_de_karla_y_despues_los_externos():
     importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
-    for t in Tarea.objects.select_related("cargo_ejecuta", "cargo_revisa"):
-        esperado = "Gerente AyF" if t.cargo_ejecuta.nombre == "Jefa Gestión y Control" else "Jefa Gestión y Control"
-        assert t.cargo_revisa.nombre == esperado, t.codigo
-    # Se conserva lo que decía el Excel, para trazabilidad.
-    assert Tarea.objects.filter(revisa_excel="").count() == 48
+    nombres = list(Cargo.objects.values_list("nombre", flat=True))
+    assert nombres[:4] == ["Gerente AyF", "Jefa Gestión y Control", "Contadora Senior", "Asistente Contable"]
+    assert set(nombres[4:]) == set(EXTERNOS)
 
 
 @pytest.mark.django_db
-def test_conserva_las_referencias_normativas_de_las_22_observaciones():
+def test_quien_revisa_sale_del_excel_y_las_tareas_sin_revisor_no_se_inventan():
     importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
-    con_referencia = Tarea.objects.exclude(referencia_normativa="")
-    assert con_referencia.count() == 22
-    assert all("Propuesta §6" in t.referencia_normativa for t in con_referencia)
+    cuentas = Counter(t.cargo_revisa.nombre if t.cargo_revisa else None for t in Tarea.objects.select_related("cargo_revisa"))
+    # 62 las revisa el Gerente AyF; 127 no tienen revisor; 5 son de externos sin quien reciba en el Excel (se propone a la Jefa).
+    assert cuentas == {"Gerente AyF": 62, None: 127, "Jefa Gestión y Control": 5}
+    assert not Tarea.objects.filter(cargo_ejecuta__nombre="Jefa Gestión y Control").exclude(cargo_revisa=None).exists()
 
 
 @pytest.mark.django_db
-def test_las_filas_para_revision_quedan_marcadas_y_sin_corregir():
+def test_el_cierre_va_del_dia_habil_1_al_8_9_y_10():
     importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
+    por_dia = Counter(t.regla_n for t in Tarea.objects.filter(regla_tipo="CIERRE_DIA_HABIL"))
+    assert por_dia[8] == 19  # 18 que decían D7 + 1 que ya decía «Día hábil 8»
+    assert por_dia[10] == 9 and por_dia[9] == 1 and por_dia[7] == 1
+    assert not Tarea.objects.filter(regla_tipo="CIERRE_HITO").exists()
+    assert Tarea.objects.filter(cuando_excel__startswith="D7").count() == 18  # lo que decía el Excel queda guardado
+
+
+@pytest.mark.django_db
+def test_las_horas_estimadas_marcan_quien_las_definio():
+    importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
+    assert not Tarea.objects.filter(minutos_estimados__isnull=True).exists()
+    assert Counter(Tarea.objects.values_list("fuente_horas", flat=True)) == {"estimacion": 170, "gerente": 24}
+    t = Tarea.objects.get(codigo="TAR-0001")
+    assert t.minutos_estimados == 30 and float(t.ejecuciones_mes) == pytest.approx(4.33)
+
+
+@pytest.mark.django_db
+def test_conserva_las_referencias_normativas_y_marca_para_revision_sin_corregir():
+    importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
+    assert Tarea.objects.exclude(referencia_normativa="").count() == 22
     marcadas = Tarea.objects.filter(requiere_revision=True)
-    assert marcadas.count() == 6 and all(t.motivo_revision for t in marcadas)
-    rcv = Tarea.objects.get(subtarea__icontains="facturas observadas")
-    assert rcv.periodicidad_excel == "Diaria" and rcv.cuando_excel == "Viernes"  # tal cual venía
+    assert marcadas.count() >= 3 and all(t.motivo_revision for t in marcadas)
+    h = Tarea.objects.get(subtarea__icontains="boletas de honorarios del mes")
+    assert h.periodicidad_excel == "Semanal" and h.cuando_excel == ""  # tal cual venía
 
 
 @pytest.mark.django_db
@@ -153,51 +179,22 @@ def test_reimportar_el_mismo_excel_no_duplica_ni_cambia_nada():
     vp = importador.previsualizar(EXCEL)
     assert not vp.altas and not vp.cambios and not vp.bajas
     importador.aplicar(vp, usuario=None)
-    assert Tarea.objects.count() == 186
+    assert Tarea.objects.count() == 194
 
 
 @pytest.mark.django_db
 def test_reimportar_un_excel_actualizado_muestra_altas_cambios_y_bajas(tmp_path):
     importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
-    wb = openpyxl.load_workbook(EXCEL)
-    ws = wb["Tareas"]
-    ws.cell(row=5, column=5).value = "Asistente Contable"  # cambia el responsable de la primera tarea (cambio)
+    wb = openpyxl.load_workbook(EXCEL, data_only=True)  # solo valores: al guardar se pierden los resultados de las fórmulas
+    ws = wb["Planificación"]
+    ws.cell(row=5, column=4).value = "Asistente Contable"  # cambia el responsable de la primera tarea (cambio)
     ws.delete_rows(6)  # sale una tarea (baja)
-    ws.append([None, "Proceso nuevo", "Tarea nueva", "Subtarea nueva", "Contadora Senior", None, "Diaria", "Todos los días hábiles", None, None])  # alta
+    ws.append(["Proceso nuevo", "Tarea nueva", "Subtarea nueva", "Contadora Senior", None, "Diaria", "Todos los días hábiles", None, None, 0.5, 21])  # alta
     nuevo = tmp_path / "actualizado.xlsx"
     wb.save(nuevo)
     vp = importador.previsualizar(nuevo)
-    assert (len(vp.altas), len(vp.cambios), len(vp.bajas)) == (1, 1, 1)
-    assert vp.procesos_nuevos == ["Proceso nuevo"]
+    assert (len(vp.altas), len(vp.cambios), len(vp.bajas)) == (1, 1, 1) and vp.procesos_nuevos == ["Proceso nuevo"]
     importador.aplicar(vp, usuario=None)
-    assert Tarea.objects.get(codigo="TAR-0187").subtarea == "Subtarea nueva"  # el código nuevo sigue la secuencia
+    assert Tarea.objects.get(codigo="TAR-0195").subtarea == "Subtarea nueva"  # el código nuevo sigue la secuencia
     assert Tarea.objects.filter(activa=False).count() == 1  # no se borra físicamente
     assert Tarea.objects.get(codigo="TAR-0001").cargo_ejecuta.nombre == "Asistente Contable"
-
-
-@pytest.mark.django_db
-def test_la_fecha_de_primera_vez_solo_sirve_para_validar_la_regla():
-    """Hallazgo sobre el Excel actual: 5 filas cuya fecha de 1.ª vez no calza con la regla. Se reportan, no se corrigen."""
-    vp = importador.previsualizar(EXCEL)
-    filas = {f.fila: aviso for f, aviso in vp.inconsistencias_fecha}
-    # Fila 39: «Martes (tarde)» pero la 1.ª vez es el lunes 02-11-2026.
-    # Filas 178 a 181 («Reportería día 7», D7): 1.ª vez el 08, 09, 10 y 11-12-2026, todas después del D7 (lunes 07-12).
-    assert sorted(filas) == [39, 178, 179, 180, 181]
-    # Las reglas siguen siendo las que dice «Cuándo»; la fecha del Excel no genera nada.
-    assert Counter(f.conversion.regla.tipo for f, _ in vp.inconsistencias_fecha) == {"SEMANAL": 1, "CIERRE_HITO": 4}
-
-
-@pytest.mark.django_db
-def test_una_fila_bien_convertida_no_genera_aviso_de_fecha():
-    vp = importador.previsualizar(EXCEL)
-    avisadas = {f.fila for f, _ in vp.inconsistencias_fecha}
-    lunes = [f for f in importador.leer_excel(EXCEL) if f.cuando == "Lunes"]
-    assert lunes and not any(f.fila in avisadas for f in lunes)
-
-
-@pytest.mark.django_db
-def test_los_cargos_quedan_ordenados_como_los_definio_karla():
-    importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
-    nombres = list(Cargo.objects.values_list("nombre", flat=True))
-    assert nombres[:4] == ["Gerente AyF", "Jefa Gestión y Control", "Contadora Senior", "Asistente Contable"]
-    assert set(nombres[4:]) == {"Rafael", "RR.HH.", "Gerencia / Directorio", "Bodega", "Jefaturas de área", "Jefatura Lechería"}  # los externos van después

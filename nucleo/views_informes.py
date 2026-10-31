@@ -53,8 +53,8 @@ def panel(request):
             "ruta": kpi.ruta_del_cierre(periodo, hoy), "resumen": kpi.resumen(periodo, hoy), "procesos": kpi.avance_por_proceso(periodo, hoy),
             "cumplimiento": _filas_cumplimiento(periodo, hoy), "dia_habil": ordinal,
             "feriados_mes": list(Feriado.objects.filter(confirmado=True, fecha__year=periodo.anio, fecha__month=periodo.mes)),
-            "faltan_d7": None if hoy > hitos["D7"] else presentacion.dias_habiles_texto(cal.dias_habiles_entre(hoy, hitos["D7"])),
-            "faltan_d10": None if hoy > hitos["D10"] else presentacion.dias_habiles_texto(cal.dias_habiles_entre(hoy, hitos["D10"])),
+            "faltan_cierre": None if hoy > hitos["Día 8"] else presentacion.dias_habiles_texto(cal.dias_habiles_entre(hoy, hitos["Día 8"])),
+            "faltan_directorio": None if hoy > hitos["Día 10"] else presentacion.dias_habiles_texto(cal.dias_habiles_entre(hoy, hitos["Día 10"])),
             "atrasadas": list(Ocurrencia.objects.filter(periodo=periodo, estado=Ocurrencia.PENDIENTE, fecha_limite__lt=hoy, tarea__regla_tipo__in=kpi.TIPOS_DE_CIERRE)
                               .select_related("tarea__proceso", "colaborador", "cargo_ejecuta").order_by("fecha_limite", "tarea__codigo")[:8]),
         })

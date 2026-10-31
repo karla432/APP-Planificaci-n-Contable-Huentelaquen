@@ -82,16 +82,24 @@ class Tarea(models.Model):
     periodicidad_excel = models.CharField(max_length=40, blank=True)
     cuando_excel = models.CharField(max_length=120, blank=True)
     referencia_normativa = models.TextField(blank=True)
-    minutos_estimados = models.PositiveIntegerField(null=True, blank=True)  # apagado en v1 (DEC-09)
+    minutos_estimados = models.PositiveIntegerField(null=True, blank=True, help_text="Por ejecución. Estimado: ver `fuente_horas`.")
+    ejecuciones_mes = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True)
+    fuente_horas = models.CharField(max_length=12, default="estimacion", choices=[("estimacion", "Estimación base"), ("gerente", "Definida por la Gerente AyF")])
+    secuencia = models.PositiveIntegerField(default=0, help_text="Orden en que se procesan las tareas (el del Excel).")
+    dia_cierre = models.PositiveSmallIntegerField(null=True, blank=True, help_text="Día hábil del cierre que indica el Excel (informativo).")
     activa = models.BooleanField(default=True)
     requiere_revision = models.BooleanField(default=False)
     motivo_revision = models.TextField(blank=True)
 
     class Meta:
-        ordering = ["codigo"]
+        ordering = ["secuencia", "codigo"]
 
     def __str__(self):
         return f"{self.codigo} {self.subtarea[:60]}"
+
+    @property
+    def horas_estimadas(self) -> str:
+        return "" if self.minutos_estimados is None else str(round(self.minutos_estimados / 60, 2)).replace(".", ",")
 
     def regla(self) -> Regla:
         meses = tuple(int(m) for m in self.regla_meses.split(",") if m.strip())
@@ -141,8 +149,8 @@ class Periodo(models.Model):
 
 
 class Ocurrencia(models.Model):
-    PENDIENTE, HECHA, REVISADA, DEVUELTA, NO_APLICA = "pendiente", "hecha", "revisada", "devuelta", "no_aplica"
-    ESTADOS = [(PENDIENTE, "Pendiente"), (HECHA, "Hecha"), (REVISADA, "Revisada"), (DEVUELTA, "Devuelta"), (NO_APLICA, "No aplica")]
+    PENDIENTE, HECHA, REVISADA, DEVUELTA, NO_APLICA, BLOQUEADA = "pendiente", "hecha", "revisada", "devuelta", "no_aplica", "bloqueada"
+    ESTADOS = [(PENDIENTE, "Pendiente"), (HECHA, "Hecha"), (REVISADA, "Revisada"), (DEVUELTA, "Devuelta"), (NO_APLICA, "No aplica"), (BLOQUEADA, "Bloqueada")]
 
     tarea = models.ForeignKey(Tarea, on_delete=models.PROTECT, related_name="ocurrencias")
     periodo = models.ForeignKey(Periodo, on_delete=models.PROTECT, related_name="ocurrencias")
@@ -164,7 +172,9 @@ class Ocurrencia(models.Model):
     comentario_devolucion = models.TextField(blank=True)
     por_excepcion = models.BooleanField(default=False)
     motivo_excepcion = models.TextField(blank=True)
-    minutos_reales = models.PositiveIntegerField(null=True, blank=True)  # apagado en v1 (DEC-09)
+    minutos_reales = models.PositiveIntegerField(null=True, blank=True)  # los registran los colaboradores más adelante
+    minutos_estimados = models.PositiveIntegerField(null=True, blank=True)  # copia de la tarea al generarse
+    motivo_bloqueo = models.TextField(blank=True)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["tarea", "periodo", "fecha_limite"], name="ocurrencia_unica")]

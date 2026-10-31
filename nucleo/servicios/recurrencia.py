@@ -9,7 +9,7 @@ from datetime import date
 
 from nucleo.servicios.calendario import Calendario, hitos_de_cierre
 
-TIPOS = ("DIARIA_HABIL", "SEMANAL", "CIERRE_DIA_HABIL", "CIERRE_HITO", "DIA_FIJO", "MESES", "EVENTO")
+TIPOS = ("DIARIA_HABIL", "SEMANAL", "CIERRE_DIA_HABIL", "CIERRE_HITO", "DIA_FIJO", "FIN_DE_MES", "MESES", "EVENTO")
 AJUSTES = ("siguiente", "anterior")
 
 
@@ -79,6 +79,8 @@ def fechas_limite(
         if regla.dia is None:
             raise ReglaIncompleta("Falta el día del mes.")
         fechas = [_ajustar(cal, _fecha_del_mes(anio, mes, regla.dia), regla.ajuste)]
+    elif regla.tipo == "FIN_DE_MES":
+        fechas = [_ajustar(cal, date(anio, mes, calendar.monthrange(anio, mes)[1]), regla.ajuste)]
     elif regla.tipo == "MESES":
         if mes not in regla.meses:
             fechas = []

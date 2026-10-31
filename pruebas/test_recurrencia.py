@@ -119,3 +119,12 @@ def test_ajuste_desconocido_es_regla_invalida():
 def test_inicio_de_medicion_tambien_filtra_el_cierre():
     regla = Regla("CIERRE_DIA_HABIL", n=1)
     assert fechas_limite(regla, 2026, 12, DIC_2026, inicio_medicion=date(2026, 12, 2)) == []
+
+
+def test_fin_de_mes_en_dia_habil_no_se_mueve():
+    assert fechas_limite(Regla("FIN_DE_MES", ajuste="anterior"), 2026, 11, SIN_FERIADOS) == [date(2026, 11, 30)]  # lunes
+
+
+def test_fin_de_mes_en_dia_inhabil_va_al_habil_anterior():
+    assert fechas_limite(Regla("FIN_DE_MES", ajuste="anterior"), 2026, 10, SIN_FERIADOS) == [date(2026, 10, 30)]  # el 31 es sábado
+    assert fechas_limite(Regla("FIN_DE_MES", ajuste="siguiente"), 2026, 10, SIN_FERIADOS) == [date(2026, 11, 2)]

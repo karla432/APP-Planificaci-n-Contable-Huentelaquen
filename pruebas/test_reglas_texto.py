@@ -19,6 +19,7 @@ from nucleo.servicios.reglas_texto import describir
         (Regla("DIA_FIJO", dia=13, ajuste="siguiente"), "", "Día 13 de cada mes (si es inhábil, el día hábil siguiente)"),
         (Regla("MESES", meses=(1, 7)), "", "Enero y julio · falta indicar el día"),
         (Regla("MESES", meses=(4, 6, 9, 11), dia=20), "", "Abril, junio, septiembre y noviembre · día 20"),
+        (Regla("FIN_DE_MES", ajuste="anterior"), "", "Último día del mes (si es inhábil, el día hábil anterior)"),
         (Regla("EVENTO"), "", "Por evento (se crea a mano)"),
         (None, "", "Sin regla: requiere revisión"),
     ],

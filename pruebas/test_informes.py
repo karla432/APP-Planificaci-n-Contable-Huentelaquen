@@ -55,13 +55,14 @@ def test_el_panel_muestra_el_cierre_del_mes_y_los_dias_habiles_que_faltan(mundo)
     html = ver(mundo["u"]["lectura"], "informe_panel")
     assert "Cierre contable" in html and "diciembre 2026" in html
     assert "día hábil 4" in html
-    assert "1 día hábil" in html and "3 días hábiles" in html  # D7 el lunes 07; D10 el jueves 10 (el 08 es feriado)
+    # Cierre en días hábiles (Karla, 31-10-2026): día 8 = viernes 11-12 y día 10 = martes 15-12, con el 08-12 feriado.
+    assert "faltan para el cierre (día 8): <strong>4 días hábiles" in html and "para el Directorio (día 10): <strong>6 días hábiles" in html
 
 
 def test_el_panel_tiene_la_ruta_del_cierre_con_sus_fechas(mundo):
     html = ver(mundo["u"]["lectura"], "informe_panel")
     assert "Ruta del cierre" in html
-    for texto in ("Día 1", "Día 2", "Día 3", "Día 4", "D7", "D10", "01-12-2026", "07-12-2026", "10-12-2026"):
+    for texto in ("Día 1", "Día 4", "Día 8", "Día 9", "Día 10", "01-12-2026", "11-12-2026", "14-12-2026", "15-12-2026", "Revisión con Gerencia General", "Informes al Directorio"):
         assert texto in html, texto
 
 

@@ -25,6 +25,8 @@ def describir(regla: Regla | None, franja: str = "") -> str:
         return "D7 · reporte preliminar" if regla.n == 7 else "D10 · cierre definitivo"
     if t == "DIA_FIJO":
         return f"Día {regla.dia} de cada mes (si es inhábil, el día hábil {regla.ajuste})"
+    if t == "FIN_DE_MES":
+        return f"Último día del mes (si es inhábil, el día hábil {regla.ajuste})"
     if t == "MESES":
         meses = _lista([MESES[m - 1] for m in regla.meses]) if regla.meses else "Meses sin indicar"
         return f"{meses} · " + (f"día {regla.dia}" if regla.dia else "falta indicar el día")

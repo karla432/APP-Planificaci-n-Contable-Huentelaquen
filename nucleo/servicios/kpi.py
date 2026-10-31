@@ -149,6 +149,7 @@ def cumplimiento_de_revision(periodo, hoy: date) -> list[RevisionCargo]:
 class RutaDia:
     etiqueta: str
     fecha: date
+    descripcion: str = ""
     hechas: int = 0
     total: int = 0
     atrasadas: int = 0
@@ -164,17 +165,23 @@ def _cierre(periodo):
     return Ocurrencia.objects.filter(periodo=periodo, tarea__regla_tipo__in=TIPOS_DE_CIERRE).exclude(estado=Ocurrencia.NO_APLICA)
 
 
+DESCRIPCION_DE_HITOS = {8: "Cierre completo", 9: "Revisión con Gerencia General", 10: "Informes al Directorio"}
+
+
+def descripcion_del_hito(n: int) -> str:
+    return DESCRIPCION_DE_HITOS.get(n, "")
+
+
 def hitos_del_mes(anio: int, mes: int) -> list[tuple[str, date]]:
-    """Los días clave del cierre del mes: Día hábil 1 a 4, D7 (preliminar) y D10 (definitivo)."""
-    from nucleo.servicios.calendario import hitos_de_cierre
+    """Los días clave del cierre (Karla, 31-10-2026): días hábiles 1 a 10. Del 1 al 8 se cierra, el 9 se revisa con la Gerencia General
+    y el 10 se liberan los informes al Directorio."""
     cal = calendario_confirmado()
-    d7, d10 = hitos_de_cierre(cal, anio, mes, parametros.entero("min_dias_habiles_d7_d10"))
-    return [(f"Día {n}", cal.dia_habil_n(anio, mes, n)) for n in (1, 2, 3, 4)] + [("D7", d7), ("D10", d10)]
+    return [(f"Día {n}", cal.dia_habil_n(anio, mes, n)) for n in range(1, 11)]
 
 
 def ruta_del_cierre(periodo, hoy: date) -> list[RutaDia]:
     dias = hitos_del_mes(periodo.anio, periodo.mes)
-    ruta = {f: RutaDia(etiqueta, f) for etiqueta, f in dias}
+    ruta = {f: RutaDia(etiqueta, f, descripcion_del_hito(int(etiqueta.split()[1]))) for etiqueta, f in dias}
     for o in _cierre(periodo):
         r = ruta.get(o.fecha_limite)
         if r is None:

@@ -14,7 +14,7 @@ from nucleo.servicios.errores import ErrorDeNegocio, PermisoDenegado
 
 TIPOS = [
     ("DIARIA_HABIL", "Todos los días hábiles"), ("SEMANAL", "Una vez a la semana"), ("CIERRE_DIA_HABIL", "Día hábil del cierre (1 a 10)"),
-    ("CIERRE_HITO", "D7 (preliminar) o D10 (definitivo)"), ("DIA_FIJO", "Día fijo del mes"), ("MESES", "Meses específicos"), ("EVENTO", "Por evento (se crea a mano)"),
+    ("CIERRE_HITO", "D7 (preliminar) o D10 (definitivo)"), ("DIA_FIJO", "Día fijo del mes"), ("FIN_DE_MES", "Último día del mes"), ("MESES", "Meses específicos"), ("EVENTO", "Por evento (se crea a mano)"),
 ]
 DIAS = [(0, "Lunes"), (1, "Martes"), (2, "Miércoles"), (3, "Jueves"), (4, "Viernes")]
 MESES = [(i + 1, n.capitalize()) for i, n in enumerate(reglas_texto.MESES)]
@@ -48,6 +48,13 @@ def _entero(valor):
         return None
 
 
+def _minutos(horas: str):
+    try:
+        return round(float(horas.replace(",", ".")) * 60)
+    except (ValueError, AttributeError):
+        return None
+
+
 # ---- Tareas ----------------------------------------------------------------------------------------------
 
 
@@ -76,24 +83,26 @@ def tareas(request):
 def _valores_de(t: Tarea | None) -> dict:
     if t is None:
         return {"proceso": "", "tarea_principal": "", "subtarea": "", "cargo_ejecuta": "", "tipo": "CIERRE_DIA_HABIL", "dia_semana": "", "franja": "", "n": "", "dia": "",
-                "meses": [], "ajuste": "siguiente", "referencia": "", "activa": True}
+                "meses": [], "ajuste": "siguiente", "referencia": "", "activa": True, "cargo_revisa": "", "horas": ""}
     return {"proceso": str(t.proceso_id), "tarea_principal": t.tarea_principal, "subtarea": t.subtarea, "cargo_ejecuta": str(t.cargo_ejecuta_id), "tipo": t.regla_tipo,
             "dia_semana": "" if t.regla_dia_semana is None else str(t.regla_dia_semana), "franja": t.regla_franja, "n": "" if t.regla_n is None else str(t.regla_n),
             "dia": "" if t.regla_dia is None else str(t.regla_dia), "meses": [m for m in t.regla_meses.split(",") if m], "ajuste": t.regla_ajuste,
-            "referencia": t.referencia_normativa, "activa": t.activa}
+            "referencia": t.referencia_normativa, "activa": t.activa, "cargo_revisa": str(t.cargo_revisa_id or ""),
+            "horas": "" if t.minutos_estimados is None else str(round(t.minutos_estimados / 60, 2)).replace(".", ",")}
 
 
 def _valores_de_post(post) -> dict:
     return {"proceso": post.get("proceso", ""), "tarea_principal": post.get("tarea_principal", ""), "subtarea": post.get("subtarea", ""), "cargo_ejecuta": post.get("cargo_ejecuta", ""),
             "tipo": post.get("tipo", ""), "dia_semana": post.get("dia_semana", ""), "franja": post.get("franja", ""), "n": post.get("n", ""), "dia": post.get("dia", ""),
-            "meses": post.getlist("meses"), "ajuste": post.get("ajuste", "siguiente"), "referencia": post.get("referencia", ""), "activa": post.get("activa") == "on"}
+            "meses": post.getlist("meses"), "ajuste": post.get("ajuste", "siguiente"), "referencia": post.get("referencia", ""), "activa": post.get("activa") == "on", "cargo_revisa": post.get("cargo_revisa", ""),
+            "horas": post.get("horas", "")}
 
 
 def _datos_de(v: dict) -> mantenedor.DatosTarea:
     return mantenedor.DatosTarea(
         proceso_id=_entero(v["proceso"]) or 0, tarea_principal=v["tarea_principal"], subtarea=v["subtarea"], cargo_ejecuta_id=_entero(v["cargo_ejecuta"]) or 0, tipo=v["tipo"],
         dia_semana=_entero(v["dia_semana"]), franja=v["franja"], n=_entero(v["n"]), dia=_entero(v["dia"]), meses=tuple(m for m in (_entero(x) for x in v["meses"]) if m),
-        ajuste=v["ajuste"], referencia=v["referencia"], activa=v["activa"],
+        ajuste=v["ajuste"], referencia=v["referencia"], activa=v["activa"], cargo_revisa_id=_entero(v["cargo_revisa"]), minutos=_minutos(v["horas"]),
     )
 
 

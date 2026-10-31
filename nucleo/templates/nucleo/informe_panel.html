@@ -5,8 +5,8 @@
   <p class="kick">Hacienda Huentelauquén · Administración y Finanzas</p>
   <h1>Cierre contable · <span style="text-transform:lowercase">{{ primero|date:"F Y" }}</span></h1>
   {% if periodo %}<p class="meta">{{ hoy|date:"l d-m-Y" }} · día hábil {{ dia_habil }} ·
-    {% if faltan_d7 %}faltan para el D7: <strong>{{ faltan_d7 }}</strong>{% else %}el D7 ya pasó{% endif %} ·
-    {% if faltan_d10 %}para el D10: <strong>{{ faltan_d10 }}</strong>{% else %}el D10 ya pasó{% endif %}</p>{% endif %}
+    {% if faltan_cierre %}faltan para el cierre (día 8): <strong>{{ faltan_cierre }}</strong>{% else %}el cierre (día 8) ya pasó{% endif %} ·
+    {% if faltan_directorio %}para el Directorio (día 10): <strong>{{ faltan_directorio }}</strong>{% else %}el día 10 ya pasó{% endif %}</p>{% endif %}
 </div></div>
 {% include "nucleo/_selector_mes.html" %}
 {% if periodo %}
@@ -16,7 +16,7 @@
   <div class="ruta">
     {% for r in ruta %}
     <div class="hito{% if r.fecha == hoy %} hito-hoy{% endif %}">
-      <strong>{{ r.etiqueta }}{% if r.fecha == hoy %} · HOY{% endif %}</strong><span class="meta">{{ r.fecha|date:"D d-m-Y" }}</span>
+      <strong>{{ r.etiqueta }}{% if r.fecha == hoy %} · HOY{% endif %}</strong><span class="meta">{{ r.fecha|date:"D d-m-Y" }}</span>{% if r.descripcion %}<span class="meta"><em>{{ r.descripcion }}</em></span>{% endif %}
       <div class="barra"><i style="width: {% widthratio r.hechas r.total 100 %}%"></i></div>
       <span>{{ r.hechas }} de {{ r.total }}</span>
       {% if r.estado == "atrasada" %}<span class="pill p-red">{{ r.atrasadas }} atrasada{{ r.atrasadas|pluralize }}</span>{% elif r.estado == "al_dia" %}<span class="pill p-ok">Al día</span>{% endif %}

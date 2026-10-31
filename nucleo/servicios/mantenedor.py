@@ -14,7 +14,7 @@ from nucleo import permisos
 from nucleo.models import Asignacion, Cargo, Colaborador, Proceso, Tarea
 from nucleo.servicios import auditoria, reloj
 from nucleo.servicios.errores import ErrorDeNegocio, PermisoDenegado
-from nucleo.servicios.importador import _clave, cargo_revisor, normalizar
+from nucleo.servicios.importador import CARGO_JEFA, _clave, normalizar
 from nucleo.servicios.recurrencia import AJUSTES, TIPOS
 
 
@@ -38,6 +38,8 @@ class DatosTarea:
     ajuste: str = "siguiente"
     referencia: str = ""
     activa: bool = True
+    cargo_revisa_id: int | None = None  # quien revisa (o recibe, si la tarea es de un externo); vacío = sin revisor
+    minutos: int | None = None  # minutos estimados por ejecución
 
 
 def _validar(d: DatosTarea) -> str:
@@ -68,12 +70,24 @@ def _validar(d: DatosTarea) -> str:
     return ""
 
 
+def ejecuciones_por_mes(tipo: str, meses=()):
+    """Cuántas veces se ejecuta la tarea en un mes típico (21 días hábiles, 4,33 semanas). Las de evento no tienen un valor fijo."""
+    if tipo == "DIARIA_HABIL":
+        return 21
+    if tipo == "SEMANAL":
+        return 4.33
+    if tipo in ("CIERRE_DIA_HABIL", "CIERRE_HITO", "DIA_FIJO", "FIN_DE_MES"):
+        return 1
+    return round(len(meses) / 12, 3) if tipo == "MESES" and meses else None
+
+
 def _instantanea(t: Tarea) -> dict:
     return {
         "proceso": t.proceso.nombre, "tarea_principal": t.tarea_principal, "subtarea": t.subtarea, "cargo_ejecuta": t.cargo_ejecuta.nombre,
         "cargo_revisa": t.cargo_revisa.nombre if t.cargo_revisa else None, "regla_tipo": t.regla_tipo, "regla_dia_semana": t.regla_dia_semana,
         "regla_n": t.regla_n, "regla_dia": t.regla_dia, "regla_meses": t.regla_meses, "regla_ajuste": t.regla_ajuste, "regla_franja": t.regla_franja,
         "referencia_normativa": t.referencia_normativa, "activa": t.activa, "requiere_revision": t.requiere_revision,
+        "minutos_estimados": t.minutos_estimados,
     }
 
 
@@ -84,7 +98,12 @@ def _aplicar(t: Tarea, d: DatosTarea, motivo: str):
         raise ErrorDeNegocio("El proceso o el responsable elegido no existe.") from None
     t.proceso, t.tarea_principal, t.subtarea = proceso, normalizar(d.tarea_principal), normalizar(d.subtarea)
     t.cargo_ejecuta = ejecuta
-    t.cargo_revisa = Cargo.objects.filter(nombre=cargo_revisor(ejecuta.nombre)).first()  # DEC-08 y P1
+    revisa = Cargo.objects.filter(pk=d.cargo_revisa_id).first() if d.cargo_revisa_id else None
+    if revisa is None and ejecuta.es_externo:
+        revisa = Cargo.objects.filter(nombre=CARGO_JEFA).first()  # quien registra «Recibido» (supuesto, igual que en el importador)
+    t.cargo_revisa = revisa  # sin revisor se queda sin revisor: no se inventa
+    t.minutos_estimados = d.minutos
+    t.ejecuciones_mes = ejecuciones_por_mes(d.tipo, d.meses)
     t.regla_tipo, t.regla_dia_semana, t.regla_n, t.regla_dia = d.tipo, d.dia_semana, d.n, d.dia
     t.regla_meses = ",".join(str(m) for m in sorted(d.meses))
     t.regla_ajuste, t.regla_franja, t.regla_estado = d.ajuste, d.franja, "confirmado"

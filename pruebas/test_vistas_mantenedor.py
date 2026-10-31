@@ -21,13 +21,13 @@ def reloj(monkeypatch):
 
 @pytest.fixture
 def mundo():
-    jefa, cont, ger, anal = cargo("Jefa Gestión y Control"), cargo("Contadora Senior"), cargo("Gerente AyF"), cargo("Analista Contable")
+    jefa, cont, ger, anal = cargo("Jefa Gestión y Control"), cargo("Contadora Senior"), cargo("Gerente AyF"), cargo("Asistente Contable")
     u = {"jefa": usuario_con_rol("jefa", "JEFATURA", persona("Jefa", jefa)), "ger": usuario_con_rol("ger", "GERENTE", persona("Gerente", ger)),
          "cont": usuario_con_rol("cont", "COLABORADOR", persona("Contadora", cont)), "admin": usuario_con_rol("admin", "ADMIN_SISTEMA"),
          "lectura": usuario_con_rol("lectura", "LECTURA")}
     proceso = Proceso.objects.create(nombre="Compras")
     t = mantenedor.crear_tarea(u["jefa"], mantenedor.DatosTarea(proceso_id=proceso.pk, tarea_principal="Libro de compras", subtarea="Cotejar el RCV contra Odoo", cargo_ejecuta_id=cont.pk, tipo="CIERRE_DIA_HABIL", n=2))
-    return {"u": u, "proceso": proceso, "cont": cont, "anal": anal, "tarea": t}
+    return {"u": u, "proceso": proceso, "cont": cont, "anal": anal, "ger": ger, "tarea": t}
 
 
 def cli(usuario):
@@ -72,7 +72,7 @@ def test_la_lista_se_filtra_por_proceso_responsable_y_texto(mundo):
 
 def datos_post(mundo, **cambios):
     d = {"proceso": mundo["proceso"].pk, "tarea_principal": "Libro de ventas", "subtarea": "Cuadrar el libro de ventas", "cargo_ejecuta": mundo["cont"].pk,
-         "tipo": "SEMANAL", "dia_semana": "0", "franja": "mañana", "ajuste": "siguiente", "activa": "on"}
+         "tipo": "SEMANAL", "dia_semana": "0", "franja": "mañana", "ajuste": "siguiente", "activa": "on", "cargo_revisa": mundo["ger"].pk, "horas": "0,5"}
     d.update(cambios)
     return d
 
@@ -81,7 +81,7 @@ def test_crear_una_tarea_desde_el_formulario(mundo):
     r = cli(mundo["u"]["jefa"]).post(reverse("mant_tarea_nueva"), datos_post(mundo))
     assert r.status_code == 302
     t = Tarea.objects.get(subtarea="Cuadrar el libro de ventas")
-    assert (t.regla_tipo, t.regla_dia_semana, t.regla_franja, t.cargo_revisa.nombre) == ("SEMANAL", 0, "mañana", "Jefa Gestión y Control")
+    assert (t.regla_tipo, t.regla_dia_semana, t.regla_franja, t.cargo_revisa.nombre, t.minutos_estimados) == ("SEMANAL", 0, "mañana", "Gerente AyF", 30)
 
 
 def test_un_dato_invalido_vuelve_al_formulario_con_el_error_y_sin_guardar(mundo):

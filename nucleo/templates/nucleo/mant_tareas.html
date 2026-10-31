@@ -12,13 +12,13 @@
 </form>
 <section class="card"><p class="meta">{{ tareas|length }} tarea{{ tareas|length|pluralize }}. Un cambio rige desde el próximo mes que se abra; lo ya generado no se modifica.</p>
   <div class="tabla-scroll"><table class="tbl">
-    <thead><tr><th>Código</th><th>Proceso</th><th>Tarea principal</th><th>Subtarea</th><th>Responsable</th><th>Revisa</th><th>Periodicidad</th><th>Estado</th><th></th></tr></thead>
+    <thead><tr><th>Código</th><th>Proceso</th><th>Tarea principal</th><th>Subtarea</th><th>Responsable</th><th>Revisa</th><th>Periodicidad</th><th class="n">Horas est.</th><th>Estado</th><th></th></tr></thead>
     <tbody>
     {% for t in tareas %}
-      <tr><td>{{ t.codigo }}</td><td>{{ t.proceso.nombre }}</td><td>{{ t.tarea_principal }}</td><td>{{ t.subtarea }}</td><td>{{ t.cargo_ejecuta.nombre }}</td><td>{{ t.cargo_revisa.nombre|default:"—" }}</td><td>{{ t.periodicidad }}</td>
+      <tr><td>{{ t.codigo }}</td><td>{{ t.proceso.nombre }}</td><td>{{ t.tarea_principal }}</td><td>{{ t.subtarea }}</td><td>{{ t.cargo_ejecuta.nombre }}</td><td>{{ t.cargo_revisa.nombre|default:"Sin revisor" }}</td><td>{{ t.periodicidad }}</td><td class="n">{% if t.minutos_estimados is not None %}{{ t.horas_estimadas }} h{% else %}—{% endif %}</td>
         <td>{% if not t.activa %}<span class="pill p-grey">Inactiva</span>{% elif t.requiere_revision %}<span class="pill p-warn" title="{{ t.motivo_revision }}">Requiere revisión</span>{% else %}<span class="pill p-ok">Activa</span>{% endif %}</td>
         <td><a class="btn btn-2 btn-sm" href="{% url 'mant_tarea_editar' t.pk %}">Editar</a></td></tr>
-    {% empty %}<tr><td colspan="9" class="vacio">No hay tareas con esos filtros.</td></tr>{% endfor %}
+    {% empty %}<tr><td colspan="10" class="vacio">No hay tareas con esos filtros.</td></tr>{% endfor %}
     </tbody>
   </table></div>
 </section>

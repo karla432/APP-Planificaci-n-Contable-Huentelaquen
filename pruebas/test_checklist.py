@@ -107,7 +107,7 @@ def test_la_semana_tiene_flechas_anterior_y_siguiente(mundo):
 
 def test_el_mes_muestra_la_ruta_del_cierre_y_las_tareas_de_la_persona(mundo):
     html = ver(mundo["u"]["cont"], "mes")
-    for texto in ("Ruta del cierre", "Día 1", "Día 4", "D7", "D10", "07-12-2026", "10-12-2026"):
+    for texto in ("Ruta del cierre", "Día 1", "Día 4", "Día 8", "Día 10", "11-12-2026", "15-12-2026"):
         assert texto in html, texto
     assert "Subtarea TAR-0001" in html and "Subtarea TAR-0002" in html and "Subtarea TAR-0003" not in html
     assert "Pendiente" in html
