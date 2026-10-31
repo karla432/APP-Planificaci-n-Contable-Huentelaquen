@@ -1,0 +1,29 @@
+{% extends "nucleo/base.html" %}
+{% block titulo %}Tablero{% endblock %}
+{% block contenido %}
+<p class="kick">Informes · Tablero de tareas del cierre</p>
+{% if periodo %}<h1 class="ancho">{{ abiertas }} tarea{{ abiertas|pluralize }} abierta{{ abiertas|pluralize }} del cierre, {{ atrasadas }} atrasada{{ atrasadas|pluralize }}.</h1>{% else %}<h1>Tablero</h1>{% endif %}
+{% include "nucleo/_selector_mes.html" %}
+{% if periodo %}
+<form method="get" class="card filtros"><input type="hidden" name="mes" value="{{ primero|date:'Y-m' }}">
+  <div><label for="t-proceso">Proceso</label><select id="t-proceso" name="proceso"><option value="">Todos</option>{% for p in procesos %}<option value="{{ p.pk }}" {% if f_proceso == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.nombre }}</option>{% endfor %}</select></div>
+  <div><label class="check"><input type="checkbox" name="solo_mias" value="1" {% if solo_mias %}checked{% endif %}> Solo mis tareas</label></div>
+  <div><button class="btn" type="submit">Filtrar</button></div>
+</form>
+<div class="tablero">
+  {% for titulo, items in columnas %}
+  <section class="col"><h3 class="col-titulo"><span>{{ titulo }}</span><span class="n">{{ items|length }}</span></h3>
+    {% for o in items %}
+    <a class="tarjeta" href="{% url 'detalle_ocurrencia' o.pk %}">
+      <span class="area">{{ o.tarea.proceso.nombre }}</span>
+      <span class="t">{{ o.tarea.subtarea }}</span>
+      {% if o.atrasada %}<span class="pill p-red">Atrasada</span>{% endif %}{% if o.estado == "bloqueada" %} <span class="pill p-red">Bloqueada</span>{% endif %}
+      <span class="m"><span>{{ o.colaborador.nombre|default:o.cargo_ejecuta.nombre }}</span><span>{% if o.dia_cierre %}Día {{ o.dia_cierre }} · {% endif %}{{ o.fecha_limite|date:"d-m" }}</span></span>
+    </a>
+    {% empty %}<p class="vacio">Sin tareas.</p>{% endfor %}
+  </section>
+  {% endfor %}
+</div>
+<p class="meta">Una tarea hecha que no tiene revisor queda en «Hecha o revisada»: no espera revisión.</p>
+{% endif %}
+{% endblock %}

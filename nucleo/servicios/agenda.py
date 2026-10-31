@@ -107,3 +107,26 @@ def orden_de(colaborador, fecha: date) -> int:
     from nucleo.models import Asignacion
     ordenes = Asignacion.objects.filter(colaborador=colaborador, desde__lte=fecha).exclude(hasta__lt=fecha).values_list("cargo__orden", flat=True)
     return min(ordenes, default=100)
+
+
+def atencion(usuario, periodo, hoy: date, limite: int = 8) -> tuple[str, list]:
+    """Lo que esta persona debe mirar en el cierre: si es colaborador, sus tareas abiertas; si no, lo que revisa o recibe, lo bloqueado y lo atrasado."""
+    base = _abiertas().filter(periodo=periodo, tarea__regla_tipo__in=("CIERRE_DIA_HABIL", "CIERRE_HITO"))
+    if permisos.rol_de(usuario) == permisos.COLABORADOR:
+        c = permisos.colaborador_de(usuario)
+        propias = base.filter(colaborador=c, estado__in=PENDIENTES).order_by("fecha_limite", "tarea__secuencia")[:limite] if c else []
+        return "Mis tareas abiertas", [(o, "Atrasada" if o.fecha_limite < hoy else ("Bloqueada" if o.estado == Ocurrencia.BLOQUEADA else "Abierta")) for o in propias]
+    cargos = permisos.cargos_vigentes_de(usuario)
+    lista, vistos = [], set()
+
+    def agregar(qs, etiqueta):
+        for o in qs:
+            if o.pk not in vistos and len(lista) < limite:
+                vistos.add(o.pk)
+                lista.append((o, etiqueta))
+
+    agregar(base.filter(cargo_revisa_id__in=cargos, estado=Ocurrencia.HECHA, tipo_marca="HECHA").exclude(hecha_por=usuario).order_by("fecha_limite"), "Por revisar")
+    agregar(base.filter(cargo_revisa_id__in=cargos, estado__in=PENDIENTES, tipo_marca="RECIBIDA", fecha_limite__lte=hoy).order_by("fecha_limite"), "Por recibir")
+    agregar(base.filter(estado=Ocurrencia.BLOQUEADA).order_by("fecha_limite"), "Bloqueada")
+    agregar(base.filter(estado__in=PENDIENTES, fecha_limite__lt=hoy).order_by("fecha_limite", "tarea__secuencia"), "Atrasada")
+    return "Requiere tu atención", lista

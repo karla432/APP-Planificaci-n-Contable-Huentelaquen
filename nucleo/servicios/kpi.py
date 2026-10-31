@@ -201,10 +201,26 @@ class Resumen:
     vencen_hoy: int = 0
     equipo_a_tiempo: int = 0
     equipo_vencidas: int = 0
+    revisadas: int = 0
+    por_revisar: int = 0
+    pendientes: int = 0
+    bloqueadas: int = 0
+    vencen_a_la_fecha: int = 0
 
     @property
     def avance_pct(self):
         return _pct(self.hechas, self.total)
+
+    @property
+    def plan_pct(self):
+        """Lo que el plan esperaba a hoy: tareas del cierre cuya fecha límite ya llegó, sobre el total."""
+        return _pct(self.vencen_a_la_fecha, self.total)
+
+    @property
+    def diferencia_con_el_plan(self):
+        if self.total == 0:
+            return None
+        return round(self.avance_pct - self.plan_pct)
 
     @property
     def equipo_a_tiempo_pct(self):
@@ -218,6 +234,11 @@ def resumen(periodo, hoy: date) -> Resumen:
         r.hechas += o.estado in HECHAS
         r.atrasadas += o.estado in SIN_HACER and o.fecha_limite < hoy
         r.vencen_hoy += o.estado in SIN_HACER and o.fecha_limite == hoy
+        r.vencen_a_la_fecha += o.fecha_limite <= hoy
+        r.revisadas += o.estado == Ocurrencia.REVISADA
+        r.por_revisar += o.estado == Ocurrencia.HECHA and o.tipo_marca == "HECHA" and o.cargo_revisa_id is not None
+        r.pendientes += o.estado in (Ocurrencia.PENDIENTE, Ocurrencia.DEVUELTA)
+        r.bloqueadas += o.estado == Ocurrencia.BLOQUEADA
     for k in por_colaborador(periodo, hoy):
         r.equipo_a_tiempo += k.a_tiempo
         r.equipo_vencidas += k.vencidas

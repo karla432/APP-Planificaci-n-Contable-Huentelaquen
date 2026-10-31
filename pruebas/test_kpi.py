@@ -206,3 +206,15 @@ def test_una_tarea_bloqueada_vencida_cuenta_como_atrasada_sin_hacer(base):
     k = kpi_de(base)
     assert (k.vencidas, k.a_tiempo, k.pendientes_vencidas) == (1, 0, 1)
     assert kpi.resumen(base["p"], HOY).atrasadas == 1
+
+
+def test_el_resumen_trae_el_plan_y_los_estados_del_cierre(base):
+    ocurrencia(base, date(2026, 12, 3), estado="hecha", primera=local(3, 9))  # hecha sin revisor
+    ocurrencia(base, date(2026, 12, 3), estado="hecha", primera=local(3, 9), cargo_revisa=base["jefa"])  # espera revisión
+    ocurrencia(base, date(2026, 12, 2), estado="revisada", primera=local(2, 9))
+    ocurrencia(base, date(2026, 12, 3), estado="pendiente")
+    ocurrencia(base, date(2026, 12, 14), estado="bloqueada")
+    r = kpi.resumen(base["p"], HOY)
+    assert (r.revisadas, r.por_revisar, r.pendientes, r.bloqueadas) == (1, 1, 1, 1)
+    assert r.avance_pct == 60.0 and r.plan_pct == 80.0  # van 3 de 5 y el plan pedía 4 de 5 a hoy
+    assert r.diferencia_con_el_plan == -20

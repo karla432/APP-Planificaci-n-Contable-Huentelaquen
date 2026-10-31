@@ -14,6 +14,8 @@
 
     <div class="nav-sec">Informes</div>
     <a class="nav-i{% if url_actual == 'informe_panel' %} nav-on{% endif %}" href="{% url 'informe_panel' %}">Panel del cierre</a>
+    <a class="nav-i{% if url_actual == 'informe_tablero' %} nav-on{% endif %}" href="{% url 'informe_tablero' %}">Tablero</a>
+    <a class="nav-i{% if url_actual == 'informe_cronograma' %} nav-on{% endif %}" href="{% url 'informe_cronograma' %}">Cronograma</a>
     <a class="nav-i{% if url_actual == 'informe_cumplimiento' %} nav-on{% endif %}" href="{% url 'informe_cumplimiento' %}">Cumplimiento por colaborador</a>
     <a class="nav-i{% if url_actual == 'informe_carga' %} nav-on{% endif %}" href="{% url 'informe_carga' %}">Carga del equipo</a>
 

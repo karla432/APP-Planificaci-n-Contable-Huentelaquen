@@ -2,14 +2,18 @@
 {% block titulo %}Panel del cierre{% endblock %}
 {% block contenido %}
 <div class="encabezado"><div>
-  <p class="kick">Hacienda Huentelauquén · Administración y Finanzas</p>
-  <h1>Cierre contable · <span style="text-transform:lowercase">{{ primero|date:"F Y" }}</span></h1>
-  {% if periodo %}<p class="meta">{{ hoy|date:"l d-m-Y" }} · día hábil {{ dia_habil }} ·
+  <p class="kick">Cierre contable · {{ primero|date:"F Y" }}</p>
+  {% if periodo %}<h1 class="ancho">Día hábil {{ dia_habil }}: el cierre va {% if resumen.diferencia_con_el_plan < 0 %}{{ resumen.diferencia_con_el_plan|cut:"-" }} punto{{ resumen.diferencia_con_el_plan|cut:"-"|pluralize }} bajo el plan.{% elif resumen.diferencia_con_el_plan > 0 %}{{ resumen.diferencia_con_el_plan }} punto{{ resumen.diferencia_con_el_plan|pluralize }} sobre el plan.{% else %}al día con el plan.{% endif %}</h1>
+  <p class="meta">{{ hoy|date:"l d-m-Y" }} · día hábil {{ dia_habil }} ·
     {% if faltan_cierre %}faltan para el cierre (día 8): <strong>{{ faltan_cierre }}</strong>{% else %}el cierre (día 8) ya pasó{% endif %} ·
-    {% if faltan_directorio %}para el Directorio (día 10): <strong>{{ faltan_directorio }}</strong>{% else %}el día 10 ya pasó{% endif %}</p>{% endif %}
+    {% if faltan_directorio %}para el Directorio (día 10): <strong>{{ faltan_directorio }}</strong>{% else %}el día 10 ya pasó{% endif %}</p>{% else %}<h1>Cierre contable</h1>{% endif %}
 </div></div>
 {% include "nucleo/_selector_mes.html" %}
 {% if periodo %}
+<div class="hero">
+  <div><div class="cifra-grande">{{ resumen.avance_pct|default:0|floatformat:0 }}<small>%</small></div><p class="meta">de las tareas del cierre hechas · el plan esperaba {{ resumen.plan_pct|default:0|floatformat:0 }} % a hoy</p></div>
+  <div class="kpis"><div class="kpi"><b>{{ resumen.revisadas }}</b><span>Revisadas</span></div><div class="kpi"><b>{{ resumen.por_revisar }}</b><span>Por revisar</span></div><div class="kpi"><b>{{ resumen.pendientes }}</b><span>Pendientes</span></div><div class="kpi"><b>{{ resumen.bloqueadas }}</b><span>Bloqueadas</span></div><div class="kpi rojo"><b>{{ resumen.atrasadas }}</b><span>Atrasadas</span></div></div>
+</div>
 <section class="card"><h2>Ruta del cierre</h2>
   <p class="meta">Tareas del cierre hechas sobre las que vencen ese día.
     {% if feriados_mes %}<strong>Feriados del mes:</strong> {% for f in feriados_mes %}{{ f.fecha|date:"d-m-Y" }} ({{ f.nombre }}){% if not forloop.last %}, {% endif %}{% endfor %}.{% endif %}</p>
@@ -40,10 +44,10 @@
     {% empty %}<p class="vacio">Sin tareas del cierre.</p>{% endfor %}
     <p class="meta">Al día: todo hecho o sin atrasos · Por vencer: con tareas aún no vencidas · Atrasado: con tareas vencidas sin hacer.</p>
   </section>
-  <section class="card"><h2>Riesgos a revisar hoy</h2>
-    {% for o in atrasadas %}
-      <p><strong>{{ o.tarea.subtarea|truncatechars:80 }}</strong><br><span class="meta">{{ o.colaborador.nombre|default:o.cargo_ejecuta.nombre }} · {{ o.tarea.proceso.nombre }} · venció el {{ o.fecha_limite|date:"d-m-Y" }}</span> <span class="pill p-red">Atrasada</span></p>
-    {% empty %}<p class="vacio">No hay tareas atrasadas del cierre.</p>{% endfor %}
+  <section class="card"><h2>{{ atencion_titulo }}</h2>
+    {% for o, etiqueta in atencion %}
+      <p><a href="{% url 'detalle_ocurrencia' o.pk %}"><strong>{{ o.tarea.subtarea|truncatechars:80 }}</strong></a><br><span class="meta">{{ o.colaborador.nombre|default:o.cargo_ejecuta.nombre }} · {{ o.tarea.proceso.nombre }} · vence {{ o.fecha_limite|date:"d-m-Y" }}</span> <span class="pill {% if etiqueta == 'Por revisar' or etiqueta == 'Por recibir' %}p-warn{% elif etiqueta == 'Abierta' %}p-grey{% else %}p-red{% endif %}">{{ etiqueta }}</span></p>
+    {% empty %}<p class="vacio">Nada pendiente de tu parte.</p>{% endfor %}
   </section>
 </div>
 <section class="card"><h2>Cumplimiento por colaborador</h2>

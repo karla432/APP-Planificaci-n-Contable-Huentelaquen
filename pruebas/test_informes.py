@@ -142,3 +142,18 @@ def test_el_cumplimiento_lista_a_las_personas_en_el_orden_de_los_cargos(mundo):
     cuadro = html.split("Cumplimiento de revisión")[0]
     posiciones = [cuadro.index(n) for n in ("Aaa Gerente", "Jefa", "Contadora", "Zzz Asistente")]
     assert posiciones == sorted(posiciones)
+
+
+def test_el_titular_resume_el_cierre_contra_el_plan_y_hay_cifra_grande(mundo):
+    html = ver(mundo["u"]["lectura"], "informe_panel")
+    assert "Día hábil 4: el cierre va 40 puntos bajo el plan." in html  # van 2 de 5 (40 %) y el plan pedía 4 de 5 (80 %)
+    assert 'class="cifra-grande">40<' in html and "el plan esperaba 80 % a hoy" in html
+
+
+def test_requiere_tu_atencion_muestra_lo_que_el_perfil_debe_hacer(mundo):
+    jefa = ver(mundo["u"]["jefa"], "informe_panel")
+    atencion = jefa.split("Requiere tu atención")[1].split("Próximos")[0] if "Próximos" in jefa else jefa.split("Requiere tu atención")[1]
+    assert "Subtarea TAR-0002" in atencion and "Por revisar" in atencion  # la Jefa revisa lo hecho por la Contadora
+    assert "Subtarea TAR-0001" in atencion  # y ve lo atrasado
+    cont = ver(mundo["u"]["cont"], "informe_panel")
+    assert "Mis tareas abiertas" in cont and "Subtarea TAR-0001" in cont.split("Mis tareas abiertas")[1]
