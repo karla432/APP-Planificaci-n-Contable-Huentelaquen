@@ -16,7 +16,7 @@
     {% for o in d.items %}
       <div class="item-compacto">
         <span class="codigo">{{ o.tarea.codigo }}</span> {% include "nucleo/_estado.html" %}
-        <div>{{ o.tarea.subtarea|truncatechars:90 }}</div>
+        <div><a href="{% url 'detalle_ocurrencia' o.pk %}">{{ o.tarea.subtarea|truncatechars:90 }}</a></div>
         {% if es_mia and o.pendiente %}
         <form method="post" action="{% url 'ocurrencia_accion' o.pk 'hecha' %}">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}"><button class="btn btn-sm" type="submit">Marcar hecha</button></form>
         {% endif %}

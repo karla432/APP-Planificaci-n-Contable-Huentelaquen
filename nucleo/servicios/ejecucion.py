@@ -5,11 +5,13 @@ Todas las reglas de permiso y de segregación de funciones se validan aquí, en 
 - Cada persona marca solo lo suyo; nadie revisa lo que marcó; el solicitante de «no aplica» no lo aprueba.
 - Las acciones por excepción exigen motivo y quedan marcadas en la auditoría.
 """
+from dataclasses import dataclass
+
 from django.db import transaction
 from django.utils import timezone
 
 from nucleo import permisos
-from nucleo.models import Ocurrencia, SolicitudNoAplica
+from nucleo.models import EventoAuditoria, Ocurrencia, SolicitudNoAplica
 from nucleo.servicios import auditoria
 from nucleo.servicios.errores import ErrorDeNegocio, PermisoDenegado
 
@@ -202,3 +204,59 @@ def resolver_no_aplica(s: SolicitudNoAplica, usuario, aprobar: bool):
         auditoria.registrar("no_aplica.aprobada", usuario=usuario, entidad="Ocurrencia", entidad_id=o.pk, antes=antes, despues=_estado(o), motivo=s.motivo)
     else:
         auditoria.registrar("no_aplica.rechazada", usuario=usuario, entidad="Ocurrencia", entidad_id=o.pk, motivo=s.motivo)
+
+
+# ---- Qué puede hacer cada persona, comentarios e historial -------------------------------------------------
+
+
+def acciones_disponibles(o: Ocurrencia, usuario) -> list[str]:
+    """Las acciones que esta persona puede ejecutar ahora sobre la tarea (la pantalla solo ofrece estas; el servidor igual las valida)."""
+    rol = permisos.rol_de(usuario)
+    if rol is None or o.periodo.estado == "cerrado":
+        return []
+    acciones = []
+    if o.tipo_marca == "HECHA" and _es_dueno(usuario, rol, o):
+        if o.estado in (Ocurrencia.PENDIENTE, Ocurrencia.DEVUELTA):
+            acciones += ["hecha", "bloquear"]
+        elif o.estado == Ocurrencia.BLOQUEADA:
+            acciones.append("retomar")
+    if o.tipo_marca == "RECIBIDA" and o.estado in (Ocurrencia.PENDIENTE, Ocurrencia.DEVUELTA) and _es_revisor(usuario, o):
+        acciones.append("recibida")
+    if o.tipo_marca == "HECHA" and o.estado == Ocurrencia.HECHA and o.hecha_por_id != usuario.pk and _es_revisor(usuario, o):
+        acciones += ["revisar", "devolver"]
+    return acciones
+
+
+@transaction.atomic
+def comentar(o: Ocurrencia, usuario, texto: str):
+    rol = _exigir_rol(usuario)
+    if rol not in permisos.QUE_MARCAN:
+        raise PermisoDenegado("Tu perfil no puede comentar tareas.")
+    if not (texto or "").strip():
+        raise ErrorDeNegocio("Escribe un comentario.")
+    _exigir_periodo_abierto(o)
+    auditoria.registrar("ocurrencia.comentario", usuario=usuario, entidad="Ocurrencia", entidad_id=o.pk, motivo=texto.strip())
+
+
+TEXTOS_DEL_HISTORIAL = {
+    "ocurrencia.hecha": "Marcó hecha", "ocurrencia.hecha_por_excepcion": "Marcó hecha por excepción", "ocurrencia.recibida": "Marcó recibido",
+    "ocurrencia.revisada": "Revisó", "ocurrencia.devuelta": "Devolvió", "ocurrencia.bloqueada": "Marcó bloqueada", "ocurrencia.retomada": "Retomó la tarea",
+    "ocurrencia.comentario": "Comentó", "no_aplica.solicitada": "Pidió «no aplica»", "no_aplica.aprobada": "Aprobó «no aplica»", "no_aplica.rechazada": "Rechazó «no aplica»",
+}
+
+
+@dataclass
+class EntradaDeHistorial:
+    momento: object
+    quien: str
+    texto: str
+    comentario: str
+
+
+def historial_de(o: Ocurrencia) -> list[EntradaDeHistorial]:
+    eventos = EventoAuditoria.objects.filter(entidad="Ocurrencia", entidad_id=str(o.pk), accion__in=TEXTOS_DEL_HISTORIAL).select_related("usuario").order_by("id")
+    resultado = []
+    for e in eventos:
+        c = permisos.colaborador_de(e.usuario) if e.usuario_id else None
+        resultado.append(EntradaDeHistorial(e.momento, c.nombre if c else e.usuario_texto, TEXTOS_DEL_HISTORIAL[e.accion], e.motivo))
+    return resultado

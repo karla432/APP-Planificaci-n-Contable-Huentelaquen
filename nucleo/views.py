@@ -12,7 +12,7 @@ from nucleo import permisos
 from nucleo.models import Colaborador, Ocurrencia, Periodo
 from datetime import date, timedelta
 
-from nucleo.servicios import agenda, ejecucion, kpi, parametros, presentacion, reloj
+from nucleo.servicios import agenda, ejecucion, kpi, parametros, presentacion, reglas_texto, reloj
 from nucleo.servicios.errores import ErrorDeNegocio, PermisoDenegado
 
 
@@ -108,7 +108,20 @@ def en_construccion(request, titulo):
     return render(request, "nucleo/en_construccion.html", {"titulo": titulo})
 
 
-ACCIONES = {"hecha", "recibida", "revisar", "devolver", "bloquear", "retomar"}
+ACCIONES = {"hecha", "recibida", "revisar", "devolver", "bloquear", "retomar", "comentar"}
+
+
+@login_required
+def detalle(request, pk):
+    if permisos.rol_de(request.user) is None:
+        return _sin_perfil(request)
+    o = get_object_or_404(Ocurrencia.objects.select_related("tarea__proceso", "cargo_ejecuta", "cargo_revisa", "colaborador", "periodo"), pk=pk)
+    return render(request, "nucleo/detalle.html", {
+        "o": o, "hoy": reloj.hoy(), "acciones": ejecucion.acciones_disponibles(o, request.user), "historial": ejecucion.historial_de(o),
+        "puede_comentar": permisos.rol_de(request.user) in permisos.QUE_MARCAN and o.periodo.estado != "cerrado",
+        "periodicidad": reglas_texto.describir(o.tarea.regla(), o.tarea.regla_franja), "atrasada": o.estado in ("pendiente", "devuelta", "bloqueada") and o.fecha_limite < reloj.hoy(),
+        "dia_del_cierre": o.regla_copia.get("n") if o.regla_copia.get("tipo") == "CIERRE_DIA_HABIL" else None,
+    })
 
 
 @login_required
@@ -122,6 +135,8 @@ def ocurrencia_accion(request, pk, accion):
             ejecucion.marcar_hecha(o, request.user)
         elif accion == "recibida":
             ejecucion.marcar_recibida(o, request.user)
+        elif accion == "comentar":
+            ejecucion.comentar(o, request.user, request.POST.get("comentario", ""))
         elif accion == "bloquear":
             ejecucion.marcar_bloqueada(o, request.user, request.POST.get("comentario", ""))
         elif accion == "retomar":

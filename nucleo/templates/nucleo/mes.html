@@ -24,7 +24,7 @@
     <thead><tr><th>Vence</th><th>Código</th><th>Proceso</th><th>Tarea</th><th>Estado</th><th></th></tr></thead>
     <tbody>
     {% for o in datos.ocurrencias %}
-      <tr><td>{{ o.fecha_limite|date:"d-m-Y" }}</td><td>{{ o.tarea.codigo }}</td><td>{{ o.tarea.proceso.nombre }}</td><td>{{ o.tarea.subtarea }}</td>
+      <tr><td>{{ o.fecha_limite|date:"d-m-Y" }}</td><td>{{ o.tarea.codigo }}</td><td>{{ o.tarea.proceso.nombre }}</td><td><a href="{% url 'detalle_ocurrencia' o.pk %}">{{ o.tarea.subtarea }}</a></td>
         <td>{% include "nucleo/_estado.html" %}</td>
         <td>{% if es_mia and o.pendiente %}<form method="post" action="{% url 'ocurrencia_accion' o.pk 'hecha' %}">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}"><button class="btn btn-sm" type="submit">Marcar hecha</button></form>{% endif %}</td></tr>
     {% empty %}<tr><td colspan="6" class="vacio">No hay tareas que venzan este mes.</td></tr>{% endfor %}

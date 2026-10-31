@@ -1,0 +1,37 @@
+{% extends "nucleo/base.html" %}
+{% block titulo %}{{ o.tarea.codigo }}{% endblock %}
+{% block contenido %}
+<p class="kick">{{ o.tarea.proceso.nombre }} · {{ o.tarea.codigo }}</p>
+<h1 class="ancho">{{ o.tarea.subtarea }}</h1>
+<p style="margin:10px 0 18px">{% include "nucleo/_estado.html" %}{% if o.por_excepcion %} <span class="pill p-warn">Marcada por excepción</span>{% endif %}</p>
+{% if o.estado == "bloqueada" and o.motivo_bloqueo %}<div class="aviso-caja"><strong>Bloqueada:</strong> {{ o.motivo_bloqueo }}</div>{% endif %}
+{% if o.estado == "devuelta" and o.comentario_devolucion %}<div class="aviso-caja"><strong>Devuelta:</strong> {{ o.comentario_devolucion }}</div>{% endif %}
+<section class="card"><h2>Datos</h2>
+  <dl class="datos">
+    <div><dt>Proceso</dt><dd>{{ o.tarea.proceso.nombre }}</dd></div>
+    <div><dt>Tarea principal</dt><dd>{{ o.tarea.tarea_principal }}</dd></div>
+    <div><dt>Responsable</dt><dd>{% if o.colaborador %}{{ o.colaborador.nombre }} · {% endif %}{{ o.cargo_ejecuta.nombre }}</dd></div>
+    <div><dt>{% if o.tipo_marca == "RECIBIDA" %}Recibe{% else %}Revisa y aprueba{% endif %}</dt><dd>{% if o.cargo_revisa %}{{ o.cargo_revisa.nombre }}{% else %}Sin revisor{% endif %}</dd></div>
+    <div><dt>Vence</dt><dd>{% if dia_del_cierre %}Día {{ dia_del_cierre }} · {% endif %}{{ o.fecha_limite|date:"l d-m-Y" }}</dd></div>
+    <div><dt>Periodicidad</dt><dd>{{ periodicidad }}</dd></div>
+    <div><dt>Horas estimadas</dt><dd>{% if o.tarea.minutos_estimados %}{{ o.tarea.horas_estimadas }} h <span class="pill p-warn">Estimado</span>{% if o.tarea.fuente_horas == "gerente" %}<br><span class="mini">Definidas por la Gerente AyF</span>{% endif %}{% else %}Sin estimar{% endif %}</dd></div>
+    {% if o.tarea.referencia_normativa %}<div style="grid-column:1/-1"><dt>Referencia normativa</dt><dd>{{ o.tarea.referencia_normativa }}</dd></div>{% endif %}
+  </dl>
+</section>
+<section class="card"><h2>Acciones</h2>
+  {% if acciones %}<div class="acciones">
+    {% if "hecha" in acciones %}<form method="post" action="{% url 'ocurrencia_accion' o.pk 'hecha' %}">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}"><button class="btn" type="submit">Marcar hecha</button></form>{% endif %}
+    {% if "retomar" in acciones %}<form method="post" action="{% url 'ocurrencia_accion' o.pk 'retomar' %}">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}"><button class="btn" type="submit">Retomar tarea</button></form>{% endif %}
+    {% if "recibida" in acciones %}<form method="post" action="{% url 'ocurrencia_accion' o.pk 'recibida' %}">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}"><button class="btn" type="submit">Marcar recibido</button></form>{% endif %}
+    {% if "revisar" in acciones %}<form method="post" action="{% url 'ocurrencia_accion' o.pk 'revisar' %}">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}"><button class="btn" type="submit">Revisar</button></form>{% endif %}
+    {% if "bloquear" in acciones %}<form method="post" action="{% url 'ocurrencia_accion' o.pk 'bloquear' %}" class="devolver">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}"><label for="mb">Motivo para bloquear</label><input id="mb" name="comentario" required><button class="btn btn-2" type="submit">Marcar bloqueada</button></form>{% endif %}
+    {% if "devolver" in acciones %}<form method="post" action="{% url 'ocurrencia_accion' o.pk 'devolver' %}" class="devolver">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}"><label for="md">Comentario para devolver</label><input id="md" name="comentario" required><button class="btn btn-2" type="submit">Devolver</button></form>{% endif %}
+  </div>{% else %}<p class="meta">Solo lectura: no tienes acciones sobre esta tarea ahora.</p>{% endif %}
+</section>
+<section class="card"><h2>Historial y comentarios</h2>
+  <ul class="historial">{% for h in historial %}<li><strong>{{ h.quien }}</strong> · {{ h.texto }}{% if h.comentario %}: {{ h.comentario }}{% endif %}<small>{{ h.momento|date:"d-m-Y H:i" }}</small></li>{% empty %}<li class="vacio">Aún sin movimientos.</li>{% endfor %}</ul>
+  {% if puede_comentar %}<form method="post" action="{% url 'ocurrencia_accion' o.pk 'comentar' %}">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}">
+    <label for="coment">Agregar un comentario</label><textarea id="coment" name="comentario" rows="2" required></textarea><p><button class="btn btn-2" type="submit">Agregar comentario</button></p></form>{% endif %}
+  <p class="meta">Checklist y evidencia adjunta quedan para después de salir a producción.</p>
+</section>
+{% endblock %}

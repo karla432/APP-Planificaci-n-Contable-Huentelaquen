@@ -1,7 +1,7 @@
 <li class="fila">
   <div class="fila-texto">
     <span class="codigo">{{ o.tarea.codigo }}</span> <span class="proceso">{{ o.tarea.proceso.nombre }}</span>
-    <p class="titulo">{{ o.tarea.subtarea }}</p>
+    <p class="titulo"><a href="{% url 'detalle_ocurrencia' o.pk %}">{{ o.tarea.subtarea }}</a></p>
     <p class="meta">Vence el {{ o.fecha_limite|date:"d-m-Y" }}
       {% if o.atraso %}· <strong class="etiqueta etiqueta-rojo">Atrasada {{ o.atraso }} día{{ o.atraso|pluralize }}</strong>
       {% elif o.fecha_limite == hoy %}· <strong class="etiqueta etiqueta-ambar">Vence hoy</strong>{% endif %}

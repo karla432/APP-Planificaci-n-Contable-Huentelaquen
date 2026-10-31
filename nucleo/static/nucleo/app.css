@@ -113,3 +113,8 @@ input, select, textarea { width: 100%; min-height: 44px; padding: 6px 12px; bord
 .oculto { position: absolute; left: -9999px; }
 .tbl input { min-height: 36px; }
 .meta-barra { height: 10px; background: var(--hu-card-line); margin-bottom: 4px; } .meta-barra i { display: block; height: 100%; background: var(--hu-gray); } .meta-barra i.c-ok { background: var(--hu-ok); } .meta-barra i.c-warn { background: var(--hu-warn); } .meta-barra i.c-red { background: var(--hu-risk); }
+.datos { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px; margin: 0; } .datos dt { font-size: 12px; color: var(--hu-gray); } .datos dd { margin: 0; font-weight: 700; color: var(--hu-ink); }
+.aviso-caja { border-left: 4px solid var(--hu-red); background: var(--hu-pink-2); padding: 10px 14px; margin-bottom: 16px; }
+.acciones { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: flex-start; }
+.historial { list-style: none; margin: 0 0 12px; padding: 0; } .historial li { padding: 8px 0; border-top: 1px solid var(--hu-card-line); } .historial small { display: block; color: var(--hu-gray); }
+@media (max-width: 900px) { .datos { grid-template-columns: 1fr; } }
