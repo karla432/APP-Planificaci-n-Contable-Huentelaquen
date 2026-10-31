@@ -90,11 +90,13 @@ Karla entregó la planificación final, en el orden en que se procesa, con el ti
 2. Se crea la tarea **«Revisión del cierre con Gerente General»**, día hábil 9, a cargo del Gerente AyF, en el proceso «Revisión día 9» (queda entre «Reportería día 7» y «Cierre día 10»). Sin tiempo estimado ni revisor hasta que se definan. El importador la agrega solo (35 procesos y 195 tareas en total). ✔
 
 **Supuestos que siguen pendientes de confirmar:**
-3. Las tareas externas sin «Revisa» en el Excel las recibe la Jefa. «Vendedor Stgo» y «Jefe Bodega» se tratan como externos.
+3. «Vendedor Stgo» y «Jefe Bodega» se tratan como externos. (Quién recibe lo de los externos sin «Revisa» ya está confirmado: la Jefa de Control.)
 4. El Excel trae la **fila 61 duplicada** de la 51: el importador la informa y no la duplica (194 tareas de 195 filas).
 5. **Riesgo R28:** 127 tareas no tienen revisor en el Excel. Ya figura en tu auditoría (R07 y R08); la app lo muestra como «sin revisión» y no lo corrige.
 
-**Pregunta abierta para Karla:** a quién recibe lo de los externos sin «Revisa» (hoy, la Jefa de Control) y qué tiempo estimado tiene la revisión del día 9.
+**Confirmado por Karla el 31-10-2026 (segunda ronda):**
+- Las tareas de externos que el Excel deja sin «Revisa» las recibe la **Jefa de Control**. ✔
+- La revisión del día 9 se deja **sin tiempo estimado** por ahora (Karla respondió «ok con el tiempo del día 9», sin indicar una cifra). Si más adelante quiere que cuente en la carga del equipo, se le asigna un tiempo desde el Mantenedor de tareas.
 
 ## 3. Datos que faltan y no bloquean
 
