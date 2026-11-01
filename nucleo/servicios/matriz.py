@@ -293,8 +293,8 @@ def _clasificar(t: Tarea, plan: Plan) -> str:
     """paquete · fija · costo_en_destino · analisis · normal."""
     if t.proceso.nombre == PROCESO_PAQUETE and plan.ejecuta_id and t.cargo_ejecuta.nombre == GERENTE:
         return "paquete"
-    if t.proceso.nombre in PROCESOS_DE_ENTREGA or (t.proceso.nombre == "F29" and plan.regla_tipo == "CIERRE_HITO" and plan.regla_n in (9, 10)):
-        return "fija"
+    if t.proceso.nombre in PROCESOS_DE_ENTREGA or (plan.regla_tipo == "CIERRE_HITO" and plan.regla_n in (9, 10)):
+        return "fija"  # lo que va el día 9 (Gerente General) o el 10 (Directorio) no se mueve
     if t.proceso.nombre == PROCESO_COSTEO and t.tarea_principal.startswith(PREFIJOS_COSTO_EN_DESTINO):
         return "costo_en_destino"
     if t.proceso.nombre == PROCESO_ANALISIS:
@@ -405,15 +405,14 @@ def proponer(anio: int, mes: int, ctx: Contexto | None = None, max_pasos: int = 
             if candidatos:
                 elegido = (max(candidatos, key=lambda c: libre(c, d)), d)
                 break
-        if elegido is None:
-            d = dias[-1]
-            elegido = (max(elegible, key=lambda c: libre(c, d)), d)
+        if elegido is None:  # no cabe en ningún día: se reparte entre los últimos días de proceso, donde haya más espacio
+            elegido = max(((c, d) for d in dias[-3:] for c in elegible), key=lambda cd: (libre(*cd), indice[cd[1]]))
         poner(t, *elegido)
         motivos[t.pk] = "El análisis de cuentas se hace el último día de proceso y en paralelo entre el Contador Senior, la Jefa de Control y la Asistente Contable."
     # 3) El costo en destino: lo último que se procesa; se llena hacia atrás desde el último día (el primero de la lista queda más temprano).
     for t in reversed([t for t in ordenadas if grupo[t.pk] == "costo_en_destino"]):
         c, h = planes[t.pk].ejecuta_id, horas_de(t)
-        dia = next((d for d in reversed(dias) if cabe(t, c, d, h)), None) or peor_dia(t, c, h, dias)
+        dia = next((d for d in reversed(dias) if cabe(t, c, d, h)), None) or peor_dia(t, c, h, dias[-3:])
         poner(t, c, dia)
         motivos[t.pk] = "El costo en destino es lo último que se procesa: termina el último día de proceso, antes del paquete del día 8."
 

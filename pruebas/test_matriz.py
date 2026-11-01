@@ -196,6 +196,12 @@ def test_la_revision_del_9_y_el_cierre_del_10_no_se_mueven(equipo):
     assert [(p.regla_tipo, p.regla_n) for p in (prop.planes[t.pk] for t in Tarea.objects.order_by("codigo"))] == [("CIERRE_HITO", 9), ("CIERRE_HITO", 10)]
 
 
+def test_lo_que_va_el_9_o_el_10_no_se_mueve_aunque_sea_de_un_proceso_normal(equipo):
+    hacer("C", equipo["Jefa de Control"], "CIERRE_HITO", 1.5, n=9, proceso="Costeo y producción")
+    plan = matriz.proponer(2026, 12).planes[Tarea.objects.get().pk]
+    assert (plan.regla_tipo, plan.regla_n) == ("CIERRE_HITO", 9)
+
+
 def test_los_dias_8_9_y_10_que_eran_tareas_de_proceso_se_adelantan_a_la_semana_del_cierre(equipo):
     hacer("C", equipo["Jefa de Control"], "CIERRE_HITO", 2, n=8, proceso="Créditos y leasing")  # un reporte que hoy espera al día 8
     prop = matriz.proponer(2026, 12)
