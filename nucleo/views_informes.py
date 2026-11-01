@@ -263,7 +263,7 @@ def matriz_del_cierre(request):
         "primero": primero, "anio": anio, "mes": mes, "mes_param": f"{anio}-{mes:02d}", **_navegacion(primero), "prop": prop,
         "tablas": [("Como está hoy", _tabla_de_matriz(prop.antes)), ("Propuesta", _tabla_de_matriz(prop.despues))], "resumen": list(zip(prop.antes.filas, prop.despues.filas)), "dias": prop.antes.dias,
         "etiquetas": {d: prop.antes.etiqueta(d) for d in prop.antes.dias}, "alertas": prop.despues.alertas(), "faltan": round(max(0.0, prop.despues.horas_semana_cierre - prop.despues.capacidad_semana_cierre), 1),
-        "cambios": prop.cambios[:60], "mas_cambios": max(len(prop.cambios) - 60, 0), "hasta": prop.antes.ctx.hasta,
+        "cambios": prop.cambios[:12], "mas_cambios": max(len(prop.cambios) - 12, 0), "hasta": prop.antes.ctx.hasta,
     })
 
 

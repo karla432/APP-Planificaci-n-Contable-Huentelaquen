@@ -37,7 +37,7 @@
   {% include "nucleo/_listado_tareas.html" with tareas=listado.tareas %}</section>{% endif %}
 <div class="indicadores">
   <section class="card"><p class="kick">Avance del cierre</p><p class="numero">{% if resumen.avance_pct is None %}—{% else %}{{ resumen.avance_pct }}%{% endif %}</p><p class="meta">{{ resumen.hechas }} de {{ resumen.total }} tareas hechas</p></section>
-  <section class="card"><p class="kick">Atrasadas sin hacer</p><p class="numero numero-rojo">{{ resumen.atrasadas }}</p><p class="meta">Riesgo para el D7 · más {{ resumen.vencen_hoy }} vencen hoy</p></section>
+  <section class="card"><p class="kick">Atrasadas sin hacer</p><p class="numero numero-rojo">{{ resumen.atrasadas }}</p><p class="meta">Riesgo para los reportes del día 8 · más {{ resumen.vencen_hoy }} vencen hoy</p></section>
   <section class="card"><p class="kick">Cumplimiento a tiempo del equipo</p><p class="numero">{% if resumen.equipo_a_tiempo_pct is None %}—{% else %}{{ resumen.equipo_a_tiempo_pct }}%{% endif %}</p><p class="meta"><strong>{{ resumen.equipo_a_tiempo }} de {{ resumen.equipo_vencidas }}</strong> a tiempo · Meta {{ meta }}%</p></section>
 </div>
 <div class="dos-columnas">
