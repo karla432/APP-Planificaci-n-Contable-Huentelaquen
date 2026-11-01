@@ -7,10 +7,12 @@
   · <a href="{% url 'planificacion' %}?proceso={{ p.pk }}">Ver su árbol</a> · <a href="{% url 'mant_tareas' %}?proceso={{ p.pk }}">Editar sus subtareas</a></p>
 
 <section class="card"><h2>Datos del proceso</h2>
+  <p class="meta">Lo esencial es el <strong>nombre</strong> y la <strong>sigla</strong>. El resto es opcional.</p>
   <form method="post" class="formulario">{% csrf_token %}<input type="hidden" name="accion" value="guardar">
-    <label for="nombre">Nombre</label><input id="nombre" name="nombre" value="{{ p.nombre }}" required maxlength="160">
-    <label for="sigla">Sigla (3 letras)</label><input id="sigla" name="sigla" value="{{ p.sigla }}" required maxlength="3" minlength="3" pattern="[A-Za-z]{3}" style="text-transform:uppercase" title="Tres letras, sin tildes">
-    <p class="meta">Cambiar la sigla cambia el código de todo el proceso (queda el anterior en el historial). El orden no se cambia aquí: usa ▲ ▼ en la lista de procesos.</p>
+    <div class="grid2"><div><label for="nombre">Nombre</label><input id="nombre" name="nombre" value="{{ p.nombre }}" required maxlength="160"></div>
+      <div><label for="sigla">Sigla (3 letras)</label><input id="sigla" name="sigla" value="{{ p.sigla }}" required maxlength="3" minlength="3" pattern="[A-Za-z]{3}" style="text-transform:uppercase" title="Tres letras, sin tildes">
+        <p class="ayuda">Identifica al proceso en el código ({{ p.codigo }}). Si la cambias, cambia el código de todo el proceso y queda el anterior en el historial.</p></div></div>
+    <p class="meta">Orden de ejecución: <strong>{{ p.orden }}</strong>. Se cambia con ▲ ▼ en la lista de procesos.</p>
     {% include "nucleo/_plan_campos.html" with obj=p prefijo="" %}
     <p><button class="btn" type="submit">Guardar</button></p>
   </form>

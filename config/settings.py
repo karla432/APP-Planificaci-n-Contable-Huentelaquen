@@ -137,6 +137,8 @@ TIME_ZONE = "America/Santiago"  # zona de negocio
 USE_I18N = True
 USE_TZ = True  # los instantes se guardan en UTC; los días de negocio se calculan en America/Santiago
 
+# Documentos y evidencias que se adjuntan a los comentarios: archivos fuera del repositorio, incluidos en el respaldo. Solo se entregan por la vista con permiso.
+EVIDENCIAS_ROOT = Path(os.environ.get("PLANIFICACION_EVIDENCIAS") or (BASE_DIR / "evidencias"))
 STATIC_URL = "static/"
 STATIC_ROOT = Path(os.environ.get("PLANIFICACION_STATIC_ROOT") or (BASE_DIR / "staticfiles"))
 

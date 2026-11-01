@@ -5,14 +5,14 @@ Todas las reglas de permiso y de segregación de funciones se validan aquí, en 
 - Cada persona marca solo lo suyo; nadie revisa lo que marcó; el solicitante de «no aplica» no lo aprueba.
 - Las acciones por excepción exigen motivo y quedan marcadas en la auditoría.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from django.db import transaction
 from django.utils import timezone
 
 from nucleo import permisos
 from nucleo.models import EventoAuditoria, Ocurrencia, SolicitudNoAplica
-from nucleo.servicios import auditoria
+from nucleo.servicios import auditoria, evidencias
 from nucleo.servicios.errores import ErrorDeNegocio, PermisoDenegado
 
 
@@ -272,14 +272,27 @@ def acciones_disponibles(o: Ocurrencia, usuario) -> list[str]:
 
 
 @transaction.atomic
-def comentar(o: Ocurrencia, usuario, texto: str):
+def comentar(o: Ocurrencia, usuario, texto: str, archivo=None):
+    """Un comentario, con un documento o evidencia adjunto si se quiere. Lo ven quien ejecuta la tarea y a quien se reporta (la revisión)."""
     rol = _exigir_rol(usuario)
     if rol not in permisos.QUE_MARCAN:
         raise PermisoDenegado("Tu perfil no puede comentar tareas.")
-    if not (texto or "").strip():
-        raise ErrorDeNegocio("Escribe un comentario.")
+    if not (texto or "").strip() and archivo is None:
+        raise ErrorDeNegocio("Escribe un comentario o adjunta un documento.")
     _exigir_periodo_abierto(o)
-    auditoria.registrar("ocurrencia.comentario", usuario=usuario, entidad="Ocurrencia", entidad_id=o.pk, motivo=texto.strip())
+    if archivo is not None:
+        evidencias.validar(archivo)  # se rechaza antes de registrar nada
+        archivo.seek(0)
+    despues = None
+    adjunto = None
+    if archivo is not None:
+        adjunto = evidencias.guardar(o, usuario, archivo)
+        despues = {"archivo": adjunto.nombre_original, "tamano": adjunto.tamano, "sha256": adjunto.sha256}
+    evento = auditoria.registrar("ocurrencia.comentario", usuario=usuario, entidad="Ocurrencia", entidad_id=o.pk, despues=despues, motivo=(texto or "").strip())
+    if adjunto is not None:
+        adjunto.evento = evento
+        adjunto.save(update_fields=["evento"])
+    return evento
 
 
 TEXTOS_DEL_HISTORIAL = {
@@ -295,12 +308,16 @@ class EntradaDeHistorial:
     quien: str
     texto: str
     comentario: str
+    adjuntos: list = field(default_factory=list)
 
 
 def historial_de(o: Ocurrencia) -> list[EntradaDeHistorial]:
     eventos = EventoAuditoria.objects.filter(entidad="Ocurrencia", entidad_id=str(o.pk), accion__in=TEXTOS_DEL_HISTORIAL).select_related("usuario").order_by("id")
+    adjuntos: dict[int, list] = {}
+    for ev in o.evidencias.all():
+        adjuntos.setdefault(ev.evento_id, []).append(ev)
     resultado = []
     for e in eventos:
         c = permisos.colaborador_de(e.usuario) if e.usuario_id else None
-        resultado.append(EntradaDeHistorial(e.momento, c.nombre if c else e.usuario_texto, TEXTOS_DEL_HISTORIAL[e.accion], e.motivo))
+        resultado.append(EntradaDeHistorial(e.momento, c.nombre if c else e.usuario_texto, TEXTOS_DEL_HISTORIAL[e.accion], e.motivo, adjuntos.get(e.pk, [])))
     return resultado

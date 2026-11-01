@@ -33,9 +33,12 @@
     <button class="btn btn-2" type="submit">Guardar horas</button></form><p class="meta">Escribe las horas con coma (1,5) o como horas y minutos (1:30). Puedes corregirlas mientras el mes esté abierto.</p>{% endif %}
 </section>
 <section class="card"><h2>Historial y comentarios</h2>
-  <ul class="historial">{% for h in historial %}<li><strong>{{ h.quien }}</strong> · {{ h.texto }}{% if h.comentario %}: {{ h.comentario }}{% endif %}<small>{{ h.momento|date:"d-m-Y H:i" }}</small></li>{% empty %}<li class="vacio">Aún sin movimientos.</li>{% endfor %}</ul>
-  {% if puede_comentar %}<form method="post" action="{% url 'ocurrencia_accion' o.pk 'comentar' %}">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}">
-    <label for="coment">Agregar un comentario</label><textarea id="coment" name="comentario" rows="2" required></textarea><p><button class="btn btn-2" type="submit">Agregar comentario</button></p></form>{% endif %}
-  <p class="meta">Checklist y evidencia adjunta quedan para después de salir a producción.</p>
+  <ul class="historial">{% for h in historial %}<li><strong>{{ h.quien }}</strong> · {{ h.texto }}{% if h.comentario %}: {{ h.comentario }}{% endif %}<small>{{ h.momento|date:"d-m-Y H:i" }}</small>
+    {% for ev in h.adjuntos %}<div class="adjunto">{% if ve_adjuntos %}📎 <a href="{% url 'evidencia' ev.pk %}" target="_blank" rel="noopener">{{ ev.nombre_original }}</a> <span class="meta">({{ ev.tamano|filesizeformat }}) · <a href="{% url 'evidencia' ev.pk %}?descargar=1">Descargar</a></span>{% else %}📎 <span class="meta">Adjunto restringido a quien ejecuta o revisa la tarea.</span>{% endif %}</div>{% endfor %}</li>{% empty %}<li class="vacio">Aún sin movimientos.</li>{% endfor %}</ul>
+  {% if puede_comentar %}<form method="post" enctype="multipart/form-data" action="{% url 'ocurrencia_accion' o.pk 'comentar' %}">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}">
+    <label for="coment">Agregar un comentario</label><textarea id="coment" name="comentario" rows="2" placeholder="Escribe aquí (o solo adjunta un documento)"></textarea>
+    <label for="adjunto">Adjuntar documento o evidencia (opcional)</label><input id="adjunto" type="file" name="archivo" accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.docx,.doc,.csv,.txt">
+    <p class="ayuda">{{ texto_adjuntos }} Lo verán quien ejecuta la tarea y quien la revisa.</p>
+    <p><button class="btn btn-2" type="submit">Agregar comentario</button></p></form>{% endif %}
 </section>
 {% endblock %}

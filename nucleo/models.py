@@ -312,6 +312,24 @@ class Ocurrencia(models.Model):
         return horas_texto(self.minutos_reales)
 
 
+class Evidencia(models.Model):
+    """Documento o evidencia adjunto a un comentario de una tarea. El archivo vive en `settings.EVIDENCIAS_ROOT` (nunca en el repositorio ni en una URL pública)."""
+
+    ocurrencia = models.ForeignKey(Ocurrencia, on_delete=models.PROTECT, related_name="evidencias")
+    evento = models.ForeignKey("EventoAuditoria", null=True, blank=True, on_delete=models.PROTECT, related_name="+", help_text="El comentario al que se adjuntó.")
+    ruta = models.CharField(max_length=120, help_text="Ruta relativa dentro de EVIDENCIAS_ROOT (nombre aleatorio).")
+    nombre_original = models.CharField(max_length=150)
+    extension = models.CharField(max_length=5)
+    tipo_contenido = models.CharField(max_length=100)
+    tamano = models.PositiveIntegerField()
+    sha256 = models.CharField(max_length=64)
+    subido_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    subido_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["id"]
+
+
 class SolicitudNoAplica(models.Model):
     ocurrencia = models.ForeignKey(Ocurrencia, on_delete=models.PROTECT, related_name="solicitudes_no_aplica")
     motivo = models.TextField()

@@ -32,6 +32,7 @@ urlpatterns = [
     path("mantenedor/usuarios/<int:pk>/", views_mantenedor.usuario_editar, name="mant_usuario_editar"),
     path("acceso-rapido/", views.acceso_rapido, name="acceso_rapido"),
     path("tareas/<int:pk>/", views.detalle, name="detalle_ocurrencia"),
+    path("evidencias/<int:pk>/", views.evidencia, name="evidencia"),
     path("ocurrencias/<int:pk>/<str:accion>/", views.ocurrencia_accion, name="ocurrencia_accion"),
     path("ingresar/", auth_views.LoginView.as_view(template_name="nucleo/login.html", authentication_form=FormularioDeIngreso, redirect_authenticated_user=True), name="login"),
     path("salir/", auth_views.LogoutView.as_view(next_page="login"), name="logout"),

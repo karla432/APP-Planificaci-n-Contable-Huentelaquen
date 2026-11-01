@@ -147,3 +147,16 @@ a.kpi, a.hito { text-decoration: none; color: inherit; } a.kpi:hover b, a.kpi:ho
 .responsable { margin: 14px 0 4px; font-size: 1rem; color: var(--hu-maroon); } .pendientes { list-style: none; margin: 0 0 6px; padding: 0; } .pendientes li { padding: 5px 0; border-top: 1px solid var(--hu-line); } .pendientes li:first-child { border-top: 0; }
 .pestanas { display: flex; gap: 4px; margin: 6px 0 14px; border-bottom: 1px solid var(--hu-card-line); } .pestana { padding: 8px 16px; text-decoration: none; color: var(--hu-gray); border: 1px solid transparent; border-bottom: 0; } .pestana.activa { background: #fff; color: var(--hu-red); font-weight: 700; border-color: var(--hu-card-line); }
 .crono th.feriado { background: var(--hu-gray); }
+
+/* Filas de tareas más compactas: las acciones van a la derecha de la tarea, en una sola línea */
+.fila { align-items: center; padding: 10px 0; } .fila-accion { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px 8px; max-width: 460px; }
+.en-linea { display: flex; align-items: center; gap: 6px; margin: 0; } .en-linea input { min-height: 32px; padding: 2px 8px; font-size: 14px; } .en-linea input.horas { width: 5.6rem; }
+.bloquear { margin: 0; position: relative; } .bloquear summary { list-style: none; cursor: pointer; } .bloquear summary::-webkit-details-marker { display: none; } .bloquear[open] summary { background: var(--hu-pink-2); }
+.bloquear form { position: absolute; right: 0; top: 100%; z-index: 5; margin-top: 4px; padding: 8px; background: #fff; border: 1px solid var(--hu-card-line); box-shadow: 0 4px 14px rgba(0,0,0,.12); min-width: 330px; }
+.fila-accion .btn-sm { min-height: 32px; padding: 2px 12px; }
+@media (max-width: 900px) { .fila-accion { max-width: none; width: 100%; justify-content: flex-start; } .bloquear form { position: static; box-shadow: none; } }
+
+/* Formularios: dos columnas, ayudas cortas y datos opcionales plegados */
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 24px; } @media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } }
+.ayuda { margin: 4px 0 10px; font-size: 13px; color: var(--hu-gray); } .plan-opcional { margin: 14px 0; padding: 10px 14px; border: 1px solid var(--hu-card-line); background: #fff; } .plan-opcional > summary { cursor: pointer; }
+.adjunto { margin: 4px 0 0 0; font-size: 14px; }

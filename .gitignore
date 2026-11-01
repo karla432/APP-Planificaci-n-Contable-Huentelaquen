@@ -10,3 +10,4 @@ staticfiles/
 respaldos/
 db_local.sqlite3*
 .vista_previa/
+evidencias/

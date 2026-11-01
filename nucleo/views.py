@@ -2,17 +2,17 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model, login
 from django.contrib.auth.decorators import login_required
-from django.http import Http404, HttpResponseForbidden
+from django.http import FileResponse, Http404, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from nucleo import permisos
-from nucleo.models import Colaborador, Ocurrencia, Periodo
+from nucleo.models import Colaborador, Evidencia, Ocurrencia, Periodo
 from datetime import date, timedelta
 
-from nucleo.servicios import agenda, ejecucion, kpi, parametros, presentacion, reglas_texto, reloj
+from nucleo.servicios import agenda, ejecucion, evidencias, kpi, parametros, presentacion, reglas_texto, reloj
 from nucleo.servicios.errores import ErrorDeNegocio, PermisoDenegado
 
 
@@ -120,7 +120,7 @@ def detalle(request, pk):
     o = get_object_or_404(Ocurrencia.objects.select_related("tarea__proceso", "cargo_ejecuta", "cargo_revisa", "colaborador", "periodo"), pk=pk)
     return render(request, "nucleo/detalle.html", {
         "o": o, "hoy": reloj.hoy(), "acciones": ejecucion.acciones_disponibles(o, request.user), "historial": ejecucion.historial_de(o),
-        "puede_horas": ejecucion.puede_registrar_horas(o, request.user), "puede_comentar": permisos.rol_de(request.user) in permisos.QUE_MARCAN and o.periodo.estado != "cerrado",
+        "puede_horas": ejecucion.puede_registrar_horas(o, request.user), "ve_adjuntos": evidencias.puede_ver(request.user, o), "texto_adjuntos": evidencias.TEXTO, "puede_comentar": permisos.rol_de(request.user) in permisos.QUE_MARCAN and o.periodo.estado != "cerrado",
         "periodicidad": reglas_texto.describir(o.tarea.regla(), o.tarea.regla_franja), "atrasada": o.estado in ("pendiente", "devuelta", "bloqueada") and o.fecha_limite < reloj.hoy(),
         "dia_del_cierre": o.regla_copia.get("n") if o.regla_copia.get("tipo") == "CIERRE_DIA_HABIL" else None,
     })
@@ -140,7 +140,7 @@ def ocurrencia_accion(request, pk, accion):
         elif accion == "recibida":
             ejecucion.marcar_recibida(o, request.user)
         elif accion == "comentar":
-            ejecucion.comentar(o, request.user, request.POST.get("comentario", ""))
+            ejecucion.comentar(o, request.user, request.POST.get("comentario", ""), request.FILES.get("archivo"))
         elif accion == "bloquear":
             ejecucion.marcar_bloqueada(o, request.user, request.POST.get("comentario", ""))
         elif accion == "retomar":
@@ -158,6 +158,24 @@ def ocurrencia_accion(request, pk, accion):
     if not url_has_allowed_host_and_scheme(destino, allowed_hosts={request.get_host()}):
         destino = reverse("hoy")
     return redirect(destino)
+
+
+@login_required
+def evidencia(request, pk):
+    """Entrega un adjunto solo a quien puede verlo. PDF e imágenes se muestran; lo demás se descarga. Nunca se ejecuta nada del archivo."""
+    ev = get_object_or_404(Evidencia.objects.select_related("ocurrencia"), pk=pk)
+    try:
+        ruta = evidencias.ruta_del_archivo(ev, request.user)
+    except PermisoDenegado as e:
+        return HttpResponseForbidden(str(e))
+    except ErrorDeNegocio as e:
+        raise Http404(str(e)) from None
+    en_pantalla = evidencias.se_muestra_en_el_navegador(ev) and request.GET.get("descargar") != "1"
+    r = FileResponse(open(ruta, "rb"), content_type=ev.tipo_contenido, as_attachment=not en_pantalla, filename=ev.nombre_original)
+    r["X-Content-Type-Options"] = "nosniff"
+    r["Content-Security-Policy"] = "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:"
+    r["Cache-Control"] = "private, no-store"
+    return r
 
 
 def acceso_rapido(request):

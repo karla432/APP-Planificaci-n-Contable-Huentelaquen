@@ -1,9 +1,16 @@
-<fieldset><legend>Planificación</legend>
-  <label for="{{ prefijo }}responsable">Responsable</label>
-  <select id="{{ prefijo }}responsable" name="{{ prefijo }}responsable"><option value="">Sin responsable</option>{% for c in cargos %}<option value="{{ c.pk }}" {% if obj.responsable_id == c.pk %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}</select>
-  <label for="{{ prefijo }}estado_plan">Estado</label>
-  <select id="{{ prefijo }}estado_plan" name="{{ prefijo }}estado_plan">{% for k, n in estados %}<option value="{{ k }}" {% if obj.estado_plan == k %}selected{% endif %}>{{ n }}</option>{% endfor %}</select>
-  <label for="{{ prefijo }}fecha_inicio">Fecha de inicio</label><input id="{{ prefijo }}fecha_inicio" type="date" name="{{ prefijo }}fecha_inicio" value="{{ obj.fecha_inicio|date:'Y-m-d' }}">
-  <label for="{{ prefijo }}fecha_termino">Fecha de término</label><input id="{{ prefijo }}fecha_termino" type="date" name="{{ prefijo }}fecha_termino" value="{{ obj.fecha_termino|date:'Y-m-d' }}">
-  <label for="{{ prefijo }}observaciones">Observaciones</label><textarea id="{{ prefijo }}observaciones" name="{{ prefijo }}observaciones" rows="2">{{ obj.observaciones }}</textarea>
-</fieldset>
+<details class="plan-opcional" {% if obj.responsable_id or obj.fecha_inicio or obj.fecha_termino or obj.observaciones or obj.estado_plan != "pendiente" %}open{% endif %}>
+  <summary><strong>Planificación (opcional)</strong> <span class="meta">· para ordenar el trabajo; no cambia el cumplimiento del mes</span></summary>
+  <div class="grid2">
+    <div><label for="{{ prefijo }}responsable">Responsable</label>
+      <select id="{{ prefijo }}responsable" name="{{ prefijo }}responsable"><option value="">Sin responsable</option>{% for c in cargos %}<option value="{{ c.pk }}" {% if obj.responsable_id == c.pk %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}</select>
+      <p class="ayuda">Quién lidera este proceso. Cada subtarea sigue teniendo su propio responsable.</p></div>
+    <div><label for="{{ prefijo }}estado_plan">Estado de la planificación</label>
+      <select id="{{ prefijo }}estado_plan" name="{{ prefijo }}estado_plan">{% for k, n in estados %}<option value="{{ k }}" {% if obj.estado_plan == k %}selected{% endif %}>{{ n }}</option>{% endfor %}</select>
+      <p class="ayuda">Pendiente, en curso, completado o bloqueado. No es el avance de cada mes (eso sale del checklist).</p></div>
+    <div><label for="{{ prefijo }}fecha_inicio">Fecha de inicio</label><input id="{{ prefijo }}fecha_inicio" type="date" name="{{ prefijo }}fecha_inicio" value="{{ obj.fecha_inicio|date:'Y-m-d' }}">
+      <p class="ayuda">Cuándo empieza a ejecutarse. Déjala vacía si no aplica.</p></div>
+    <div><label for="{{ prefijo }}fecha_termino">Fecha de término</label><input id="{{ prefijo }}fecha_termino" type="date" name="{{ prefijo }}fecha_termino" value="{{ obj.fecha_termino|date:'Y-m-d' }}">
+      <p class="ayuda">No puede ser anterior a la de inicio.</p></div>
+  </div>
+  <label for="{{ prefijo }}observaciones">Observaciones</label><textarea id="{{ prefijo }}observaciones" name="{{ prefijo }}observaciones" rows="2" placeholder="Notas para el equipo (opcional)">{{ obj.observaciones }}</textarea>
+</details>
