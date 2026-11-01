@@ -85,8 +85,8 @@ def test_crear_una_tarea_desde_el_formulario(mundo):
 
 
 def test_un_dato_invalido_vuelve_al_formulario_con_el_error_y_sin_guardar(mundo):
-    r = cli(mundo["u"]["jefa"]).post(reverse("mant_tarea_nueva"), datos_post(mundo, tipo="CIERRE_HITO", n="8"))
-    assert r.status_code == 200 and "7 o 10" in r.content.decode()
+    r = cli(mundo["u"]["jefa"]).post(reverse("mant_tarea_nueva"), datos_post(mundo, tipo="CIERRE_HITO", n="7"))
+    assert r.status_code == 200 and "día 8, 9 o 10" in r.content.decode()
     assert not Tarea.objects.filter(subtarea="Cuadrar el libro de ventas").exists()
 
 

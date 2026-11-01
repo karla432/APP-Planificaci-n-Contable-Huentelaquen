@@ -31,8 +31,9 @@ def test_normalizar_junta_espacios_y_saltos_de_linea():
         ("Semanal", "Miércoles", Regla("SEMANAL", dia_semana=2)),
         ("Semanal", "Viernes", Regla("SEMANAL", dia_semana=4)),
         ("Mensual (cierre)", "Día hábil 3", Regla("CIERRE_DIA_HABIL", n=3)),
-        ("Mensual (cierre)", "Día hábil 8", Regla("CIERRE_DIA_HABIL", n=8)),
-        ("Mensual (cierre)", "D10 · cierre contable", Regla("CIERRE_DIA_HABIL", n=10)),
+        ("Mensual (cierre)", "Día hábil 7", Regla("CIERRE_DIA_HABIL", n=7)),
+        ("Mensual (cierre)", "Día hábil 8", Regla("CIERRE_HITO", n=8)),  # los días 8, 9 y 10 son días del mes
+        ("Mensual (cierre)", "D10 · cierre contable", Regla("CIERRE_HITO", n=10)),
         ("Puntual", "Al dar de alta un activo nuevo", Regla("EVENTO")),
         ("Puntual", "Al recibir el subsidio", Regla("EVENTO")),
     ],
@@ -42,11 +43,11 @@ def test_convierte_las_formas_claras(periodicidad, cuando, esperada):
     assert c.regla == esperada and c.motivo_revision == ""
 
 
-def test_el_d7_pasa_al_dia_habil_8_porque_el_cierre_es_de_1_a_8():
-    """Karla (31-10-2026): con todas las tareas no se llega al día 7; el cierre va del día hábil 1 al 8."""
+def test_el_d7_pasa_al_dia_8_del_mes_con_reportes_listos_en_la_tarde():
+    """Karla (01-11-2026): reportes listos el día 8 (tarde), Gerente General el 9 y Directorio el 10; son días del mes, no días hábiles."""
     c = convertir_regla("Mensual (cierre)", "D7 · reporte a Gerencia")
-    assert c.regla == Regla("CIERRE_DIA_HABIL", n=8) and c.motivo_revision == ""
-    assert "día hábil 8" in c.nota
+    assert c.regla == Regla("CIERRE_HITO", n=8) and c.motivo_revision == ""
+    assert "día 8" in c.nota
 
 
 def test_semanal_con_franja_la_conserva():
@@ -145,12 +146,13 @@ def test_quien_revisa_sale_del_excel_y_las_tareas_sin_revisor_no_se_inventan():
 
 
 @pytest.mark.django_db
-def test_el_cierre_va_del_dia_habil_1_al_8_9_y_10():
+def test_el_cierre_son_los_dias_habiles_1_a_7_y_los_dias_8_9_y_10_del_mes():
     importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
-    por_dia = Counter(t.regla_n for t in Tarea.objects.filter(regla_tipo="CIERRE_DIA_HABIL"))
-    assert por_dia[8] == 19  # 18 que decían D7 + 1 que ya decía «Día hábil 8»
-    assert por_dia[10] == 9 and por_dia[9] == 2 and por_dia[7] == 1  # el 9: una del Excel + la revisión con el Gerente General
-    assert not Tarea.objects.filter(regla_tipo="CIERRE_HITO").exists()
+    habiles = Counter(t.regla_n for t in Tarea.objects.filter(regla_tipo="CIERRE_DIA_HABIL"))
+    assert max(habiles) == 7 and habiles[7] == 1
+    hitos = Counter(t.regla_n for t in Tarea.objects.filter(regla_tipo="CIERRE_HITO"))
+    assert hitos[8] == 19  # 18 que decían D7 + 1 que ya decía «Día hábil 8»
+    assert hitos[10] == 9 and hitos[9] == 2 and set(hitos) == {8, 9, 10}  # el 9: una del Excel + la revisión con el Gerente General
     assert Tarea.objects.filter(cuando_excel__startswith="D7").count() == 18  # lo que decía el Excel queda guardado
 
 
@@ -206,7 +208,7 @@ def test_reimportar_un_excel_actualizado_muestra_altas_cambios_y_bajas(tmp_path)
 def test_la_revision_del_dia_9_con_el_gerente_general_se_crea_y_no_se_duplica():
     importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
     t = Tarea.objects.get(tarea_principal="Revisión del cierre con Gerente General")
-    assert (t.regla_tipo, t.regla_n, t.cargo_ejecuta.nombre, t.proceso.nombre) == ("CIERRE_DIA_HABIL", 9, "Gerente AyF", "Revisión día 9")
+    assert (t.regla_tipo, t.regla_n, t.cargo_ejecuta.nombre, t.proceso.nombre) == ("CIERRE_HITO", 9, "Gerente AyF", "Revisión día 9")
     assert t.cargo_revisa is None and not t.requiere_revision
     # va antes del cierre del día 10 en el orden de proceso
     assert t.secuencia < Tarea.objects.filter(proceso__nombre="Cierre día 10").order_by("secuencia").first().secuencia

@@ -5,8 +5,8 @@
   <p class="kick">Cierre contable · {{ primero|date:"F Y" }}</p>
   {% if periodo %}<h1 class="ancho">Día hábil {{ dia_habil }}: el cierre va {% if resumen.diferencia_con_el_plan < 0 %}{{ resumen.diferencia_con_el_plan|cut:"-" }} punto{{ resumen.diferencia_con_el_plan|cut:"-"|pluralize }} bajo el plan.{% elif resumen.diferencia_con_el_plan > 0 %}{{ resumen.diferencia_con_el_plan }} punto{{ resumen.diferencia_con_el_plan|pluralize }} sobre el plan.{% else %}al día con el plan.{% endif %}</h1>
   <p class="meta">{{ hoy|date:"l d-m-Y" }} · día hábil {{ dia_habil }} ·
-    {% if faltan_cierre %}faltan para el cierre (día 8): <strong>{{ faltan_cierre }}</strong>{% else %}el cierre (día 8) ya pasó{% endif %} ·
-    {% if faltan_directorio %}para el Directorio (día 10): <strong>{{ faltan_directorio }}</strong>{% else %}el día 10 ya pasó{% endif %}</p>{% else %}<h1>Cierre contable</h1>{% endif %}
+    {% if faltan_cierre %}faltan para los reportes listos (día 8, {{ entregas.8|date:'d-m' }}): <strong>{{ faltan_cierre }}</strong>{% else %}los reportes listos (día 8) ya pasaron{% endif %} ·
+    {% if faltan_directorio %}para el Directorio (día 10, {{ entregas.10|date:'d-m' }}): <strong>{{ faltan_directorio }}</strong>{% else %}el día 10 ya pasó{% endif %}</p>{% else %}<h1>Cierre contable</h1>{% endif %}
 </div></div>
 {% include "nucleo/_selector_mes.html" %}
 {% if periodo %}

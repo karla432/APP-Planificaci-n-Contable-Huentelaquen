@@ -67,10 +67,10 @@ def test_se_listan_en_el_orden_de_los_cargos(mundo):
 
 
 def test_carga_del_cierre_por_dia_habil_con_la_capacidad_que_deja_la_operacion(mundo):
-    cierre = carga.por_dia_de_cierre()
+    cierre = carga.por_dia_de_cierre(2026, 12)
     g, c = fila(cierre, "Gerente AyF"), fila(cierre, "Contador Senior")
     assert g.horas[3] == pytest.approx(2 + 0.125 + 0.25) and c.horas[3] == pytest.approx(0.5)
-    assert g.horas[1] == 0 and len(g.horas) == 10
+    assert g.horas[1] == 0 and len(g.horas) == 8  # del día hábil 1 a la entrega al Directorio
     assert c.disponible_por_dia == pytest.approx(160 / 21 - 21 / 21, abs=0.01)  # la operación diaria ya ocupa 1 h por día
     assert g.disponible_por_dia == pytest.approx(160 / 21, abs=0.01)
 

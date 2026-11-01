@@ -16,6 +16,7 @@ class Cargo(models.Model):
     nombre = models.CharField(max_length=80, unique=True)
     es_externo = models.BooleanField(default=False, help_text="Sin cuenta: la Jefa marca «Recibido».")
     activo = models.BooleanField(default=True)
+    horas_mes_max = models.PositiveSmallIntegerField(null=True, blank=True, help_text="Máximo de horas al mes que este cargo dedica a Huentelauquén (por ejemplo, el Gerente AyF: 80). Vacío = jornada completa.")
     orden = models.PositiveSmallIntegerField(default=100, help_text="Orden en las listas: Gerente AyF, Jefa de Control, Contador Senior, Asistente Contable, y después los externos.")
 
     class Meta:
@@ -205,6 +206,10 @@ class Tarea(Planificable):
     activa = models.BooleanField(default=True)
     requiere_revision = models.BooleanField(default=False)
     motivo_revision = models.TextField(blank=True)
+    MODOS_CIERRE = [("igual", "Igual que el resto del mes"), ("reasignar", "La hace otro cargo en la semana del cierre"), ("pausar", "Se pausa en la semana del cierre")]
+    modo_cierre = models.CharField(max_length=10, choices=MODOS_CIERRE, default="igual", help_text="Qué pasa con esta tarea desde el primer día hábil hasta el día 8 (la semana del cierre).")
+    cargo_cierre = models.ForeignKey(Cargo, null=True, blank=True, on_delete=models.PROTECT, related_name="+", help_text="Quién la ejecuta en la semana del cierre (si se reasigna).")
+    cargo_revisa_cierre = models.ForeignKey(Cargo, null=True, blank=True, on_delete=models.PROTECT, related_name="+", help_text="Quién la revisa en la semana del cierre (si se reasigna).")
 
     class Meta:
         ordering = ["secuencia", "codigo"]

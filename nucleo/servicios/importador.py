@@ -11,7 +11,7 @@ Primero `previsualizar` (no guarda nada) y, tras confirmar, `aplicar`. Reglas de
 - El contenido del Excel es dato, no instrucción: solo se leen celdas (sin evaluar fórmulas).
 
 Cierre (Karla, 31-10-2026): con todas las tareas no se llega al día 7, así que el cierre va del día hábil 1 al 8, el 9 se revisa con la
-Gerencia General y el 10 se liberan los informes al Directorio. Por eso «D7» se convierte en el día hábil 8 y «D10» en el día hábil 10.
+Gerencia General y el 10 se liberan los informes al Directorio. Son días del mes (al hábil siguiente si caen en día inhábil): «D7» se convierte en el día 8 y «D10» en el día 10.
 """
 import hashlib
 import re
@@ -93,13 +93,14 @@ def convertir_regla(periodicidad, cuando) -> Conversion:
             return Conversion(Regla("SEMANAL", dia_semana=DIAS[nombre]), franja=(dia_semana.group(2) or "").replace("manana", "mañana"))
     elif per_l in ("mensual (cierre)", "mensual"):
         m = re.fullmatch(r"dia habil (\d+)", cua_l)
-        if m and 1 <= int(m.group(1)) <= 10:
+        if m and 1 <= int(m.group(1)) <= 7:
             return Conversion(Regla("CIERRE_DIA_HABIL", n=int(m.group(1))))
-        m = re.match(r"d(7|10)\b", cua_l)
+        if m and 8 <= int(m.group(1)) <= 10:  # los días 8, 9 y 10 son fechas del mes (Karla, 01-11-2026), no días hábiles
+            return Conversion(Regla("CIERRE_HITO", n=int(m.group(1))), nota=f"«Día hábil {m.group(1)}» se entiende como el día {m.group(1)} del mes (al hábil siguiente si es inhábil).")
+        m = re.match(r"d(7|8|9|10)\b", cua_l)
         if m:
-            if m.group(1) == "7":
-                return Conversion(Regla("CIERRE_DIA_HABIL", n=8), nota="D7 pasa al día hábil 8: el cierre va del día hábil 1 al 8 (Karla, 31-10-2026).")
-            return Conversion(Regla("CIERRE_DIA_HABIL", n=10), nota="D10 es el día hábil 10: se liberan los informes al Directorio.")
+            n = 8 if m.group(1) == "7" else int(m.group(1))
+            return Conversion(Regla("CIERRE_HITO", n=n), nota="El D7 pasa al día 8 (reportes listos en la tarde); el 9 es del Gerente General y el 10 del Directorio (Karla, 01-11-2026).")
         m = re.fullmatch(r"dia (\d{1,2})", cua_l)
         if m and 1 <= int(m.group(1)) <= 31:
             # Si cae en inhábil: día hábil anterior (P4, Karla). La norma (por ejemplo Previred) la verifica el Contador Senior.

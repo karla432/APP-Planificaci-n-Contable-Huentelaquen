@@ -13,6 +13,7 @@ from django.utils import timezone
 
 from nucleo.models import Cargo, Ocurrencia
 from nucleo.servicios import parametros
+from nucleo.servicios.calendario import hitos_de_entrega
 from nucleo.servicios.feriados import calendario_confirmado
 
 TIPOS_DE_CIERRE = ("CIERRE_DIA_HABIL", "CIERRE_HITO")
@@ -166,23 +167,30 @@ def _cierre(periodo):
     return Ocurrencia.objects.filter(periodo=periodo, tarea__regla_tipo__in=TIPOS_DE_CIERRE).exclude(estado=Ocurrencia.NO_APLICA)
 
 
-DESCRIPCION_DE_HITOS = {8: "Cierre completo", 9: "Revisión con Gerencia General", 10: "Informes al Directorio"}
+DESCRIPCION_DE_ENTREGAS = {8: "Reportes listos (en la tarde)", 9: "Entrega al Gerente General", 10: "Informes al Directorio"}
 
 
-def descripcion_del_hito(n: int) -> str:
-    return DESCRIPCION_DE_HITOS.get(n, "")
+def entregas(anio: int, mes: int) -> dict[int, date]:
+    """Las fechas de los días 8, 9 y 10 del cierre, ya corridas al día hábil siguiente si caen en día inhábil (Karla, 01-11-2026)."""
+    return hitos_de_entrega(calendario_confirmado(), anio, mes, parametros.entero("min_dias_habiles_d7_d10"))
+
+
+def descripciones_del_mes(anio: int, mes: int) -> dict[date, str]:
+    """fecha → qué pasa ese día en el cierre (solo las tres fechas de entrega)."""
+    return {f: DESCRIPCION_DE_ENTREGAS[n] for n, f in entregas(anio, mes).items()}
 
 
 def hitos_del_mes(anio: int, mes: int) -> list[tuple[str, date]]:
-    """Los días clave del cierre (Karla, 31-10-2026): días hábiles 1 a 10. Del 1 al 8 se cierra, el 9 se revisa con la Gerencia General
-    y el 10 se liberan los informes al Directorio."""
+    """Los días hábiles del cierre: del primero hasta el día de entrega al Directorio (día 10, o el hábil siguiente si es inhábil)."""
     cal = calendario_confirmado()
-    return [(f"Día {n}", cal.dia_habil_n(anio, mes, n)) for n in range(1, 11)]
+    ultimo = entregas(anio, mes)[10]
+    return [(f"Día {n}", f) for n, f in enumerate(cal.dias_habiles_del_mes(anio, mes), start=1) if f <= ultimo]
 
 
 def ruta_del_cierre(periodo, hoy: date) -> list[RutaDia]:
     dias = hitos_del_mes(periodo.anio, periodo.mes)
-    ruta = {f: RutaDia(etiqueta, f, descripcion_del_hito(int(etiqueta.split()[1]))) for etiqueta, f in dias}
+    descripciones = descripciones_del_mes(periodo.anio, periodo.mes)
+    ruta = {f: RutaDia(etiqueta, f, descripciones.get(f, "")) for etiqueta, f in dias}
     for o in _cierre(periodo):
         r = ruta.get(o.fecha_limite)
         if r is None:

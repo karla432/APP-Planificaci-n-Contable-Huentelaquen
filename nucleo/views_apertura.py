@@ -115,6 +115,6 @@ def abrir_mes(request):
         "feriados": ferias, "sin_confirmar": sin_confirmar, "hay_feriados": bool(ferias), "anio_abierto": anio_abierto,
         "periodo": periodo, "vp": vp, "problema": problema,
         "resumen": _resumen_por_regla(vp) if vp else [], "avisos": [(ETIQUETAS_AVISO.get(a.tipo, a.tipo), a) for a in vp.avisos] if vp else [],
-        "hitos": [(etiqueta, f, kpi.descripcion_del_hito(int(etiqueta.split()[1]))) for etiqueta, f in kpi.hitos_del_mes(anio, mes)] if anio_abierto else [],
+        "hitos": [(etiqueta, f, kpi.descripciones_del_mes(anio, mes).get(f, "")) for etiqueta, f in kpi.hitos_del_mes(anio, mes)] if anio_abierto else [],
         "ultimo_dia": date(anio, mes, calendar.monthrange(anio, mes)[1]), "tipos_feriado": TIPOS_DE_FERIADO,
     })

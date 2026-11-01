@@ -29,7 +29,7 @@ def mundo():
     anio_abierto()
     tarea("TAR-0001", cont, "CIERRE_DIA_HABIL", revisa=jefa, proceso_nombre="Compras", n=3)  # vencida y sin hacer
     tarea("TAR-0002", cont, "CIERRE_DIA_HABIL", revisa=jefa, proceso_nombre="Compras", n=4)  # vence hoy, hecha a tiempo
-    tarea("TAR-0003", jefa, "CIERRE_HITO", revisa=ger, proceso_nombre="Conciliación", n=7)  # aún no vence
+    tarea("TAR-0003", jefa, "CIERRE_HITO", revisa=ger, proceso_nombre="Conciliación", n=8)  # aún no vence (miércoles 09-12)
     tarea("TAR-0004", cont, "CIERRE_DIA_HABIL", revisa=jefa, proceso_nombre="Conciliación", n=1)  # hecha tarde
     tarea("TAR-0005", bodega, "CIERRE_DIA_HABIL", revisa=jefa, proceso_nombre="Compras", n=2)  # externo, sin recibir
     periodos.abrir_mes(2026, 12, usuario=None)
@@ -55,14 +55,14 @@ def test_el_panel_muestra_el_cierre_del_mes_y_los_dias_habiles_que_faltan(mundo)
     html = ver(mundo["u"]["lectura"], "informe_panel")
     assert "Cierre contable" in html and "diciembre 2026" in html
     assert "día hábil 4" in html
-    # Cierre en días hábiles (Karla, 31-10-2026): día 8 = viernes 11-12 y día 10 = martes 15-12, con el 08-12 feriado.
-    assert "faltan para el cierre (día 8): <strong>4 días hábiles" in html and "para el Directorio (día 10): <strong>6 días hábiles" in html
+    # Los días 8, 9 y 10 son días del mes (Karla, 01-11-2026): el 08-12 es feriado, así que el día 8 pasa al 09-12, el 9 al 10-12 y el 10 al 11-12.
+    assert "faltan para los reportes listos (día 8, 09-12): <strong>2 días hábiles" in html and "para el Directorio (día 10, 11-12): <strong>4 días hábiles" in html
 
 
 def test_el_panel_tiene_la_ruta_del_cierre_con_sus_fechas(mundo):
     html = ver(mundo["u"]["lectura"], "informe_panel")
     assert "Ruta del cierre" in html
-    for texto in ("Día 1", "Día 4", "Día 8", "Día 9", "Día 10", "01-12-2026", "11-12-2026", "14-12-2026", "15-12-2026", "Revisión con Gerencia General", "Informes al Directorio"):
+    for texto in ("Día 1", "Día 4", "Día 8", "01-12-2026", "09-12-2026", "10-12-2026", "11-12-2026", "Reportes listos", "Entrega al Gerente General", "Informes al Directorio"):
         assert texto in html, texto
 
 

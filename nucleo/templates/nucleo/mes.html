@@ -12,7 +12,7 @@
   <div class="ruta">
     {% for h in datos.hitos %}
     <div class="hito{% if h.fecha == hoy %} hito-hoy{% endif %}">
-      <strong>{{ h.etiqueta }}</strong><span class="meta">{{ h.fecha|date:"d-m-Y" }}</span>
+      <strong>{{ h.etiqueta }}</strong><span class="meta">{{ h.fecha|date:"d-m-Y" }}{% if h.descripcion %} · {{ h.descripcion }}{% endif %}</span>
       <div class="barra"><i style="width: {% widthratio h.hechas h.total 100 %}%"></i></div>
       <span>{{ h.hechas }} de {{ h.total }} hechas</span>
     </div>

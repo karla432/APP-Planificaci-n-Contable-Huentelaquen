@@ -27,7 +27,7 @@ def mundo():
     anio_abierto()
     tarea("TAR-0001", cont, "CIERRE_DIA_HABIL", revisa=jefa, n=3)  # jueves 03-12, sin hacer
     tarea("TAR-0002", cont, "CIERRE_DIA_HABIL", revisa=jefa, n=4)  # viernes 04-12 (hoy)
-    tarea("TAR-0003", jefa, "CIERRE_HITO", revisa=ger, n=7)  # lunes 07-12
+    tarea("TAR-0003", jefa, "CIERRE_HITO", revisa=ger, n=8)  # miércoles 09-12 (el 08 es feriado)
     periodos.abrir_mes(2026, 12, usuario=None)
     return {"p": p, "u": u, "o": {x.tarea.codigo: x for x in Ocurrencia.objects.select_related("tarea")}}
 
@@ -107,7 +107,7 @@ def test_la_semana_tiene_flechas_anterior_y_siguiente(mundo):
 
 def test_el_mes_muestra_la_ruta_del_cierre_y_las_tareas_de_la_persona(mundo):
     html = ver(mundo["u"]["cont"], "mes")
-    for texto in ("Ruta del cierre", "Día 1", "Día 4", "Día 8", "Día 10", "11-12-2026", "15-12-2026"):
+    for texto in ("Ruta del cierre", "Día 1", "Día 4", "Día 8", "09-12-2026", "11-12-2026", "Reportes listos"):
         assert texto in html, texto
     assert "Subtarea TAR-0001" in html and "Subtarea TAR-0002" in html and "Subtarea TAR-0003" not in html
     assert "Pendiente" in html

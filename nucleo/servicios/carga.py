@@ -77,28 +77,51 @@ def tareas_sin_horas() -> int:
 @dataclass
 class CargaDelCierre:
     cargo: Cargo
-    horas: dict = field(default_factory=lambda: {d: 0.0 for d in DIAS_DEL_CIERRE})
+    horas: dict = field(default_factory=dict)
     disponible_por_dia: float = 0.0
 
     def sobrecargados(self) -> list[int]:
         return [d for d, h in self.horas.items() if h > self.disponible_por_dia + 1e-9]
 
 
-def por_dia_de_cierre() -> list[CargaDelCierre]:
-    """Horas de las tareas del cierre que vencen cada día hábil (más la revisión del revisor), contra lo que deja libre la operación diaria."""
+def dias_del_cierre(anio: int | None = None, mes: int | None = None) -> range:
+    """Cuántos días hábiles abarca el cierre del mes (del primero hasta la entrega al Directorio)."""
+    from nucleo.servicios import kpi, reloj
+    hoy = reloj.hoy()
+    return range(1, len(kpi.hitos_del_mes(anio or hoy.year, mes or hoy.month)) + 1)
+
+
+def por_dia_de_cierre(anio: int | None = None, mes: int | None = None) -> list[CargaDelCierre]:
+    """Horas de las tareas del cierre que vencen cada día hábil (más la revisión del revisor), contra lo que deja libre la operación diaria.
+    Se calcula con las fechas reales del mes: los días 8, 9 y 10 se corren al hábil siguiente si caen en día inhábil."""
+    from nucleo.servicios import kpi, reloj
+    from nucleo.servicios.feriados import calendario_confirmado
+    from nucleo.servicios.recurrencia import fechas_limite
+    hoy = reloj.hoy()
+    anio, mes = anio or hoy.year, mes or hoy.month
+    cal = calendario_confirmado()
+    dia_de = {f: int(etiqueta.split()[1]) for etiqueta, f in kpi.hitos_del_mes(anio, mes)}
     dias = parametros.entero("dias_habiles_mes")
     capacidad_dia = parametros.entero("horas_disponibles_mes") / dias
     pct = parametros.entero("pct_horas_revision") / 100
-    filas = {c.pk: CargaDelCierre(c, disponible_por_dia=capacidad_dia) for c in Cargo.objects.filter(activo=True, es_externo=False)}
+    filas = {c.pk: CargaDelCierre(c, horas={d: 0.0 for d in dia_de.values()}, disponible_por_dia=capacidad_dia) for c in Cargo.objects.filter(activo=True, es_externo=False)}
     for t in _tareas_activas():
         if t.regla_tipo in OPERACION and t.cargo_ejecuta_id in filas:
             filas[t.cargo_ejecuta_id].disponible_por_dia -= _h_al_mes(t) / dias
-        if t.regla_tipo == "CIERRE_DIA_HABIL" and t.regla_n in DIAS_DEL_CIERRE:
+        if t.regla_tipo in kpi.TIPOS_DE_CIERRE:
+            try:
+                fechas = fechas_limite(t.regla(), anio, mes, cal, min_dias_habiles_d7_d10=parametros.entero("min_dias_habiles_d7_d10"))
+            except ValueError:
+                continue
             h = _h_por_ejecucion(t)
-            if t.cargo_ejecuta_id in filas:
-                filas[t.cargo_ejecuta_id].horas[t.regla_n] += h
-            if t.cargo_revisa_id in filas:
-                filas[t.cargo_revisa_id].horas[t.regla_n] += h * pct
+            for f in fechas:
+                n = dia_de.get(f)
+                if n is None:
+                    continue
+                if t.cargo_ejecuta_id in filas:
+                    filas[t.cargo_ejecuta_id].horas[n] += h
+                if t.cargo_revisa_id in filas:
+                    filas[t.cargo_revisa_id].horas[n] += h * pct
     return list(filas.values())
 
 

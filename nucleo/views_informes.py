@@ -47,15 +47,16 @@ def panel(request):
     c = {"hoy": hoy, "meta": parametros.entero("meta_cumplimiento"), **_navegacion(primero), "periodo": periodo}
     if periodo is not None:
         cal = calendario_confirmado()
-        hitos = dict(kpi.hitos_del_mes(periodo.anio, periodo.mes))
+        entregas = kpi.entregas(periodo.anio, periodo.mes)
         ordinal = sum(1 for d in cal.dias_habiles_del_mes(periodo.anio, periodo.mes) if d <= hoy)
         c.update({
             "ruta": kpi.ruta_del_cierre(periodo, hoy), "resumen": kpi.resumen(periodo, hoy), "procesos": kpi.avance_por_proceso(periodo, hoy),
             "cumplimiento": _filas_cumplimiento(periodo, hoy), "dia_habil": ordinal,
             "atencion_titulo": agenda.atencion(request.user, periodo, hoy)[0], "atencion": agenda.atencion(request.user, periodo, hoy)[1],
             "feriados_mes": list(Feriado.objects.filter(confirmado=True, fecha__year=periodo.anio, fecha__month=periodo.mes)),
-            "faltan_cierre": None if hoy > hitos["Día 8"] else presentacion.dias_habiles_texto(cal.dias_habiles_entre(hoy, hitos["Día 8"])),
-            "faltan_directorio": None if hoy > hitos["Día 10"] else presentacion.dias_habiles_texto(cal.dias_habiles_entre(hoy, hitos["Día 10"])),
+            "faltan_cierre": None if hoy > entregas[8] else presentacion.dias_habiles_texto(cal.dias_habiles_entre(hoy, entregas[8])),
+            "faltan_directorio": None if hoy > entregas[10] else presentacion.dias_habiles_texto(cal.dias_habiles_entre(hoy, entregas[10])),
+            "entregas": entregas,
             "atrasadas": list(Ocurrencia.objects.filter(periodo=periodo, estado=Ocurrencia.PENDIENTE, fecha_limite__lt=hoy, tarea__regla_tipo__in=kpi.TIPOS_DE_CIERRE)
                               .select_related("tarea__proceso", "colaborador", "cargo_ejecuta").order_by("fecha_limite", "tarea__codigo")[:8]),
         })
@@ -83,13 +84,13 @@ def carga_del_equipo(request):
     for f in filas:
         f.etiqueta, f.clase = etiquetas[f.semaforo]
     mas_cargado = max(filas, key=lambda f: f.total, default=None)
-    cierre = carga.por_dia_de_cierre()
     hoy = reloj.hoy()
+    cierre = carga.por_dia_de_cierre(hoy.year, hoy.month)
     periodo = Periodo.objects.filter(anio=hoy.year, mes=hoy.month).first() or Periodo.objects.first()
     reales = sorted(carga.real_vs_estimado(periodo), key=lambda f: (agenda.orden_de(f.colaborador, hoy), f.colaborador.nombre)) if periodo else []
     return render(request, "nucleo/informe_carga.html", {
         "periodo": periodo, "reales": reales,
-        "filas": filas, "mas_cargado": mas_cargado, "cierre": cierre, "dias": carga.DIAS_DEL_CIERRE, "sin_horas": carga.tareas_sin_horas(),
+        "filas": filas, "mas_cargado": mas_cargado, "cierre": cierre, "dias": carga.dias_del_cierre(hoy.year, hoy.month), "sin_horas": carga.tareas_sin_horas(),
         "capacidad": parametros.entero("horas_disponibles_mes"),
     })
 
@@ -162,7 +163,7 @@ def cronograma(request):
         for pk in sorted(orden, key=orden.get):
             proceso = Proceso.objects.get(pk=pk)
             cel = {}
-            for n in range(1, 11):
+            for n in range(1, len(hitos) + 1):
                 ocs = celdas.get((pk, n), [])
                 if not ocs:
                     continue
@@ -183,6 +184,7 @@ def cronograma(request):
                 seleccion = {"proceso": Proceso.objects.get(pk=pk), "dia": n, "tareas": celdas.get((pk, n), [])}
             except (ValueError, Proceso.DoesNotExist):
                 seleccion = None
-        c.update({"hitos": [(etiqueta, f, kpi.descripcion_del_hito(int(etiqueta.split()[1]))) for etiqueta, f in hitos], "filas": filas, "dias": range(1, 11), "seleccion": seleccion,
+        descripciones = kpi.descripciones_del_mes(periodo.anio, periodo.mes)
+        c.update({"hitos": [(etiqueta, f, descripciones.get(f, "")) for etiqueta, f in hitos], "filas": filas, "dias": range(1, len(hitos) + 1), "seleccion": seleccion,
                   "feriados_mes": list(Feriado.objects.filter(confirmado=True, fecha__year=periodo.anio, fecha__month=periodo.mes))})
     return render(request, "nucleo/informe_cronograma.html", c)

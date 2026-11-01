@@ -26,7 +26,7 @@ def mundo():
     anio_abierto()
     tarea("TAR-0001", cont, "CIERRE_DIA_HABIL", revisa=jefa, n=3)  # venció el jueves 03-12 (atrasada)
     tarea("TAR-0002", cont, "CIERRE_DIA_HABIL", revisa=jefa, n=4)  # vence hoy
-    tarea("TAR-0003", jefa, "CIERRE_HITO", revisa=ger, n=7)  # próxima: lunes 07-12
+    tarea("TAR-0003", jefa, "CIERRE_HITO", revisa=ger, n=8)  # próxima: miércoles 09-12 (el 8 es feriado)
     tarea("TAR-0004", bodega, "CIERRE_DIA_HABIL", revisa=jefa, n=4)  # externo, vence hoy
     periodos.abrir_mes(2026, 12, usuario=None)
     o = {x.tarea.codigo: x for x in Ocurrencia.objects.select_related("tarea")}

@@ -93,7 +93,7 @@ def test_las_tarjetas_enlazan_al_detalle_y_muestran_dia_y_atraso(mundo):
 
 def test_el_cronograma_cruza_procesos_con_los_dias_del_cierre(mundo):
     h = ver(mundo["u"]["lectura"], "informe_cronograma")
-    for texto in ("Día 1", "Día 10", "01-12-2026", "15-12-2026", "Compras", "Pagos", "Bancos"):
+    for texto in ("Día 1", "Día 8", "01-12-2026", "11-12-2026", "Compras", "Pagos", "Bancos"):
         assert texto in h, texto
     assert "08-12-2026" in h and "feriado" in h.lower()
 

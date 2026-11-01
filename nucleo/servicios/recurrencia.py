@@ -7,7 +7,7 @@ import calendar
 from dataclasses import dataclass
 from datetime import date
 
-from nucleo.servicios.calendario import Calendario, hitos_de_cierre
+from nucleo.servicios.calendario import Calendario, hitos_de_entrega
 
 TIPOS = ("DIARIA_HABIL", "SEMANAL", "CIERRE_DIA_HABIL", "CIERRE_HITO", "DIA_FIJO", "FIN_DE_MES", "MESES", "EVENTO")
 AJUSTES = ("siguiente", "anterior")
@@ -25,7 +25,7 @@ class ReglaIncompleta(ValueError):
 class Regla:
     tipo: str
     dia_semana: int | None = None  # 0 = lunes … 4 = viernes (SEMANAL)
-    n: int | None = None  # n-ésimo día hábil (CIERRE_DIA_HABIL) o 7/10 (CIERRE_HITO)
+    n: int | None = None  # n-ésimo día hábil (CIERRE_DIA_HABIL) o día 8, 9 o 10 del mes (CIERRE_HITO)
     dia: int | None = None  # día del mes (DIA_FIJO, MESES)
     meses: tuple[int, ...] = ()  # MESES
     ajuste: str = "siguiente"  # qué hacer si cae en día inhábil
@@ -71,10 +71,9 @@ def fechas_limite(
             raise ReglaIncompleta("Falta el número de día hábil.")
         fechas = [cal.dia_habil_n(anio, mes, regla.n)]
     elif regla.tipo == "CIERRE_HITO":
-        if regla.n not in (7, 10):
-            raise ReglaInvalida("El hito de cierre debe ser 7 (preliminar) o 10 (definitivo).")
-        d7, d10 = hitos_de_cierre(cal, anio, mes, min_dias_habiles_d7_d10)
-        fechas = [d7 if regla.n == 7 else d10]
+        if regla.n not in (8, 9, 10):
+            raise ReglaInvalida("El hito de cierre debe ser el día 8 (reportes listos), el 9 (Gerente General) o el 10 (Directorio).")
+        fechas = [hitos_de_entrega(cal, anio, mes, min_dias_habiles_d7_d10)[regla.n]]
     elif regla.tipo == "DIA_FIJO":
         if regla.dia is None:
             raise ReglaIncompleta("Falta el día del mes.")

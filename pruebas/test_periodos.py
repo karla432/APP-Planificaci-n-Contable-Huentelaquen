@@ -61,14 +61,14 @@ def test_el_cierre_de_diciembre_cae_en_las_fechas_correctas(equipo):
     anio_abierto()
     for i, n in enumerate((1, 2, 3, 4), start=1):
         tarea(f"TAR-001{i}", equipo["cont"], "CIERRE_DIA_HABIL", n=n)
-    tarea("TAR-0020", equipo["cont"], "CIERRE_HITO", n=7)
+    tarea("TAR-0020", equipo["cont"], "CIERRE_HITO", n=8)
     tarea("TAR-0021", equipo["cont"], "CIERRE_HITO", n=10)
     tarea("TAR-0022", equipo["cont"], "DIA_FIJO", dia=13, ajuste="anterior")
     periodos.abrir_mes(2026, 12, usuario=None)
     fechas = {o.tarea.codigo: o.fecha_limite for o in Ocurrencia.objects.select_related("tarea")}
     assert fechas == {
         "TAR-0011": date(2026, 12, 1), "TAR-0012": date(2026, 12, 2), "TAR-0013": date(2026, 12, 3), "TAR-0014": date(2026, 12, 4),
-        "TAR-0020": date(2026, 12, 7), "TAR-0021": date(2026, 12, 10), "TAR-0022": date(2026, 12, 11),
+        "TAR-0020": date(2026, 12, 9), "TAR-0021": date(2026, 12, 11), "TAR-0022": date(2026, 12, 11),  # el 8 es feriado: día 8 → 09-12, día 10 → 11-12
     }
 
 

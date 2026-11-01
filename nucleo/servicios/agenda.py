@@ -87,12 +87,14 @@ class HitoMes:
     fecha: date
     hechas: int = 0
     total: int = 0
+    descripcion: str = ""
 
 
 def mes_de(colaborador, anio: int, mes: int, hoy: date) -> dict:
     """Las tareas de la persona que vencen en el mes y su avance en los días clave del cierre."""
     ocurrencias = [_marcar_atraso(o, hoy) for o in _de_la_persona(colaborador).filter(fecha_limite__year=anio, fecha_limite__month=mes).order_by("fecha_limite", "tarea__codigo")]
-    hitos = {f: HitoMes(etiqueta, f) for etiqueta, f in kpi.hitos_del_mes(anio, mes)}
+    descripciones = kpi.descripciones_del_mes(anio, mes)
+    hitos = {f: HitoMes(etiqueta, f, descripcion=descripciones.get(f, "")) for etiqueta, f in kpi.hitos_del_mes(anio, mes)}
     for o in ocurrencias:
         h = hitos.get(o.fecha_limite)
         if h is not None and o.tarea.regla_tipo in kpi.TIPOS_DE_CIERRE and o.estado != Ocurrencia.NO_APLICA:

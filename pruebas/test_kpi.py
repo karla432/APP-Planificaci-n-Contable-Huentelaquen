@@ -187,18 +187,18 @@ def test_una_persona_sin_tareas_vencidas_queda_sin_datos(base):
     assert k.vencidas == 0 and k.semaforo == "sin_datos" and k.a_tiempo_pct is None
 
 
-def test_los_dias_clave_del_cierre_son_los_dias_habiles_1_a_10(base):
-    """El cierre va del día hábil 1 al 8; el 9 se revisa con la Gerencia General y el 10 se liberan los informes al Directorio."""
+def test_los_dias_del_cierre_son_los_habiles_hasta_la_entrega_al_directorio(base):
+    """Días 8, 9 y 10 del mes (Karla, 01-11-2026). En diciembre de 2026 el 08 es feriado: 8 → 09-12, 9 → 10-12, 10 → 11-12."""
+    assert kpi.entregas(2026, 12) == {8: date(2026, 12, 9), 9: date(2026, 12, 10), 10: date(2026, 12, 11)}
     hitos = kpi.hitos_del_mes(2026, 12)
-    assert [h[0] for h in hitos] == [f"Día {n}" for n in range(1, 11)]
-    assert [h[1] for h in hitos] == [date(2026, 12, d) for d in (1, 2, 3, 4, 7, 9, 10, 11, 14, 15)]  # el 08 es feriado
-    assert kpi.descripcion_del_hito(8) == "Cierre completo" and kpi.descripcion_del_hito(9) == "Revisión con Gerencia General"
-    assert kpi.descripcion_del_hito(10) == "Informes al Directorio" and kpi.descripcion_del_hito(3) == ""
+    assert [h[0] for h in hitos] == [f"Día {n}" for n in range(1, 9)]
+    assert [h[1] for h in hitos] == [date(2026, 12, d) for d in (1, 2, 3, 4, 7, 9, 10, 11)]  # el 08 es feriado
+    assert kpi.descripciones_del_mes(2026, 12) == {date(2026, 12, 9): "Reportes listos (en la tarde)", date(2026, 12, 10): "Entrega al Gerente General", date(2026, 12, 11): "Informes al Directorio"}
 
 
-def test_la_ruta_del_cierre_tiene_diez_dias_con_su_descripcion(base):
+def test_la_ruta_del_cierre_marca_los_tres_dias_de_entrega(base):
     ruta = kpi.ruta_del_cierre(base["p"], HOY)
-    assert len(ruta) == 10 and ruta[8].etiqueta == "Día 9" and ruta[8].descripcion == "Revisión con Gerencia General"
+    assert len(ruta) == 8 and [r.descripcion for r in ruta][-3:] == ["Reportes listos (en la tarde)", "Entrega al Gerente General", "Informes al Directorio"]
 
 
 def test_una_tarea_bloqueada_vencida_cuenta_como_atrasada_sin_hacer(base):

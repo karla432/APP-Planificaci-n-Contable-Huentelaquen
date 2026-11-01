@@ -63,10 +63,10 @@ def _validar(d: DatosTarea) -> str:
         raise ErrorDeNegocio("El ajuste para días inhábiles debe ser «siguiente» o «anterior».")
     if d.tipo == "SEMANAL" and d.dia_semana not in range(5):
         raise ErrorDeNegocio("Falta el día de la semana (lunes a viernes).")
-    if d.tipo == "CIERRE_DIA_HABIL" and d.n not in range(1, 11):
-        raise ErrorDeNegocio("El día hábil del cierre debe estar entre 1 y 10.")
-    if d.tipo == "CIERRE_HITO" and d.n not in (7, 10):
-        raise ErrorDeNegocio("El hito del cierre debe ser 7 o 10.")
+    if d.tipo == "CIERRE_DIA_HABIL" and d.n not in range(1, 8):
+        raise ErrorDeNegocio("El día hábil del cierre debe estar entre 1 y 7. Para los días 8, 9 y 10 del mes usa «Día 8, 9 o 10».")
+    if d.tipo == "CIERRE_HITO" and d.n not in (8, 9, 10):
+        raise ErrorDeNegocio("El hito del cierre debe ser el día 8, 9 o 10 del mes.")
     if d.tipo == "DIA_FIJO" and d.dia not in range(1, 32):
         raise ErrorDeNegocio("El día del mes debe estar entre 1 y 31.")
     if d.tipo == "MESES":

@@ -70,7 +70,7 @@ def test_solo_gerente_y_jefatura_editan_tareas(mundo, quien):
     "cambios,mensaje",
     [
         (dict(tipo="SEMANAL", n=None), "día de la semana"),
-        (dict(tipo="CIERRE_HITO", n=8), "7 o 10"),
+        (dict(tipo="CIERRE_HITO", n=7), "día 8, 9 o 10"),
         (dict(tipo="CIERRE_DIA_HABIL", n=0), "día hábil"),
         (dict(tipo="DIA_FIJO", n=None, dia=32), "día del mes"),
         (dict(tipo="QUINCENAL"), "periodicidad"),

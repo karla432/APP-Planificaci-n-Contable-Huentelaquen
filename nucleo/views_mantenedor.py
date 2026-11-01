@@ -16,8 +16,8 @@ from nucleo.servicios import agenda, auditoria, estructura, excel_masivo, manten
 from nucleo.servicios.errores import ErrorDeNegocio, PermisoDenegado
 
 TIPOS = [
-    ("DIARIA_HABIL", "Todos los días hábiles"), ("SEMANAL", "Una vez a la semana"), ("CIERRE_DIA_HABIL", "Día hábil del cierre (1 a 10)"),
-    ("CIERRE_HITO", "D7 (preliminar) o D10 (definitivo)"), ("DIA_FIJO", "Día fijo del mes"), ("FIN_DE_MES", "Último día del mes"), ("MESES", "Meses específicos"), ("EVENTO", "Por evento (se crea a mano)"),
+    ("DIARIA_HABIL", "Todos los días hábiles"), ("SEMANAL", "Una vez a la semana"), ("CIERRE_DIA_HABIL", "Día hábil del cierre (1 a 7)"),
+    ("CIERRE_HITO", "Día 8, 9 o 10 del mes (reportes, Gerente, Directorio)"), ("DIA_FIJO", "Día fijo del mes"), ("FIN_DE_MES", "Último día del mes"), ("MESES", "Meses específicos"), ("EVENTO", "Por evento (se crea a mano)"),
 ]
 DIAS = [(0, "Lunes"), (1, "Martes"), (2, "Miércoles"), (3, "Jueves"), (4, "Viernes")]
 MESES = [(i + 1, n.capitalize()) for i, n in enumerate(reglas_texto.MESES)]

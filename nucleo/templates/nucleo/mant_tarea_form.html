@@ -23,7 +23,8 @@
   <div class="grupo" data-para="SEMANAL"><label for="dia_semana">Día de la semana</label>
     <select id="dia_semana" name="dia_semana"><option value="">—</option>{% for k, n in dias %}<option value="{{ k }}" {% if v.dia_semana == k|stringformat:"s" %}selected{% endif %}>{{ n }}</option>{% endfor %}</select>
     <label for="franja">Franja (opcional)</label><select id="franja" name="franja"><option value="">Sin franja</option><option value="mañana" {% if v.franja == "mañana" %}selected{% endif %}>Mañana</option><option value="tarde" {% if v.franja == "tarde" %}selected{% endif %}>Tarde</option></select></div>
-  <div class="grupo" data-para="CIERRE_DIA_HABIL CIERRE_HITO"><label for="n">Día hábil del cierre (1 a 10) o hito (7 u 10)</label><input id="n" name="n" type="number" min="1" max="10" value="{{ v.n }}"></div>
+  <div class="grupo" data-para="CIERRE_DIA_HABIL CIERRE_HITO"><label for="n">Día hábil del cierre (1 a 7) o día del mes del hito (8, 9 o 10)</label><input id="n" name="n" type="number" min="1" max="10" value="{{ v.n }}">
+    <p class="meta">Los días 8 (reportes listos en la tarde), 9 (Gerente General) y 10 (Directorio) son <strong>días del mes</strong>: si caen en día inhábil pasan al día hábil siguiente.</p></div>
   <div class="grupo" data-para="DIA_FIJO MESES"><label for="dia">Día del mes</label><input id="dia" name="dia" type="number" min="1" max="31" value="{{ v.dia }}"></div>
   <div class="grupo" data-para="MESES"><fieldset><legend>Meses</legend>{% for k, n in meses %}<label class="check"><input type="checkbox" name="meses" value="{{ k }}" {% if k|stringformat:"s" in v.meses %}checked{% endif %}> {{ n }}</label>{% endfor %}</fieldset></div>
   <div class="grupo" data-para="DIA_FIJO FIN_DE_MES MESES"><label for="ajuste">Si cae en día inhábil, pasa al día hábil…</label>

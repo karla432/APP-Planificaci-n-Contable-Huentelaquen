@@ -22,7 +22,7 @@ def describir(regla: Regla | None, franja: str = "") -> str:
     if t == "CIERRE_DIA_HABIL":
         return f"Día hábil {regla.n} del cierre"
     if t == "CIERRE_HITO":
-        return "D7 · reporte preliminar" if regla.n == 7 else "D10 · cierre definitivo"
+        return {8: "Día 8 · reportes listos (en la tarde)", 9: "Día 9 · revisión con el Gerente General", 10: "Día 10 · informes al Directorio"}.get(regla.n, f"Día {regla.n} del mes")
     if t == "DIA_FIJO":
         return f"Día {regla.dia} de cada mes (si es inhábil, el día hábil {regla.ajuste})"
     if t == "FIN_DE_MES":
