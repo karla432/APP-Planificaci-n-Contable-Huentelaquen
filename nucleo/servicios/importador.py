@@ -38,6 +38,7 @@ CARGOS_EXTERNOS = {"Vendedor Stgo", "RR.HH.", "Jefe Bodega", "Gerencia", "Gerenc
 # Orden de los cargos en las listas (Karla, 31-10-2026): Gerente AyF, Jefa de Control, Contador Senior, Asistente Contable; después los externos.
 ORDEN_CARGOS = {"Gerente AyF": 1, "Jefa de Control": 2, "Contador Senior": 3, "Asistente Contable": 4}
 ORDEN_EXTERNOS = 50
+DEDICACION_HORAS_MES = {"Gerente AyF": 80}  # Karla (01-11-2026): el Gerente AyF dedica como máximo 80 h al mes a Huentelauquén
 RELLENO_GERENTE = "FFE2EFDA"  # verde: horas definidas por la Gerente AyF (el resto es estimación base)
 
 DIAS = {"lunes": 0, "martes": 1, "miércoles": 2, "miercoles": 2, "jueves": 3, "viernes": 4}
@@ -356,7 +357,7 @@ def previsualizar(ruta, calendario: Calendario | None = None, incluir_dia_9: boo
 
 def _cargo(nombre: str) -> Cargo:
     cargo, _ = Cargo.objects.get_or_create(nombre=nombre, defaults={
-        "es_externo": nombre in CARGOS_EXTERNOS, "orden": ORDEN_CARGOS.get(nombre, ORDEN_EXTERNOS if nombre in CARGOS_EXTERNOS else 100)})
+        "es_externo": nombre in CARGOS_EXTERNOS, "orden": ORDEN_CARGOS.get(nombre, ORDEN_EXTERNOS if nombre in CARGOS_EXTERNOS else 100), "horas_mes_max": DEDICACION_HORAS_MES.get(nombre)})
     return cargo
 
 

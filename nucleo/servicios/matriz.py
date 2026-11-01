@@ -332,12 +332,48 @@ def proponer(anio: int, mes: int, ctx: Contexto | None = None, max_pasos: int = 
         planes_antes = planes[t.pk]
         items[t.pk], planes[t.pk] = nuevos, nuevo
         ya_movidas[t.pk] = ya_movidas.get(t.pk, "") or f"{planes_antes.ejecuta_id}|{planes_antes.regla_n}"
+    # Segunda pasada: aunque ya nadie pase de su jornada cada día, se acerca la ocupación de la semana del cierre entre los cargos (el más cargado le pasa trabajo al menos cargado)
+    capacidad_ventana = {c: sum(ctx.capacidad(c, f) for f in dias_del_cierre) for c in ctx.internos}
+
+    def ocupacion(c):
+        return sum(carga[c][f] for f in dias_del_cierre) / capacidad_ventana[c] if capacidad_ventana[c] else 0.0
+
+    for _ in range(max_pasos):
+        ocupaciones = {c: ocupacion(c) for c in ctx.internos}
+        c_alto = max(ocupaciones, key=ocupaciones.get)
+        valor_actual = sum(exceso(c, f) for c in ctx.internos for f in ctx.dias)
+        mejor = None
+        for t in movibles:
+            p = planes[t.pk]
+            if p.ejecuta_id != c_alto:
+                continue
+            horas_t = (t.minutos_estimados or 0) / 60
+            for c_bajo in conocen.get(t.proceso_id, set()):  # solo a quien ya trabaja en ese proceso
+                if c_bajo == c_alto or c_bajo == p.revisa_id or c_bajo not in ctx.internos or ocupaciones[c_alto] - ocupaciones[c_bajo] < 0.05:
+                    continue
+                if c_bajo in tope and mes_total[c_bajo] + horas_t > tope[c_bajo]:
+                    continue
+                actuales, nuevos = items[t.pk], items_de(t, replace(p, ejecuta_id=c_bajo), ctx)
+                aplicar(actuales, -1)
+                aplicar(nuevos, +1)
+                valor = sum(exceso(c, f) for c in ctx.internos for f in ctx.dias)
+                nuevo_max = max(ocupacion(c_alto), ocupacion(c_bajo))
+                aplicar(nuevos, -1)
+                aplicar(actuales, +1)
+                if valor <= valor_actual + TOLERANCIA and nuevo_max < ocupaciones[c_alto] - 1e-6 and (mejor is None or (nuevo_max, valor) < mejor[0]):
+                    mejor = ((nuevo_max, valor), t, replace(p, ejecuta_id=c_bajo), nuevos)
+        if mejor is None:
+            break
+        _, t, nuevo, nuevos = mejor
+        aplicar(items[t.pk], -1)
+        aplicar(nuevos, +1)
+        items[t.pk], planes[t.pk] = nuevos, nuevo
     # los cambios de las tareas del cierre, una vez por tarea, comparando con lo original
     for t in movibles:
         p0, p1 = plan_actual(t), planes[t.pk]
         if p1.regla_n != p0.regla_n:
             cambios.append(Cambio(t, "Día hábil del cierre", f"Día hábil {p0.regla_n}", f"Día hábil {p1.regla_n}", "Se mueve a un día con espacio para no pasar de la jornada (nunca antes, y como máximo hasta el día 8)."))
         if p1.ejecuta_id != p0.ejecuta_id:
-            cambios.append(Cambio(t, "Responsable", _nombre(ctx, p0.ejecuta_id), _nombre(ctx, p1.ejecuta_id), "Su carga ese día superaba la jornada; el nuevo responsable ya trabaja en este proceso."))
+            cambios.append(Cambio(t, "Responsable", _nombre(ctx, p0.ejecuta_id), _nombre(ctx, p1.ejecuta_id), "Para repartir el cierre: su carga superaba la jornada o la de otro cargo era menor; el nuevo responsable ya trabaja en este proceso y no es quien la revisa."))
     despues = construir(anio, mes, planes, ctx)
     return Propuesta(planes, cambios, [(ctx.internos[c], f, exceso(c, f)) for c, f in sorted(sin_solucion, key=lambda x: (x[1], x[0])) if exceso(c, f) > TOLERANCIA], antes, despues)

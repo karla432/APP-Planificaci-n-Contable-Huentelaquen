@@ -177,3 +177,21 @@ def test_la_propuesta_no_empeora_nada(equipo):
     hacer("B", equipo["Contador Senior"], "CIERRE_DIA_HABIL", 8, n=1)
     prop = matriz.proponer(2026, 12)
     assert prop.despues.exceso_total <= prop.antes.exceso_total + 1e-9
+
+
+def test_la_propuesta_acerca_la_ocupacion_entre_los_cargos(equipo):
+    for i in range(5):
+        hacer(f"J{i}", equipo["Jefa de Control"], "CIERRE_DIA_HABIL", 4, n=3, proceso="Costeo")  # 20 h de la Jefa (el día hábil 3 caben 9)
+    hacer("A", equipo["Asistente Contable"], "CIERRE_DIA_HABIL", 1, n=5, proceso="Costeo")  # la Asistente ya trabaja en Costeo y está libre
+    prop = matriz.proponer(2026, 12)
+    assert prop.despues.desequilibrio_pct < prop.antes.desequilibrio_pct
+    assert fila(prop.despues, "Asistente Contable").horas_semana_cierre > fila(prop.antes, "Asistente Contable").horas_semana_cierre
+    assert prop.despues.exceso_total <= prop.antes.exceso_total + 1e-9
+
+
+def test_el_tope_de_80_horas_del_gerente_no_se_rompe_al_repartir(equipo):
+    hacer("G0", equipo["Gerente AyF"], "CIERRE_DIA_HABIL", 2, n=1, proceso="Costeo")
+    for i in range(6):
+        hacer(f"J{i}", equipo["Jefa de Control"], "CIERRE_DIA_HABIL", 12, n=3, proceso="Costeo")  # mucha carga que podría irse al Gerente
+    prop = matriz.proponer(2026, 12)
+    assert fila(prop.despues, "Gerente AyF").total_mes <= 80 + 1e-9
