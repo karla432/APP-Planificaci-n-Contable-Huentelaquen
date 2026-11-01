@@ -1,19 +1,25 @@
 {% extends "nucleo/base.html" %}
 {% block titulo %}Cronograma{% endblock %}
 {% block contenido %}
-<p class="kick">Informes · Cronograma del cierre</p><h1 class="ancho">Días hábiles 1 al 10: se cierra del 1 al 8, el 9 se revisa y el 10 va al Directorio.</h1>
+<p class="kick">Informes · Cronograma</p><h1 class="ancho">Qué vence cada día, por proceso</h1>
 {% include "nucleo/_selector_mes.html" %}
 {% if periodo %}
-<section class="card"><p class="meta">Cada número es la cantidad de tareas que vencen ese día en el proceso, en el orden en que se procesan. Verde: todo hecho · Ámbar: vence hoy o antes · Rojo: con atrasos · Gris: aún no vence. Toca un número para ver las tareas.
-  {% if feriados_mes %}<strong>Feriados del mes:</strong> {% for f in feriados_mes %}{{ f.fecha|date:"d-m-Y" }} ({{ f.nombre }}){% if not forloop.last %}, {% endif %}{% endfor %}: no cuentan como día hábil, por eso no hay columna para ellos (feriado).{% endif %}</p>
+<div class="pestanas" role="tablist" aria-label="Vista del cronograma">
+  {% for k, nombre in vistas %}<a class="pestana{% if vista == k %} activa{% endif %}" role="tab" {% if vista == k %}aria-selected="true"{% endif %} href="?mes={{ primero|date:'Y-m' }}&vista={{ k }}">{{ nombre }}</a>{% endfor %}
+</div>
+{% if vista == "semana" %}<div class="navegar">
+  <a class="btn btn-2 btn-sm" href="?mes={{ primero|date:'Y-m' }}&vista=semana&fecha={{ fecha_anterior }}">‹ Semana anterior</a><strong>Semana del {{ lunes|date:"d-m-Y" }} al {{ viernes|date:"d-m-Y" }}</strong>
+  <a class="btn btn-2 btn-sm" href="?mes={{ primero|date:'Y-m' }}&vista=semana&fecha={{ fecha_siguiente }}">Semana siguiente ›</a></div>{% endif %}
+<section class="card"><p class="meta">{{ titulo }} Los procesos van <strong>por código, de menor a mayor</strong>. Cada número es la cantidad de tareas que vencen ese día en el proceso. Verde: todo hecho · Ámbar: vence hoy o antes · Rojo: con atrasos · Gris: aún no vence. <strong>Toca un número para ver las tareas.</strong>
+  {% if feriados_mes %}<strong>Feriados del mes:</strong> {% for f in feriados_mes %}{{ f.fecha|date:"d-m-Y" }} ({{ f.nombre }}){% if not forloop.last %}, {% endif %}{% endfor %}{% if vista != "semana" %}: no cuentan como día hábil, por eso no hay columna para ellos (feriado){% endif %}.{% endif %}</p>
   <div class="tabla-scroll"><table class="tbl crono"><thead><tr><th style="min-width:230px">Proceso</th>
-    {% for etiqueta, fecha, desc in hitos %}<th class="c">{{ etiqueta }}<br><span class="fino">{{ fecha|date:"D d-m-Y" }}</span>{% if desc %}<br><span class="fino">{{ desc }}</span>{% endif %}</th>{% endfor %}</tr></thead>
-  <tbody>{% for f in filas %}<tr><td>{{ f.proceso.nombre }}</td>
-    {% for d in dias %}<td class="c">{% for n, c in f.celdas.items %}{% if n == d %}<a href="?mes={{ primero|date:'Y-m' }}&proceso={{ f.proceso.pk }}&dia={{ d }}"><span class="celda {{ c.clase }}" data-celda="{{ f.proceso.nombre }}|{{ d }}">{{ c.n }}</span></a>{% endif %}{% endfor %}</td>{% endfor %}</tr>
-  {% empty %}<tr><td colspan="11" class="vacio">No hay tareas del cierre este mes.</td></tr>{% endfor %}</tbody></table></div>
+    {% for col in columnas %}<th class="c{% if col.feriado %} feriado{% endif %}">{{ col.etiqueta }}<br><span class="fino">{% if vista == "mes" %}{{ col.fecha|date:"d-m" }}{% else %}{{ col.fecha|date:"D d-m-Y" }}{% endif %}{% if col.feriado %} · feriado{% endif %}</span>{% if col.descripcion %}<br><span class="fino">{{ col.descripcion }}</span>{% endif %}</th>{% endfor %}</tr></thead>
+  <tbody>{% for f in filas %}<tr><td><strong>{{ f.proceso.codigo }}</strong> · {{ f.proceso.nombre }}</td>
+    {% for cel in f.celdas %}<td class="c">{% if cel %}<a href="?mes={{ primero|date:'Y-m' }}&vista={{ vista }}{% if vista == 'semana' %}&fecha={{ lunes|date:'Y-m-d' }}{% endif %}&proceso={{ f.proceso.pk }}&dia={% if vista == 'cierre' %}{{ cel.col.n }}{% else %}{{ cel.col.fecha|date:'Y-m-d' }}{% endif %}#seleccion"><span class="celda {{ cel.clase }}" data-celda="{{ f.proceso.nombre }}|{% if vista == 'cierre' %}{{ cel.col.n }}{% else %}{{ cel.col.fecha|date:'Y-m-d' }}{% endif %}">{{ cel.n }}</span></a>{% endif %}</td>{% endfor %}</tr>
+  {% empty %}<tr><td colspan="{{ columnas|length|add:1 }}" class="vacio">No hay tareas en esta vista.</td></tr>{% endfor %}</tbody></table></div>
   <p class="meta">Las tareas tienen fecha límite pero no un día de inicio: por eso se muestra la carga de cada día y no barras de inicio a fin.</p>
 </section>
-{% if seleccion %}<section class="card"><h2>{{ seleccion.proceso.nombre }} · Día {{ seleccion.dia }}</h2>
-  <ul class="lista">{% for o in seleccion.tareas %}<li class="fila"><div class="fila-texto"><p class="titulo"><a href="{% url 'detalle_ocurrencia' o.pk %}">{{ o.tarea.subtarea }}</a></p><p class="meta">{{ o.colaborador.nombre|default:o.cargo_ejecuta.nombre }} · vence {{ o.fecha_limite|date:"d-m-Y" }} · {{ o.get_estado_display }}</p></div></li>{% endfor %}</ul></section>{% endif %}
+{% if seleccion %}<section class="card" id="seleccion"><h2>{{ seleccion.proceso.codigo }} · {{ seleccion.proceso.nombre }} · {{ seleccion.etiqueta }} <span class="meta">({{ seleccion.fecha|date:"d-m-Y" }})</span></h2>
+  <ul class="lista">{% for o in seleccion.tareas %}<li class="fila"><div class="fila-texto"><p class="titulo"><span class="cod">{{ o.tarea.codigo }}</span> <a href="{% url 'detalle_ocurrencia' o.pk %}">{{ o.tarea.subtarea }}</a></p><p class="meta">{{ o.colaborador.nombre|default:o.cargo_ejecuta.nombre }} · vence {{ o.fecha_limite|date:"d-m-Y" }} · {{ o.get_estado_display }}</p></div></li>{% endfor %}</ul></section>{% endif %}
 {% endif %}
 {% endblock %}

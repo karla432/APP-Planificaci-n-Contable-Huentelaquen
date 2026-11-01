@@ -1,0 +1,8 @@
+<div class="tabla-scroll"><table class="tbl">
+  <thead><tr><th>Código</th><th>Tarea</th><th>Responsable</th><th>Vence</th><th>Estado</th></tr></thead><tbody>
+  {% for o in tareas %}<tr><td><strong>{{ o.tarea.codigo }}</strong></td>
+    <td><a href="{% url 'detalle_ocurrencia' o.pk %}">{{ o.tarea.subtarea|truncatechars:90 }}</a><br><span class="meta">{{ o.tarea.proceso.nombre }}</span></td>
+    <td>{{ o.colaborador.nombre|default:o.cargo_ejecuta.nombre }}</td><td>{{ o.fecha_limite|date:"d-m-Y" }}</td>
+    <td>{% if o.atrasada %}<span class="pill p-red">Atrasada</span> {% endif %}<span class="pill p-grey">{{ o.get_estado_display }}</span></td></tr>
+  {% empty %}<tr><td colspan="5" class="vacio">No hay tareas en esta lista.</td></tr>{% endfor %}
+</tbody></table></div>

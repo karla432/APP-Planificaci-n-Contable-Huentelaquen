@@ -12,22 +12,29 @@
 {% if periodo %}
 <div class="hero">
   <div><div class="cifra-grande">{{ resumen.avance_pct|default:0|floatformat:0 }}<small>%</small></div><p class="meta">de las tareas del cierre hechas · el plan esperaba {{ resumen.plan_pct|default:0|floatformat:0 }} % a hoy</p></div>
-  <div class="kpis"><div class="kpi"><b>{{ resumen.revisadas }}</b><span>Revisadas</span></div><div class="kpi"><b>{{ resumen.por_revisar }}</b><span>Por revisar</span></div><div class="kpi"><b>{{ resumen.pendientes }}</b><span>Pendientes</span></div><div class="kpi"><b>{{ resumen.bloqueadas }}</b><span>Bloqueadas</span></div><div class="kpi rojo"><b>{{ resumen.atrasadas }}</b><span>Atrasadas</span></div></div>
+  <div class="kpis"><a class="kpi" href="?mes={{ primero|date:'Y-m' }}&ver=revisadas#listado"><b>{{ resumen.revisadas }}</b><span>Revisadas</span></a>
+    <a class="kpi" href="?mes={{ primero|date:'Y-m' }}&ver=por_revisar#listado"><b>{{ resumen.por_revisar }}</b><span>Por revisar</span></a>
+    <a class="kpi" href="?mes={{ primero|date:'Y-m' }}&ver=pendientes#listado"><b>{{ resumen.pendientes }}</b><span>Pendientes</span></a>
+    <a class="kpi" href="?mes={{ primero|date:'Y-m' }}&ver=bloqueadas#listado"><b>{{ resumen.bloqueadas }}</b><span>Bloqueadas</span></a>
+    <a class="kpi rojo" href="?mes={{ primero|date:'Y-m' }}&ver=atrasadas#listado"><b>{{ resumen.atrasadas }}</b><span>Atrasadas · ver cuáles</span></a></div>
+</div>
 </div>
 <section class="card"><h2>Ruta del cierre</h2>
-  <p class="meta">Tareas del cierre hechas sobre las que vencen ese día.
+  <p class="meta">Tareas del cierre hechas sobre las que vencen ese día. <strong>Toca un día para ver sus tareas</strong> (las atrasadas se marcan en rojo).
     {% if feriados_mes %}<strong>Feriados del mes:</strong> {% for f in feriados_mes %}{{ f.fecha|date:"d-m-Y" }} ({{ f.nombre }}){% if not forloop.last %}, {% endif %}{% endfor %}.{% endif %}</p>
   <div class="ruta">
     {% for r in ruta %}
-    <div class="hito{% if r.fecha == hoy %} hito-hoy{% endif %}">
+    <a class="hito{% if r.fecha == hoy %} hito-hoy{% endif %}{% if r.estado == 'atrasada' %} hito-atrasado{% endif %}" href="?mes={{ primero|date:'Y-m' }}&fecha={{ r.fecha|date:'Y-m-d' }}#listado">
       <strong>{{ r.etiqueta }}{% if r.fecha == hoy %} · HOY{% endif %}</strong><span class="meta">{{ r.fecha|date:"D d-m-Y" }}</span>{% if r.descripcion %}<span class="meta"><em>{{ r.descripcion }}</em></span>{% endif %}
       <div class="barra"><i style="width: {% widthratio r.hechas r.total 100 %}%"></i></div>
       <span>{{ r.hechas }} de {{ r.total }}</span>
       {% if r.estado == "atrasada" %}<span class="pill p-red">{{ r.atrasadas }} atrasada{{ r.atrasadas|pluralize }}</span>{% elif r.estado == "al_dia" %}<span class="pill p-ok">Al día</span>{% endif %}
-    </div>
+    </a>
     {% endfor %}
   </div>
 </section>
+{% if listado %}<section class="card" id="listado"><div class="encabezado"><h2>{{ listado.titulo }} <span class="meta">({{ listado.tareas|length }})</span></h2><a class="btn btn-2 btn-sm" href="?mes={{ primero|date:'Y-m' }}">Cerrar lista</a></div>
+  {% include "nucleo/_listado_tareas.html" with tareas=listado.tareas %}</section>{% endif %}
 <div class="indicadores">
   <section class="card"><p class="kick">Avance del cierre</p><p class="numero">{% if resumen.avance_pct is None %}—{% else %}{{ resumen.avance_pct }}%{% endif %}</p><p class="meta">{{ resumen.hechas }} de {{ resumen.total }} tareas hechas</p></section>
   <section class="card"><p class="kick">Atrasadas sin hacer</p><p class="numero numero-rojo">{{ resumen.atrasadas }}</p><p class="meta">Riesgo para el D7 · más {{ resumen.vencen_hoy }} vencen hoy</p></section>
@@ -36,7 +43,7 @@
 <div class="dos-columnas">
   <section class="card"><h2>Avance por proceso</h2>
     {% for a in procesos %}
-    <div class="proceso-fila"><span>{{ a.proceso }}</span>
+    <div class="proceso-fila"><span><strong>{{ a.codigo }}</strong> · {{ a.proceso }}</span>
       <div class="barra"><i class="c-{% if a.estado == 'atrasado' %}red{% elif a.estado == 'por_vencer' %}warn{% else %}ok{% endif %}" style="width: {% widthratio a.hechas a.total 100 %}%"></i></div>
       <span class="n">{{ a.hechas }} / {{ a.total }}</span>
       <span class="pill p-{% if a.estado == 'atrasado' %}red{% elif a.estado == 'por_vencer' %}warn{% else %}ok{% endif %}">{% if a.estado == 'atrasado' %}Atrasado{% elif a.estado == 'por_vencer' %}Por vencer{% else %}Al día{% endif %}</span>
@@ -45,14 +52,15 @@
     <p class="meta">Al día: todo hecho o sin atrasos · Por vencer: con tareas aún no vencidas · Atrasado: con tareas vencidas sin hacer.</p>
   </section>
   <section class="card"><h2>{{ atencion_titulo }}</h2>
-    {% for o, etiqueta in atencion %}
-      <p><a href="{% url 'detalle_ocurrencia' o.pk %}"><strong>{{ o.tarea.subtarea|truncatechars:80 }}</strong></a><br><span class="meta">{{ o.colaborador.nombre|default:o.cargo_ejecuta.nombre }} · {{ o.tarea.proceso.nombre }} · vence {{ o.fecha_limite|date:"d-m-Y" }}</span> <span class="pill {% if etiqueta == 'Por revisar' or etiqueta == 'Por recibir' %}p-warn{% elif etiqueta == 'Abierta' %}p-grey{% else %}p-red{% endif %}">{{ etiqueta }}</span></p>
-    {% empty %}<p class="vacio">Nada pendiente de tu parte.</p>{% endfor %}
+    {% for g in atencion_grupos %}
+      <h3 class="responsable">{{ g.cargo.nombre }}{% if g.persona %} <span class="meta">· {{ g.persona }}</span>{% endif %} <span class="pill p-grey">{{ g.total }}</span></h3>
+      <ul class="pendientes">{% for o, etiqueta in g.items %}
+        <li><span class="cod">{{ o.tarea.codigo }}</span> <a href="{% url 'detalle_ocurrencia' o.pk %}">{{ o.tarea.subtarea|truncatechars:70 }}</a>
+          <span class="meta">· vence {{ o.fecha_limite|date:"d-m" }}</span> <span class="pill {% if etiqueta == 'Por revisar' or etiqueta == 'Por recibir' %}p-warn{% elif etiqueta == 'Abierta' %}p-grey{% else %}p-red{% endif %}">{{ etiqueta }}</span></li>{% endfor %}
+        {% if g.mas %}<li class="meta">… y {{ g.mas }} más (<a href="?mes={{ primero|date:'Y-m' }}&ver=atrasadas#listado">ver atrasadas</a>)</li>{% endif %}</ul>
+    {% empty %}<p class="vacio">Nada pendiente.</p>{% endfor %}
   </section>
 </div>
-<section class="card"><h2>Cumplimiento por colaborador</h2>
-  <p class="meta">Hechas a tiempo ÷ tareas que ya vencieron. Las tareas de responsables externos se siguen aparte y no cuentan aquí. Todo el equipo puede ver el avance de los demás; cada uno marca solo lo suyo.</p>
-  {% include "nucleo/_cumplimiento_tabla.html" %}
-</section>
+<p class="meta">El cumplimiento de cada persona está en <a href="{% url 'informe_cumplimiento' %}?mes={{ primero|date:'Y-m' }}">Informes → Cumplimiento por colaborador</a>.</p>
 {% endif %}
 {% endblock %}

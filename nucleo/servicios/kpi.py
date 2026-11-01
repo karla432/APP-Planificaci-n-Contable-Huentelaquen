@@ -256,6 +256,8 @@ def resumen(periodo, hoy: date) -> Resumen:
 @dataclass
 class AvanceProceso:
     proceso: str
+    codigo: str = ""
+    orden: int = 0
     hechas: int = 0
     total: int = 0
     estado: str = "al_dia"  # al_dia / por_vencer / atrasado
@@ -264,7 +266,8 @@ class AvanceProceso:
 def avance_por_proceso(periodo, hoy: date) -> list[AvanceProceso]:
     filas: dict[str, AvanceProceso] = {}
     for o in _cierre(periodo).select_related("tarea__proceso"):
-        a = filas.setdefault(o.tarea.proceso.nombre, AvanceProceso(o.tarea.proceso.nombre))
+        p = o.tarea.proceso
+        a = filas.setdefault(p.nombre, AvanceProceso(p.nombre, p.codigo, p.orden))
         a.total += 1
         a.hechas += o.estado in HECHAS
         if o.estado in SIN_HACER:
@@ -272,7 +275,33 @@ def avance_por_proceso(periodo, hoy: date) -> list[AvanceProceso]:
                 a.estado = "atrasado"
             elif a.estado != "atrasado":
                 a.estado = "por_vencer"
-    return sorted(filas.values(), key=lambda a: a.proceso)
+    return sorted(filas.values(), key=lambda a: (a.orden, a.proceso))  # en el orden de ejecución (código del proceso, de menor a mayor)
+
+
+VISTAS_DE_LISTADO = {
+    "atrasadas": "Tareas atrasadas", "pendientes": "Tareas pendientes", "por_revisar": "Tareas por revisar", "bloqueadas": "Tareas bloqueadas", "revisadas": "Tareas revisadas",
+}
+
+
+def tareas_del_cierre(periodo, hoy: date, ver: str = "", fecha: date | None = None, proceso_id: int | None = None) -> list:
+    """Las tareas del cierre detrás de un número del panel: las atrasadas, las pendientes, las del día que se pincha, etc.
+    Ordenadas por código (primero el proceso que se ejecuta antes). Cada una trae `.atrasada`."""
+    qs = _cierre(periodo).select_related("tarea__proceso", "colaborador", "cargo_ejecuta", "cargo_revisa")
+    if proceso_id:
+        qs = qs.filter(tarea__proceso_id=proceso_id)
+    if fecha is not None:
+        qs = qs.filter(fecha_limite=fecha)
+    filtros = {
+        "atrasadas": lambda o: o.estado in SIN_HACER and o.fecha_limite < hoy,
+        "pendientes": lambda o: o.estado in (Ocurrencia.PENDIENTE, Ocurrencia.DEVUELTA),
+        "por_revisar": lambda o: o.estado == Ocurrencia.HECHA and o.tipo_marca == "HECHA" and o.cargo_revisa_id is not None,
+        "bloqueadas": lambda o: o.estado == Ocurrencia.BLOQUEADA,
+        "revisadas": lambda o: o.estado == Ocurrencia.REVISADA,
+    }
+    lista = [o for o in qs if ver not in filtros or filtros[ver](o)]
+    for o in lista:
+        o.atrasada = o.estado in SIN_HACER + (Ocurrencia.DEVUELTA,) and o.fecha_limite < hoy
+    return sorted(lista, key=lambda o: (o.tarea.proceso.orden, o.fecha_limite, o.tarea.codigo))
 
 
 def de_persona(colaborador, hoy: date) -> KpiPersona:

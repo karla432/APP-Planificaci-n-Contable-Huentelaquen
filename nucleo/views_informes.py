@@ -30,6 +30,13 @@ def _navegacion(primero: date) -> dict:
     }
 
 
+def _fecha_iso(texto: str | None):
+    try:
+        return date.fromisoformat(texto or "")
+    except ValueError:
+        return None
+
+
 def _filas_cumplimiento(periodo, hoy: date) -> list[dict]:
     filas = []
     for k in kpi.por_colaborador(periodo, hoy):
@@ -48,11 +55,16 @@ def panel(request):
     if periodo is not None:
         cal = calendario_confirmado()
         entregas = kpi.entregas(periodo.anio, periodo.mes)
+        atencion_titulo, atencion_grupos = agenda.atencion_por_responsable(request.user, periodo, hoy)
+        ver = request.GET.get("ver", "")
+        fecha_pinchada = _fecha_iso(request.GET.get("fecha"))
+        if ver in kpi.VISTAS_DE_LISTADO or fecha_pinchada:
+            titulo = kpi.VISTAS_DE_LISTADO.get(ver) or f"Tareas del cierre del {fecha_pinchada:%d-%m-%Y}"
+            c["listado"] = {"titulo": titulo, "tareas": kpi.tareas_del_cierre(periodo, hoy, ver=ver, fecha=fecha_pinchada), "ver": ver, "fecha": fecha_pinchada}
         ordinal = sum(1 for d in cal.dias_habiles_del_mes(periodo.anio, periodo.mes) if d <= hoy)
         c.update({
             "ruta": kpi.ruta_del_cierre(periodo, hoy), "resumen": kpi.resumen(periodo, hoy), "procesos": kpi.avance_por_proceso(periodo, hoy),
-            "cumplimiento": _filas_cumplimiento(periodo, hoy), "dia_habil": ordinal,
-            "atencion_titulo": agenda.atencion(request.user, periodo, hoy)[0], "atencion": agenda.atencion(request.user, periodo, hoy)[1],
+            "dia_habil": ordinal, "atencion_titulo": atencion_titulo, "atencion_grupos": atencion_grupos,
             "feriados_mes": list(Feriado.objects.filter(confirmado=True, fecha__year=periodo.anio, fecha__month=periodo.mes)),
             "faltan_cierre": None if hoy > entregas[8] else presentacion.dias_habiles_texto(cal.dias_habiles_entre(hoy, entregas[8])),
             "faltan_directorio": None if hoy > entregas[10] else presentacion.dias_habiles_texto(cal.dias_habiles_entre(hoy, entregas[10])),
@@ -141,50 +153,73 @@ def tablero(request):
     return render(request, "nucleo/informe_tablero.html", c)
 
 
+VISTAS_DEL_CRONOGRAMA = [("cierre", "Cierre (hasta el día 10)"), ("semana", "Semana"), ("mes", "Mes completo")]
+DIAS_CORTOS = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"]
+
+
+def _clase_de_celda(ocs, hoy: date) -> str:
+    if any(o.estado in kpi.SIN_HACER + (Ocurrencia.DEVUELTA,) and o.fecha_limite < hoy for o in ocs):
+        return "rd"
+    if all(o.estado in kpi.HECHAS or o.estado == "recibida" for o in ocs):
+        return "ok"
+    return "wr" if ocs[0].fecha_limite <= hoy else "gr"
+
+
 @login_required
 def cronograma(request):
+    """Procesos (por código, de menor a mayor) por días: el cierre, una semana o el mes completo. Cada número es la cantidad de tareas del día."""
     if permisos.rol_de(request.user) is None:
         return _sin_perfil(request)
     hoy = reloj.hoy()
     primero, periodo = _mes_elegido(request, hoy)
-    c = {"hoy": hoy, "periodo": periodo, **_navegacion(primero)}
-    if periodo is not None:
-        hitos = kpi.hitos_del_mes(periodo.anio, periodo.mes)
-        dia_de = {f: int(etiqueta.split()[1]) for etiqueta, f in hitos}
-        celdas, orden = {}, {}
-        for o in _cierre_del_mes(periodo):
-            n = dia_de.get(o.fecha_limite)
-            if n is None:
-                continue
-            proceso = o.tarea.proceso
-            orden[proceso.pk] = min(orden.get(proceso.pk, (10**9, "")), (o.tarea.secuencia, o.tarea.codigo))
-            celdas.setdefault((proceso.pk, n), []).append(o)
-        filas = []
-        for pk in sorted(orden, key=orden.get):
-            proceso = Proceso.objects.get(pk=pk)
-            cel = {}
-            for n in range(1, len(hitos) + 1):
-                ocs = celdas.get((pk, n), [])
-                if not ocs:
-                    continue
-                if any(o.estado in kpi.SIN_HACER + (Ocurrencia.DEVUELTA,) and o.fecha_limite < hoy for o in ocs):
-                    clase = "rd"
-                elif all(o.estado in kpi.HECHAS or o.estado == "recibida" for o in ocs):
-                    clase = "ok"
-                elif ocs[0].fecha_limite <= hoy:
-                    clase = "wr"
-                else:
-                    clase = "gr"
-                cel[n] = {"n": len(ocs), "clase": clase}
-            filas.append({"proceso": proceso, "celdas": cel})
-        seleccion = None
-        if request.GET.get("proceso") and request.GET.get("dia"):
-            try:
-                pk, n = int(request.GET["proceso"]), int(request.GET["dia"])
-                seleccion = {"proceso": Proceso.objects.get(pk=pk), "dia": n, "tareas": celdas.get((pk, n), [])}
-            except (ValueError, Proceso.DoesNotExist):
-                seleccion = None
-        descripciones = kpi.descripciones_del_mes(periodo.anio, periodo.mes)
-        c.update({"hitos": [(etiqueta, f, descripciones.get(f, "")) for etiqueta, f in hitos], "filas": filas, "dias": range(1, len(hitos) + 1), "seleccion": seleccion,
-                  "feriados_mes": list(Feriado.objects.filter(confirmado=True, fecha__year=periodo.anio, fecha__month=periodo.mes))})
+    vista = request.GET.get("vista") if request.GET.get("vista") in dict(VISTAS_DEL_CRONOGRAMA) else "cierre"
+    c = {"hoy": hoy, "periodo": periodo, **_navegacion(primero), "vista": vista, "vistas": VISTAS_DEL_CRONOGRAMA}
+    if periodo is None:
+        return render(request, "nucleo/informe_cronograma.html", c)
+    cal = calendario_confirmado()
+    descripciones = kpi.descripciones_del_mes(periodo.anio, periodo.mes)
+    habiles_cierre = {f: n for n, (_, f) in enumerate(kpi.hitos_del_mes(periodo.anio, periodo.mes), start=1)}
+    todas = Ocurrencia.objects.filter(periodo=periodo).exclude(estado=Ocurrencia.NO_APLICA).select_related("tarea__proceso", "cargo_ejecuta", "colaborador", "cargo_revisa")
+    if vista == "cierre":
+        fechas, ocurrencias = list(habiles_cierre), _cierre_del_mes(periodo)
+        c["titulo"] = "Del día hábil 1 hasta la entrega al Directorio (día 10); los reportes quedan listos en la tarde del día 8 y el día 9 va al Gerente General."
+    elif vista == "mes":
+        fechas, ocurrencias = cal.dias_habiles_del_mes(periodo.anio, periodo.mes), todas
+        c["titulo"] = "Todos los días hábiles del mes, con todas las tareas (cierre y operación)."
+    else:
+        try:
+            referencia = date.fromisoformat(request.GET.get("fecha", ""))
+        except ValueError:
+            referencia = hoy if (hoy.year, hoy.month) == (primero.year, primero.month) else primero
+        lunes = referencia - timedelta(days=referencia.weekday())
+        fechas, ocurrencias = [lunes + timedelta(days=i) for i in range(5)], todas
+        c.update({"lunes": lunes, "viernes": lunes + timedelta(days=4), "fecha_anterior": (lunes - timedelta(days=7)).isoformat(), "fecha_siguiente": (lunes + timedelta(days=7)).isoformat()})
+        c["titulo"] = "Una semana, de lunes a viernes, con todas las tareas (cierre y operación)."
+    columnas = [{"fecha": f, "n": habiles_cierre.get(f), "etiqueta": f"Día {habiles_cierre[f]}" if vista == "cierre" else f"{DIAS_CORTOS[f.weekday()]} {f:%d}", "descripcion": descripciones.get(f, ""),
+                 "feriado": cal.es_feriado(f)} for f in fechas]
+    celdas, procesos = {}, {}
+    visibles = set(fechas)
+    for o in ocurrencias:
+        if o.fecha_limite not in visibles:
+            continue
+        procesos[o.tarea.proceso.pk] = o.tarea.proceso
+        celdas.setdefault((o.tarea.proceso.pk, o.fecha_limite), []).append(o)
+    filas = []
+    for proceso in sorted(procesos.values(), key=lambda p: (p.orden, p.nombre)):  # por código del proceso, de menor a mayor
+        celdas_fila = []
+        for col in columnas:
+            ocs = celdas.get((proceso.pk, col["fecha"]), [])
+            celdas_fila.append({"n": len(ocs), "clase": _clase_de_celda(ocs, hoy), "col": col} if ocs else None)
+        filas.append({"proceso": proceso, "celdas": celdas_fila})
+    seleccion = None
+    if request.GET.get("proceso") and request.GET.get("dia"):
+        try:
+            pk = int(request.GET["proceso"])
+            dia = request.GET["dia"]
+            fecha = date.fromisoformat(dia) if "-" in dia else next(f for f, n in habiles_cierre.items() if n == int(dia))
+            seleccion = {"proceso": Proceso.objects.get(pk=pk), "dia": dia, "fecha": fecha, "etiqueta": f"Día {habiles_cierre[fecha]}" if fecha in habiles_cierre else f"{fecha:%d-%m-%Y}",
+                         "tareas": celdas.get((pk, fecha), [])}
+        except (ValueError, StopIteration, Proceso.DoesNotExist):
+            seleccion = None
+    c.update({"columnas": columnas, "filas": filas, "seleccion": seleccion, "feriados_mes": list(Feriado.objects.filter(confirmado=True, fecha__year=periodo.anio, fecha__month=periodo.mes))})
     return render(request, "nucleo/informe_cronograma.html", c)

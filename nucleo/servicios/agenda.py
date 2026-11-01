@@ -117,6 +117,42 @@ def orden_de(colaborador, fecha: date) -> int:
     return min(ordenes, default=100)
 
 
+def _persona_vigente(cargo_id: int, hoy: date) -> str:
+    from nucleo.models import Asignacion
+    a = Asignacion.objects.filter(cargo_id=cargo_id, desde__lte=hoy).exclude(hasta__lt=hoy).select_related("colaborador").first()
+    return a.colaborador.nombre if a else ""
+
+
+def atencion_por_responsable(usuario, periodo, hoy: date, por_responsable: int = 6) -> tuple[str, list]:
+    """«Requiere tu atención» como lista ordenada por responsable (en el orden de los cargos), con la tarea pendiente de cada uno.
+    Un colaborador ve solo lo suyo; Gerencia y Jefatura ven a todo el equipo. Quien debe actuar es: el que ejecuta (atrasadas, bloqueadas) o el que revisa (por revisar / por recibir)."""
+    base = _abiertas().filter(periodo=periodo, tarea__regla_tipo__in=("CIERRE_DIA_HABIL", "CIERRE_HITO")).select_related("tarea__proceso", "colaborador", "cargo_ejecuta", "cargo_revisa")
+    propio = permisos.rol_de(usuario) == permisos.COLABORADOR
+    c = permisos.colaborador_de(usuario) if propio else None
+    items = []  # (cargo que debe actuar, ocurrencia, etiqueta)
+    for o in base:
+        if o.estado == Ocurrencia.HECHA and o.tipo_marca == "HECHA" and o.cargo_revisa_id is not None:
+            items.append((o.cargo_revisa, o, "Por revisar"))
+        elif o.estado in PENDIENTES and o.tipo_marca == "RECIBIDA" and o.fecha_limite <= hoy and o.cargo_revisa_id is not None:
+            items.append((o.cargo_revisa, o, "Por recibir"))
+        elif o.estado == Ocurrencia.BLOQUEADA:
+            items.append((o.cargo_ejecuta, o, "Bloqueada"))
+        elif o.estado in PENDIENTES and o.fecha_limite < hoy:
+            items.append((o.cargo_ejecuta, o, "Atrasada"))
+    if propio:
+        mios = permisos.cargos_vigentes_de(usuario)
+        items = [i for i in items if i[0].pk in mios and (i[2] in ("Por revisar", "Por recibir") or (c is not None and i[1].colaborador_id == c.pk))]
+    grupos: dict[int, dict] = {}
+    for cargo, o, etiqueta in sorted(items, key=lambda i: (i[0].orden, i[0].nombre, i[1].tarea.proceso.orden, i[1].fecha_limite, i[1].tarea.codigo)):
+        g = grupos.setdefault(cargo.pk, {"cargo": cargo, "persona": _persona_vigente(cargo.pk, hoy), "items": [], "total": 0})
+        g["total"] += 1
+        if len(g["items"]) < por_responsable:
+            g["items"].append((o, etiqueta))
+    for g in grupos.values():
+        g["mas"] = g["total"] - len(g["items"])
+    return ("Mis pendientes" if propio else "Requiere atención"), list(grupos.values())
+
+
 def atencion(usuario, periodo, hoy: date, limite: int = 8) -> tuple[str, list]:
     """Lo que esta persona debe mirar en el cierre: si es colaborador, sus tareas abiertas; si no, lo que revisa o recibe, lo bloqueado y lo atrasado."""
     base = _abiertas().filter(periodo=periodo, tarea__regla_tipo__in=("CIERRE_DIA_HABIL", "CIERRE_HITO"))

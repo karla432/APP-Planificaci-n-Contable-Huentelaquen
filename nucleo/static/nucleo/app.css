@@ -141,3 +141,9 @@ a.tarjeta .area { display: block; font-size: 11px; font-weight: 700; letter-spac
 .etapas { margin: 8px 0 0 18px; padding: 0; } .etapas li { margin-bottom: 8px; } .mover form { display: flex; gap: 4px; } .mover .btn[disabled] { opacity: .35; cursor: default; }
 code { font-family: ui-monospace, Menlo, Consolas, monospace; background: var(--hu-pink-2); padding: 0 5px; }
 .tbl-edit input, .tbl-edit select { width: 100%; min-width: 7rem; } .tbl-edit input[name=nombre] { min-width: 15rem; } .tbl-edit input[type=date] { min-width: 9.5rem; } .tbl-edit td { white-space: nowrap; } .tbl-edit td:first-child { white-space: normal; min-width: 7rem; }
+
+/* Panel: números y días que se pueden pinchar */
+a.kpi, a.hito { text-decoration: none; color: inherit; } a.kpi:hover b, a.kpi:hover span { text-decoration: underline; } a.hito { display: block; } a.hito:hover { border-color: var(--hu-red); box-shadow: 0 0 0 1px var(--hu-red); } .hito-atrasado { border-color: var(--hu-risk); }
+.responsable { margin: 14px 0 4px; font-size: 1rem; color: var(--hu-maroon); } .pendientes { list-style: none; margin: 0 0 6px; padding: 0; } .pendientes li { padding: 5px 0; border-top: 1px solid var(--hu-line); } .pendientes li:first-child { border-top: 0; }
+.pestanas { display: flex; gap: 4px; margin: 6px 0 14px; border-bottom: 1px solid var(--hu-card-line); } .pestana { padding: 8px 16px; text-decoration: none; color: var(--hu-gray); border: 1px solid transparent; border-bottom: 0; } .pestana.activa { background: #fff; color: var(--hu-red); font-weight: 700; border-color: var(--hu-card-line); }
+.crono th.feriado { background: var(--hu-gray); }

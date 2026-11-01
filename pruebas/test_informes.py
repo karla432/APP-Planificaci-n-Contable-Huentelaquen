@@ -152,8 +152,48 @@ def test_el_titular_resume_el_cierre_contra_el_plan_y_hay_cifra_grande(mundo):
 
 def test_requiere_tu_atencion_muestra_lo_que_el_perfil_debe_hacer(mundo):
     jefa = ver(mundo["u"]["jefa"], "informe_panel")
-    atencion = jefa.split("Requiere tu atención")[1].split("Próximos")[0] if "Próximos" in jefa else jefa.split("Requiere tu atención")[1]
+    atencion = jefa.split("Requiere atención")[1]
     assert "Subtarea TAR-0002" in atencion and "Por revisar" in atencion  # la Jefa revisa lo hecho por la Contadora
-    assert "Subtarea TAR-0001" in atencion  # y ve lo atrasado
+    assert "Subtarea TAR-0001" in atencion  # y se ve lo atrasado, agrupado por quien debe actuar
+    from nucleo.models import Cargo
+    Cargo.objects.filter(nombre="Jefa de Control").update(orden=2)
+    Cargo.objects.filter(nombre="Contador Senior").update(orden=3)
+    atencion = ver(mundo["u"]["jefa"], "informe_panel").split("Requiere atención")[1]
+    assert atencion.index("Jefa de Control") < atencion.index("Contador Senior")  # ordenado por responsable, en el orden de los cargos
     cont = ver(mundo["u"]["cont"], "informe_panel")
-    assert "Mis tareas abiertas" in cont and "Subtarea TAR-0001" in cont.split("Mis tareas abiertas")[1]
+    assert "Mis pendientes" in cont and "Subtarea TAR-0001" in cont.split("Mis pendientes")[1]
+
+
+# ---- Mejoras del QA de Karla (01-11-2026) -------------------------------------------------------------
+
+
+def test_el_panel_no_repite_el_cumplimiento_por_colaborador_y_remite_a_su_pantalla(mundo):
+    html = ver(mundo["u"]["lectura"], "informe_panel")
+    assert "Hechas a tiempo ÷ tareas que ya vencieron" not in html and "Informes → Cumplimiento por colaborador" in html
+    assert "Cómo se calcula" in ver(mundo["u"]["lectura"], "informe_cumplimiento")  # sigue en su propio menú
+
+
+def test_se_pueden_ver_las_atrasadas_pinchando_el_numero(mundo):
+    html = ver(mundo["u"]["lectura"], "informe_panel", ver="atrasadas")
+    lista = html.split('id="listado"')[1].split("</section>")[0]
+    assert "Tareas atrasadas" in lista and "Subtarea TAR-0001" in lista and "Atrasada" in lista and "Subtarea TAR-0002" not in lista
+
+
+def test_se_ven_las_tareas_de_un_dia_pinchando_el_dia_de_la_ruta(mundo):
+    html = ver(mundo["u"]["lectura"], "informe_panel", fecha="2026-12-03")
+    lista = html.split('id="listado"')[1].split("</section>")[0]
+    assert "03-12-2026" in lista and "Subtarea TAR-0001" in lista and "Subtarea TAR-0002" not in lista  # TAR-0002 vence el 04-12
+    assert 'href="?mes=2026-12&fecha=2026-12-03#listado"' in html  # el día de la ruta es un enlace
+
+
+def test_el_avance_por_proceso_sigue_el_orden_de_los_codigos(mundo):
+    from nucleo.servicios import estructura, kpi
+    from nucleo.models import Periodo, Proceso
+    periodo = Periodo.objects.get()
+    nombres = [a.proceso for a in kpi.avance_por_proceso(periodo, HOY)]
+    assert nombres == list(Proceso.objects.filter(nombre__in=nombres).values_list("nombre", flat=True))  # mismo orden que el de ejecución
+    primero = Proceso.objects.filter(nombre__in=nombres).last()
+    estructura.reordenar_procesos(mundo["u"]["jefa"], [primero.pk] + [p.pk for p in Proceso.objects.exclude(pk=primero.pk)])
+    assert [a.proceso for a in kpi.avance_por_proceso(periodo, HOY)][0] == primero.nombre
+    primero.refresh_from_db()
+    assert primero.codigo.startswith("01-") and f"{primero.codigo}</strong> · {primero.nombre}" in ver(mundo["u"]["lectura"], "informe_panel")

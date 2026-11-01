@@ -114,3 +114,25 @@ def test_las_celdas_se_marcan_por_estado_con_texto(mundo):
 def test_tocar_una_celda_lista_sus_tareas(mundo):
     h = ver(mundo["u"]["lectura"], "informe_cronograma", proceso=mundo["proceso"]["Compras"].pk, dia=3)
     assert "Subtarea TAR-0001" in h and "Subtarea TAR-0002" in h and "Subtarea TAR-0003" not in h
+
+
+def test_el_cronograma_se_puede_ver_por_semana_y_por_mes(mundo):
+    semana = ver(mundo["u"]["lectura"], "informe_cronograma", vista="semana", fecha="2026-12-03")
+    assert "Semana del 30-11-2026 al 04-12-2026" in semana and "Semana anterior" in semana and "Semana siguiente" in semana
+    assert "Compras" in semana and "Día 1" not in semana  # las columnas son lunes a viernes, no «Día N»
+    mes = ver(mundo["u"]["lectura"], "informe_cronograma", vista="mes")
+    assert "Mes completo" in mes and mes.count('<th class="c') >= 20  # una columna por cada día hábil del mes
+    assert "Compras" in mes
+    for vista in ("cierre", "semana", "mes"):
+        assert f"vista={vista}" in mes  # las tres pestañas están siempre
+
+
+def test_tocar_una_celda_en_la_vista_semanal_lista_las_tareas_de_ese_dia(mundo):
+    h = ver(mundo["u"]["lectura"], "informe_cronograma", vista="semana", fecha="2026-12-03", proceso=mundo["proceso"]["Compras"].pk, dia="2026-12-03")
+    assert "Subtarea TAR-0001" in h and "Subtarea TAR-0002" in h and "Subtarea TAR-0003" not in h
+
+
+def test_una_vista_o_fecha_invalida_cae_en_el_cierre(mundo):
+    h = ver(mundo["u"]["lectura"], "informe_cronograma", vista="inventada")
+    assert "Día 1" in h
+    assert ver(mundo["u"]["lectura"], "informe_cronograma", vista="semana", fecha="xx")
