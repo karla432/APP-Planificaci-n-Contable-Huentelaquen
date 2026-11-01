@@ -81,6 +81,8 @@ def _accion(request, primero: date):
                 raise ErrorDeNegocio("La fecha de inicio de la medición debe estar dentro del mes que se abre.")
         res = periodos.abrir_mes(anio, mes, request.user, inicio)
         texto = f"Mes {mes:02d}-{anio} abierto: {res.creadas} ocurrencias nuevas; {res.ya_existian} ya existían."
+        if res.pausadas or res.reasignadas:
+            texto += f" Por la semana del cierre: {res.pausadas} se pausaron y {res.reasignadas} las hace otro cargo."
         return texto + (f" {len(res.avisos)} tarea(s) quedaron sin generar: revisa los avisos." if res.avisos else "")
     raise ErrorDeNegocio("Acción desconocida.")
 

@@ -35,6 +35,11 @@
     <label for="fecha_inicio">Fecha de inicio</label><input id="fecha_inicio" name="fecha_inicio" type="date" value="{{ v.fecha_inicio }}">
     <label for="fecha_termino">Fecha de término</label><input id="fecha_termino" name="fecha_termino" type="date" value="{{ v.fecha_termino }}">
     <label for="observaciones">Observaciones</label><textarea id="observaciones" name="observaciones" rows="2">{{ v.observaciones }}</textarea></fieldset>
+  <fieldset><legend>Semana del cierre</legend>
+    <p class="ayuda">La semana del cierre va del primer día hábil del mes al día 8 (reportes listos). Para que el equipo se enfoque en el cierre, una tarea de operación se puede <strong>pausar</strong> esa semana o dejar que la haga <strong>otro cargo</strong>.</p>
+    <label for="modo_cierre">En la semana del cierre</label><select id="modo_cierre" name="modo_cierre">{% for k, n in modos_cierre %}<option value="{{ k }}" {% if v.modo_cierre == k %}selected{% endif %}>{{ n }}</option>{% endfor %}</select>
+    <div class="grupo-modo" data-modo="reasignar"><label for="cargo_cierre">La hace</label><select id="cargo_cierre" name="cargo_cierre"><option value="">—</option>{% for c in cargos %}<option value="{{ c.pk }}" {% if v.cargo_cierre == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}</select>
+      <label for="revisa_cierre">La revisa (si queda vacío, quien la revisa siempre)</label><select id="revisa_cierre" name="revisa_cierre"><option value="">—</option>{% for c in cargos %}<option value="{{ c.pk }}" {% if v.revisa_cierre == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}</select></div></fieldset>
   <label for="referencia">Referencia normativa (opcional)</label><textarea id="referencia" name="referencia" rows="2">{{ v.referencia }}</textarea>
   <label class="check"><input type="checkbox" name="activa" {% if v.activa %}checked{% endif %}> Tarea activa</label>
   <p><button class="btn" type="submit">Guardar</button> <a class="btn btn-2" href="{% url 'mant_tareas' %}">Cancelar</a></p>
@@ -44,6 +49,8 @@
   var tipo = document.getElementById('tipo');
   function mostrar() { document.querySelectorAll('.grupo').forEach(function (g) { g.hidden = g.dataset.para.split(' ').indexOf(tipo.value) < 0; }); }
   tipo.addEventListener('change', mostrar); mostrar();
+  var modo = document.getElementById('modo_cierre'), g = document.querySelector(".grupo-modo");
+  function modos() { g.hidden = modo.value !== 'reasignar'; } modo.addEventListener('change', modos); modos();
   var ini = document.getElementById('fecha_inicio'), fin = document.getElementById('fecha_termino');
   function limite() { fin.min = ini.value || ''; } ini.addEventListener('change', limite); limite();
 })();

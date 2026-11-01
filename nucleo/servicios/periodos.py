@@ -15,6 +15,7 @@ from django.db import transaction
 from nucleo.models import Anio, Asignacion, Ocurrencia, Periodo, Tarea
 from nucleo.servicios import auditoria, parametros
 from nucleo.servicios.errores import ErrorDeNegocio
+from nucleo.servicios.calendario import ventana_del_cierre
 from nucleo.servicios.feriados import calendario_confirmado
 from nucleo.servicios.recurrencia import ReglaIncompleta, ReglaInvalida, fechas_limite
 
@@ -31,6 +32,8 @@ class ItemOcurrencia:
     tarea: Tarea
     fecha: date
     colaborador: object  # Colaborador o None (cargos externos)
+    cargo_ejecuta: object = None  # quien la hace ese día (en la semana del cierre puede ser otro cargo)
+    cargo_revisa: object = None
 
 
 @dataclass
@@ -41,6 +44,8 @@ class VistaPreviaMes:
     ocurrencias: list = field(default_factory=list)
     avisos: list = field(default_factory=list)
     ya_existian: int = 0
+    pausadas: list = field(default_factory=list)  # (tarea, fecha) que no se generan por la semana del cierre
+    reasignadas: int = 0  # ocurrencias que en la semana del cierre las hace otro cargo
 
 
 @dataclass
@@ -49,6 +54,8 @@ class Resultado:
     creadas: int
     ya_existian: int
     avisos: list
+    pausadas: int = 0  # ocurrencias que no se generaron por la semana del cierre
+    reasignadas: int = 0  # ocurrencias que en la semana del cierre las hace otro cargo
 
 
 def _regla_a_dict(regla) -> dict:
@@ -66,6 +73,7 @@ def vista_previa(anio: int, mes: int, inicio_medicion: date | None = None) -> Vi
 
     cal = calendario_confirmado()
     min_dias = parametros.entero("min_dias_habiles_d7_d10")
+    desde_cierre, hasta_cierre = ventana_del_cierre(cal, anio, mes, min_dias)  # la semana del cierre: del primer día hábil al día 8 (reportes listos)
     vigentes: dict[int, list] = {}
     for a in Asignacion.objects.select_related("colaborador").filter(colaborador__activo=True):
         vigentes.setdefault(a.cargo_id, []).append(a)
@@ -93,23 +101,32 @@ def vista_previa(anio: int, mes: int, inicio_medicion: date | None = None) -> Vi
             vp.avisos.append(Aviso("regla_invalida", t, str(e)))
             continue
 
-        items, problema = [], None
+        items, problema, pausadas, reasignadas = [], None, [], 0
         for f in fechas:
-            if t.cargo_ejecuta.es_externo:
-                items.append(ItemOcurrencia(t, f, None))
+            ejecuta, revisa = t.cargo_ejecuta, t.cargo_revisa
+            if t.modo_cierre != "igual" and desde_cierre <= f <= hasta_cierre:  # semana del cierre
+                if t.modo_cierre == "pausar":
+                    pausadas.append((t, f))
+                    continue
+                if t.cargo_cierre_id:
+                    ejecuta, revisa, reasignadas = t.cargo_cierre, t.cargo_revisa_cierre or t.cargo_revisa, reasignadas + 1
+            if ejecuta.es_externo:
+                items.append(ItemOcurrencia(t, f, None, ejecuta, revisa))
                 continue
-            personas = [a.colaborador for a in vigentes.get(t.cargo_ejecuta_id, []) if a.desde <= f and (a.hasta is None or a.hasta >= f)]
+            personas = [a.colaborador for a in vigentes.get(ejecuta.pk, []) if a.desde <= f and (a.hasta is None or a.hasta >= f)]
             if not personas:
-                problema = Aviso("sin_responsable", t, f"El cargo «{t.cargo_ejecuta}» no tiene persona vigente el {f:%d-%m-%Y}.")
+                problema = Aviso("sin_responsable", t, f"El cargo «{ejecuta}» no tiene persona vigente el {f:%d-%m-%Y}.")
                 break
             if len(personas) > 1:
-                problema = Aviso("varias_personas", t, f"El cargo «{t.cargo_ejecuta}» tiene más de una persona vigente el {f:%d-%m-%Y}.")
+                problema = Aviso("varias_personas", t, f"El cargo «{ejecuta}» tiene más de una persona vigente el {f:%d-%m-%Y}.")
                 break
-            items.append(ItemOcurrencia(t, f, personas[0]))
+            items.append(ItemOcurrencia(t, f, personas[0], ejecuta, revisa))
         if problema:
             vp.avisos.append(problema)
         else:
             vp.ocurrencias.extend(items)
+            vp.pausadas.extend(pausadas)
+            vp.reasignadas += reasignadas
     vp.ocurrencias.sort(key=lambda i: (i.fecha, i.tarea.codigo))
     return vp
 
@@ -120,13 +137,13 @@ def abrir_mes(anio: int, mes: int, usuario, inicio_medicion: date | None = None)
     periodo, _ = Periodo.objects.get_or_create(anio=anio, mes=mes, defaults={"inicio_medicion": vp.inicio_medicion})
     Ocurrencia.objects.bulk_create([
         Ocurrencia(
-            tarea=i.tarea, periodo=periodo, fecha_limite=i.fecha, cargo_ejecuta=i.tarea.cargo_ejecuta, colaborador=i.colaborador,
-            cargo_revisa=i.tarea.cargo_revisa, regla_copia=_regla_a_dict(i.tarea.regla()), minutos_estimados=i.tarea.minutos_estimados,
-            tipo_marca="RECIBIDA" if i.tarea.cargo_ejecuta.es_externo else "HECHA",
+            tarea=i.tarea, periodo=periodo, fecha_limite=i.fecha, cargo_ejecuta=i.cargo_ejecuta or i.tarea.cargo_ejecuta, colaborador=i.colaborador,
+            cargo_revisa=i.cargo_revisa if i.cargo_ejecuta else i.tarea.cargo_revisa, regla_copia=_regla_a_dict(i.tarea.regla()), minutos_estimados=i.tarea.minutos_estimados,
+            tipo_marca="RECIBIDA" if (i.cargo_ejecuta or i.tarea.cargo_ejecuta).es_externo else "HECHA",
         )
         for i in vp.ocurrencias
     ])
-    res = Resultado(periodo, len(vp.ocurrencias), vp.ya_existian, vp.avisos)
+    res = Resultado(periodo, len(vp.ocurrencias), vp.ya_existian, vp.avisos, len(vp.pausadas), vp.reasignadas)
     auditoria.registrar(
         "periodo.abierto", usuario=usuario, entidad="Periodo", entidad_id=f"{mes:02d}-{anio}",
         despues={"creadas": res.creadas, "ya_existian": res.ya_existian, "avisos": len(res.avisos), "inicio_medicion": str(vp.inicio_medicion) if vp.inicio_medicion else None},

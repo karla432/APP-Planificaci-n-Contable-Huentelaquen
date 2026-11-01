@@ -6,7 +6,7 @@ import openpyxl
 import pytest
 from django.conf import settings
 
-from nucleo.models import EventoAuditoria, Proceso, Tarea
+from nucleo.models import Cargo, EventoAuditoria, Proceso, Tarea
 from nucleo.servicios import excel_masivo, importador
 from nucleo.servicios.errores import ErrorDeNegocio, PermisoDenegado
 from pruebas.ayudas import cargo, persona, usuario_con_rol
@@ -294,3 +294,30 @@ def test_los_procesos_que_no_estan_en_el_archivo_quedan_despues_como_estaban(bas
     nombres = list(Proceso.objects.values_list("nombre", flat=True))
     assert nombres[0] == "Compras" and nombres[1] == "Seguimiento" and len(nombres) == 35
     assert sorted(Proceso.objects.values_list("orden", flat=True)) == list(range(1, 36))
+
+
+# ---- Semana del cierre ---------------------------------------------------------------------------------------------------
+
+
+def test_la_semana_del_cierre_viaja_en_la_planilla_y_se_puede_cargar(base, jefa):
+    t = Tarea.objects.filter(regla_tipo="DIARIA_HABIL").first()
+    t.modo_cierre, t.cargo_cierre, t.cargo_revisa_cierre = "reasignar", Cargo.objects.get(nombre="Asistente Contable"), Cargo.objects.get(nombre="Contador Senior")
+    t.save()
+    contenido = excel_masivo.exportar_tareas()
+    fila = next(f for f in filas(contenido) if f[0] == t.codigo)
+    assert fila[12:15] == ["Reasignar", "Asistente Contable", "Contador Senior"]
+    vp = importador.previsualizar(io.BytesIO(contenido), incluir_dia_9=False)
+    assert not vp.altas and not vp.cambios and not vp.bajas  # ida y vuelta sin cambios
+    # editar: pausarla en vez de reasignarla
+    fila_excel = 4 + [f[0] for f in filas(contenido)].index(t.codigo)
+    nuevo = editado(contenido, lambda h: (setattr(h.cell(row=fila_excel, column=13), "value", "Pausar"), setattr(h.cell(row=fila_excel, column=14), "value", None), setattr(h.cell(row=fila_excel, column=15), "value", None)))
+    assert excel_masivo.aplicar_tareas(jefa, nuevo, "x.xlsx")["cambios"] == 1
+    t.refresh_from_db()
+    assert (t.modo_cierre, t.cargo_cierre, t.cargo_revisa_cierre) == ("pausar", None, None)
+
+
+def test_reasignar_sin_responsable_en_el_cierre_no_se_deja_aplicar(base, jefa):
+    contenido = excel_masivo.exportar_tareas()
+    nuevo = editado(contenido, lambda h: setattr(h.cell(row=4, column=13), "value", "Reasignar"))
+    with pytest.raises(ErrorDeNegocio, match="responsable en el cierre"):
+        excel_masivo.aplicar_tareas(jefa, nuevo, "x.xlsx")

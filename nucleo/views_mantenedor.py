@@ -96,13 +96,14 @@ def _valores_de(t: Tarea | None) -> dict:
     if t is None:
         return {"proceso": "", "tarea_principal": "", "subtarea": "", "cargo_ejecuta": "", "tipo": "CIERRE_DIA_HABIL", "dia_semana": "", "franja": "", "n": "", "dia": "",
                 "meses": [], "ajuste": "siguiente", "referencia": "", "activa": True, "cargo_revisa": "", "horas": "", "estado_plan": "pendiente", "fecha_inicio": "",
-                "fecha_termino": "", "observaciones": ""}
+                "fecha_termino": "", "observaciones": "", "modo_cierre": "igual", "cargo_cierre": "", "revisa_cierre": ""}
     return {"proceso": str(t.proceso_id), "tarea_principal": t.tarea_principal, "subtarea": t.subtarea, "cargo_ejecuta": str(t.cargo_ejecuta_id), "tipo": t.regla_tipo,
             "dia_semana": "" if t.regla_dia_semana is None else str(t.regla_dia_semana), "franja": t.regla_franja, "n": "" if t.regla_n is None else str(t.regla_n),
             "dia": "" if t.regla_dia is None else str(t.regla_dia), "meses": [m for m in t.regla_meses.split(",") if m], "ajuste": t.regla_ajuste,
             "referencia": t.referencia_normativa, "activa": t.activa, "cargo_revisa": str(t.cargo_revisa_id or ""),
             "horas": "" if t.minutos_estimados is None else str(round(t.minutos_estimados / 60, 2)).replace(".", ","), "estado_plan": t.estado_plan,
-            "fecha_inicio": str(t.fecha_inicio or ""), "fecha_termino": str(t.fecha_termino or ""), "observaciones": t.observaciones}
+            "fecha_inicio": str(t.fecha_inicio or ""), "fecha_termino": str(t.fecha_termino or ""), "observaciones": t.observaciones,
+            "modo_cierre": t.modo_cierre, "cargo_cierre": str(t.cargo_cierre_id or ""), "revisa_cierre": str(t.cargo_revisa_cierre_id or "")}
 
 
 def _valores_de_post(post) -> dict:
@@ -110,7 +111,8 @@ def _valores_de_post(post) -> dict:
             "tipo": post.get("tipo", ""), "dia_semana": post.get("dia_semana", ""), "franja": post.get("franja", ""), "n": post.get("n", ""), "dia": post.get("dia", ""),
             "meses": post.getlist("meses"), "ajuste": post.get("ajuste", "siguiente"), "referencia": post.get("referencia", ""), "activa": post.get("activa") == "on", "cargo_revisa": post.get("cargo_revisa", ""),
             "horas": post.get("horas", ""), "estado_plan": post.get("estado_plan", "pendiente"), "fecha_inicio": post.get("fecha_inicio", ""),
-            "fecha_termino": post.get("fecha_termino", ""), "observaciones": post.get("observaciones", "")}
+            "fecha_termino": post.get("fecha_termino", ""), "observaciones": post.get("observaciones", ""), "modo_cierre": post.get("modo_cierre", "igual"),
+            "cargo_cierre": post.get("cargo_cierre", ""), "revisa_cierre": post.get("revisa_cierre", "")}
 
 
 def _datos_de(v: dict) -> mantenedor.DatosTarea:
@@ -119,6 +121,7 @@ def _datos_de(v: dict) -> mantenedor.DatosTarea:
         dia_semana=_entero(v["dia_semana"]), franja=v["franja"], n=_entero(v["n"]), dia=_entero(v["dia"]), meses=tuple(m for m in (_entero(x) for x in v["meses"]) if m),
         ajuste=v["ajuste"], referencia=v["referencia"], activa=v["activa"], cargo_revisa_id=_entero(v["cargo_revisa"]), minutos=_minutos(v["horas"]),
         estado_plan=v["estado_plan"], fecha_inicio=_fecha(v["fecha_inicio"]), fecha_termino=_fecha(v["fecha_termino"]), observaciones=v["observaciones"],
+        modo_cierre=v["modo_cierre"], cargo_cierre_id=_entero(v["cargo_cierre"]), cargo_revisa_cierre_id=_entero(v["revisa_cierre"]),
     )
 
 
@@ -140,7 +143,7 @@ def _formulario_tarea(request, tarea: Tarea | None):
             error = str(e)
     return render(request, "nucleo/mant_tarea_form.html", {
         "tarea": tarea, "v": valores, "error": error, "procesos": Proceso.objects.filter(activo=True), "cargos": Cargo.objects.filter(activo=True),
-        "tipos": TIPOS, "dias": DIAS, "meses": MESES, "estados": ESTADOS_PLAN, "tareas_existentes": TareaPrincipal.objects.select_related("proceso").order_by("proceso__orden", "numero"),
+        "tipos": TIPOS, "dias": DIAS, "meses": MESES, "estados": ESTADOS_PLAN, "modos_cierre": Tarea.MODOS_CIERRE, "tareas_existentes": TareaPrincipal.objects.select_related("proceso").order_by("proceso__orden", "numero"),
     })
 
 

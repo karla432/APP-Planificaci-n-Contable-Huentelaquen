@@ -45,6 +45,9 @@ class DatosTarea:
     fecha_inicio: date | None = None
     fecha_termino: date | None = None
     observaciones: str = ""
+    modo_cierre: str = "igual"  # semana del cierre: igual / reasignar / pausar
+    cargo_cierre_id: int | None = None
+    cargo_revisa_cierre_id: int | None = None
 
 
 def _validar(d: DatosTarea) -> str:
@@ -57,6 +60,13 @@ def _validar(d: DatosTarea) -> str:
         raise ErrorDeNegocio(f"La periodicidad «{d.tipo}» no existe.")
     if d.estado_plan not in dict(ESTADOS_PLAN):
         raise ErrorDeNegocio("El estado elegido no existe.")
+    if d.modo_cierre not in dict(Tarea.MODOS_CIERRE):
+        raise ErrorDeNegocio("Lo que pasa en la semana del cierre no es válido.")
+    if d.modo_cierre == "reasignar":
+        if not d.cargo_cierre_id or not Cargo.objects.filter(pk=d.cargo_cierre_id).exists():
+            raise ErrorDeNegocio("Elige quién la hace en la semana del cierre.")
+        if d.cargo_cierre_id == d.cargo_ejecuta_id:
+            raise ErrorDeNegocio("Quien la hace en la semana del cierre debe ser otro cargo; si es el mismo, déjala igual.")
     if d.fecha_inicio and d.fecha_termino and d.fecha_termino < d.fecha_inicio:
         raise ErrorDeNegocio("La fecha de término no puede ser anterior a la fecha de inicio.")
     if d.ajuste not in AJUSTES:
@@ -98,6 +108,7 @@ def _instantanea(t: Tarea) -> dict:
         "referencia_normativa": t.referencia_normativa, "activa": t.activa, "requiere_revision": t.requiere_revision,
         "minutos_estimados": t.minutos_estimados, "codigo": t.codigo, "estado_plan": t.estado_plan, "fecha_inicio": str(t.fecha_inicio or ""),
         "fecha_termino": str(t.fecha_termino or ""), "observaciones": t.observaciones,
+        "modo_cierre": t.modo_cierre, "cargo_cierre": t.cargo_cierre.nombre if t.cargo_cierre else None,
     }
 
 
@@ -119,6 +130,9 @@ def _aplicar(t: Tarea, d: DatosTarea, motivo: str):
     t.regla_ajuste, t.regla_franja, t.regla_estado = d.ajuste, d.franja, "confirmado"
     t.referencia_normativa, t.activa = d.referencia.strip(), d.activa
     t.estado_plan, t.fecha_inicio, t.fecha_termino, t.observaciones = d.estado_plan, d.fecha_inicio, d.fecha_termino, d.observaciones.strip()
+    t.modo_cierre = d.modo_cierre
+    t.cargo_cierre = Cargo.objects.filter(pk=d.cargo_cierre_id).first() if d.modo_cierre == "reasignar" else None
+    t.cargo_revisa_cierre = Cargo.objects.filter(pk=d.cargo_revisa_cierre_id).first() if d.modo_cierre == "reasignar" and d.cargo_revisa_cierre_id else None
     if t.activa:  # una subtarea activa necesita su proceso y su tarea activos
         if not proceso.activo:
             raise ErrorDeNegocio("El proceso está desactivado: actívalo antes de activar sus tareas.")

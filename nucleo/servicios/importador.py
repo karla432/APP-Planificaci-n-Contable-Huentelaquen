@@ -140,6 +140,9 @@ class FilaImport:
     horas: float | None = None
     ejecuciones: float | None = None
     fuente_horas: str = "estimacion"
+    modo_cierre: str = "igual"  # qué pasa en la semana del cierre: igual / reasignar / pausar
+    cargo_cierre: str = ""
+    revisa_cierre: str = ""
     clave: str = ""
     conversion: Conversion | None = None
 
@@ -179,6 +182,16 @@ def _numero(valor):
         return None
 
 
+def _modo_cierre(valor) -> str:
+    """«Reasignar» / «Pausar» / vacío, como lo escribe una persona en el Excel."""
+    v = _sin_acentos(normalizar(valor).casefold())
+    if v.startswith("reasign") or v.startswith("otro"):
+        return "reasignar"
+    if v.startswith("paus"):
+        return "pausar"
+    return "igual"
+
+
 def _cargo_de_la_app(nombre: str) -> str:
     return NOMBRES_DE_CARGO.get(nombre, nombre)
 
@@ -216,7 +229,8 @@ def leer_excel(ruta) -> list[FilaImport]:
 
     idx = {k: col(v) for k, v in {"proceso": "Proceso", "tarea": "Tarea principal", "sub": "Subtarea", "ejecuta": "Responsable (ejecuta)", "revisa": "Revisa",
                                   "per": "Periodicidad", "cuando": "Cuándo", "obs": "Observación"}.items()}
-    opc = {k: col(v, True) for k, v in {"fecha": "Fecha 1.ª vez", "dia": "Día cierre", "horas": "Horas por ejecución", "ejec": "Ejecuciones por mes"}.items()}
+    opc = {k: col(v, True) for k, v in {"fecha": "Fecha 1.ª vez", "dia": "Día cierre", "horas": "Horas por ejecución", "ejec": "Ejecuciones por mes",
+                                        "modo": "Semana del cierre", "cargo_cierre": "Responsable en el cierre", "revisa_cierre": "Revisa en el cierre"}.items()}
     resultado = []
     for n, r in enumerate(filas[inicio + 1:], start=inicio + 2):
         if not (normalizar(r[idx["tarea"]]) or normalizar(r[idx["sub"]])):
@@ -234,6 +248,9 @@ def leer_excel(ruta) -> list[FilaImport]:
             fecha_1ra=r[opc["fecha"]] if opc["fecha"] is not None else None, observacion=normalizar(r[idx["obs"]]),
             dia_cierre=int(dia) if dia else None, horas=_numero(r[opc["horas"]]) if opc["horas"] is not None else None,
             ejecuciones=_numero(r[opc["ejec"]]) if opc["ejec"] is not None else None, fuente_horas=fuente,
+            modo_cierre=_modo_cierre(r[opc["modo"]]) if opc["modo"] is not None else "igual",
+            cargo_cierre=_cargo_de_la_app(normalizar(r[opc["cargo_cierre"]])) if opc["cargo_cierre"] is not None else "",
+            revisa_cierre=_cargo_de_la_app(normalizar(r[opc["revisa_cierre"]])) if opc["revisa_cierre"] is not None else "",
         ))
     return resultado
 
@@ -253,6 +270,7 @@ def _valores(fila: FilaImport) -> dict:
         "minutos_estimados": round(fila.horas * 60) if fila.horas is not None else None,
         "ejecuciones_mes": round(fila.ejecuciones, 3) if fila.ejecuciones is not None else None,
         "fuente_horas": fila.fuente_horas, "dia_cierre": fila.dia_cierre,
+        "modo_cierre": fila.modo_cierre, "cargo_cierre": fila.cargo_cierre or None, "cargo_revisa_cierre": fila.revisa_cierre or None,
     }
 
 
@@ -266,6 +284,7 @@ def _valores_actuales(t: Tarea) -> dict:
         "requiere_revision": t.requiere_revision, "motivo_revision": t.motivo_revision,
         "minutos_estimados": t.minutos_estimados, "ejecuciones_mes": round(float(t.ejecuciones_mes), 3) if t.ejecuciones_mes is not None else None,
         "fuente_horas": t.fuente_horas, "dia_cierre": t.dia_cierre,
+        "modo_cierre": t.modo_cierre, "cargo_cierre": t.cargo_cierre.nombre if t.cargo_cierre else None, "cargo_revisa_cierre": t.cargo_revisa_cierre.nombre if t.cargo_revisa_cierre else None,
     }
 
 
@@ -320,7 +339,7 @@ def previsualizar(ruta, calendario: Calendario | None = None, incluir_dia_9: boo
             vp.inconsistencias_fecha.append((f, aviso))
         if f.proceso not in procesos and f.proceso not in vp.procesos_nuevos:
             vp.procesos_nuevos.append(f.proceso)
-        for nombre in (f.ejecuta, valores["cargo_revisa"]):
+        for nombre in (f.ejecuta, valores["cargo_revisa"], valores["cargo_cierre"], valores["cargo_revisa_cierre"]):
             if nombre and nombre not in cargos and nombre not in vp.cargos_nuevos:
                 vp.cargos_nuevos.append(nombre)
         actual = existentes.get(f.clave)
@@ -344,8 +363,10 @@ def _cargo(nombre: str) -> Cargo:
 def _aplicar_valores(tarea: Tarea, valores: dict):
     tarea.cargo_ejecuta = _cargo(valores["cargo_ejecuta"]) if valores["cargo_ejecuta"] else tarea.cargo_ejecuta
     tarea.cargo_revisa = _cargo(valores["cargo_revisa"]) if valores["cargo_revisa"] else None
+    tarea.cargo_cierre = _cargo(valores["cargo_cierre"]) if valores["cargo_cierre"] else None
+    tarea.cargo_revisa_cierre = _cargo(valores["cargo_revisa_cierre"]) if valores["cargo_revisa_cierre"] else None
     for k, v in valores.items():
-        if k not in ("cargo_ejecuta", "cargo_revisa"):
+        if k not in ("cargo_ejecuta", "cargo_revisa", "cargo_cierre", "cargo_revisa_cierre"):
             setattr(tarea, k, v)
 
 

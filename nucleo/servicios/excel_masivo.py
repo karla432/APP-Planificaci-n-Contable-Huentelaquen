@@ -34,7 +34,7 @@ MAX_DESCOMPRIMIDO = 50 * 1024 * 1024
 MAX_FILAS = 5000
 TITULO = "Hacienda Huentelauquén · Listado maestro de tareas AyF"
 ENCABEZADOS = ["Código", "Proceso", "Tarea principal", "Subtarea", "Responsable (ejecuta)", "Revisa", "Periodicidad", "Cuándo", "Observación",
-               "Día cierre", "Horas por ejecución", "Ejecuciones por mes"]
+               "Día cierre", "Horas por ejecución", "Ejecuciones por mes", "Semana del cierre", "Responsable en el cierre", "Revisa en el cierre"]
 VERDE = PatternFill("solid", start_color=importador.RELLENO_GERENTE, end_color=importador.RELLENO_GERENTE)
 GRIS = PatternFill("solid", start_color="FFEDEDED", end_color="FFEDEDED")
 
@@ -103,16 +103,17 @@ def exportar_tareas() -> bytes:
     for i, e in enumerate(ENCABEZADOS, start=1):
         c = hoja.cell(row=3, column=i, value=e)
         c.font, c.fill = Font(bold=True), GRIS
-    tareas = Tarea.objects.filter(activa=True).select_related("proceso", "cargo_ejecuta", "cargo_revisa").order_by("proceso__orden", "secuencia", "codigo")
+    tareas = Tarea.objects.filter(activa=True).select_related("proceso", "cargo_ejecuta", "cargo_revisa", "cargo_cierre", "cargo_revisa_cierre").order_by("proceso__orden", "secuencia", "codigo")
     for n, t in enumerate(tareas, start=4):
         per, cua = texto_de_periodicidad(t)
         valores = [t.codigo, t.proceso.nombre, t.tarea_principal, t.subtarea, t.cargo_ejecuta.nombre, _revisa(t), per, cua, t.referencia_normativa, t.dia_cierre,
-                   None if t.minutos_estimados is None else round(t.minutos_estimados / 60, 4), None if t.ejecuciones_mes is None else float(t.ejecuciones_mes)]
+                   None if t.minutos_estimados is None else round(t.minutos_estimados / 60, 4), None if t.ejecuciones_mes is None else float(t.ejecuciones_mes),
+                   {"igual": "", "reasignar": "Reasignar", "pausar": "Pausar"}[t.modo_cierre], t.cargo_cierre.nombre if t.cargo_cierre else "", t.cargo_revisa_cierre.nombre if t.cargo_revisa_cierre else ""]
         for col, v in enumerate(valores, start=1):
             _poner(hoja, n, col, v)
         if t.fuente_horas == "gerente":
             hoja.cell(row=n, column=11).fill = VERDE
-    for col, ancho in zip("ABCDEFGHIJKL", (24, 28, 34, 54, 22, 18, 18, 26, 30, 11, 12, 12)):
+    for col, ancho in zip("ABCDEFGHIJKLMNO", (24, 28, 34, 54, 22, 18, 18, 26, 30, 11, 12, 12, 14, 22, 22)):
         hoja.column_dimensions[col].width = ancho
     hoja.freeze_panes = "C4"
     ayuda = wb.create_sheet("Instrucciones")
@@ -122,8 +123,11 @@ def exportar_tareas() -> bytes:
         "2. La columna «Código» solo sirve para ubicarte: la app no la lee. Una tarea es la misma mientras no cambies Proceso + Tarea principal + Subtarea.",
         "3. Si cambias el texto de Proceso, Tarea principal o Subtarea, la app lo toma como una tarea nueva y desactiva la anterior (te lo avisa en la vista previa).",
         "4. Responsable y Revisa deben ser nombres de cargo que ya existen (por ejemplo «Contador Senior»). «Revisa» puede ir vacío.",
-        "5. Periodicidad y Cuándo: Diaria · Todos los días hábiles / Semanal · Lunes / Mensual (cierre) · Día hábil 3 / Mensual · Día 13 / Mensual · Último día del mes / "
+        "5. Periodicidad y Cuándo: Diaria · Todos los días hábiles / Semanal · Lunes / Mensual (cierre) · Día hábil 3 (del 1 al 7) / Mensual (cierre) · D8, D9 o D10 (días del mes: "
+        "reportes listos en la tarde, Gerente General y Directorio; si caen en día inhábil pasan al hábil siguiente) / Mensual · Día 13 / Mensual · Último día del mes / "
         "Puntual · Día 20 de abril, junio y septiembre.",
+        "5b. Semana del cierre (del primer día hábil al día 8): vacío = la tarea sigue igual · «Pausar» = no se hace esa semana · «Reasignar» = la hace «Responsable en el cierre» "
+        "y la revisa «Revisa en el cierre» (si queda vacío, el revisor de siempre).",
         "6. El ajuste «día hábil siguiente» de un día fijo no se puede escribir aquí: se cambia en Mantenedor → Tareas.",
         "7. Las tareas que no estén en el archivo se DESACTIVAN (no se borran). La app te muestra la lista antes de aplicar y pide confirmación.",
         "8. Celda de horas en verde = horas definidas por la Gerente AyF.",
@@ -307,6 +311,11 @@ def problemas_para_aplicar(vp) -> list[str]:
     for f in list(vp.altas) + [f for _, f, _ in vp.cambios]:
         if not f.ejecuta:
             problemas.append(f"Fila {f.fila}: falta el responsable (ejecuta).")
+    for f in list(vp.altas) + [f for _, f, _ in vp.cambios]:
+        if f.modo_cierre == "reasignar" and not f.cargo_cierre:
+            problemas.append(f"Fila {f.fila}: «Reasignar» necesita el responsable en el cierre.")
+        if f.cargo_cierre and f.cargo_cierre == f.ejecuta and f.modo_cierre == "reasignar":
+            problemas.append(f"Fila {f.fila}: el responsable en el cierre es el mismo de siempre; usa «Pausar» o déjala igual.")
     conocidos = set(importador.ORDEN_CARGOS) | importador.CARGOS_EXTERNOS
     for nombre in vp.cargos_nuevos:
         if nombre not in conocidos:

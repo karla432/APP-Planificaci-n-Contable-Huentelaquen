@@ -69,7 +69,8 @@ def fechas_limite(
     elif regla.tipo == "CIERRE_DIA_HABIL":
         if regla.n is None:
             raise ReglaIncompleta("Falta el número de día hábil.")
-        fechas = [cal.dia_habil_n(anio, mes, regla.n)]
+        # Un día hábil que cae después del día 8 (reportes listos en la tarde) vence ese día 8: nada del cierre pasa del 8 salvo las entregas del 9 y el 10.
+        fechas = [min(cal.dia_habil_n(anio, mes, regla.n), hitos_de_entrega(cal, anio, mes, min_dias_habiles_d7_d10)[8])]
     elif regla.tipo == "CIERRE_HITO":
         if regla.n not in (8, 9, 10):
             raise ReglaInvalida("El hito de cierre debe ser el día 8 (reportes listos), el 9 (Gerente General) o el 10 (Directorio).")
