@@ -103,6 +103,8 @@ def _con_plan(t: Tarea, plan, cargos: dict) -> Tarea:
     c.cargo_ejecuta = cargos.get(plan.ejecuta_id, t.cargo_ejecuta)
     c.regla_tipo, c.regla_n = plan.regla_tipo, plan.regla_n
     c.modo_cierre = plan.modo_cierre
+    if plan.minutos is not None:
+        c.minutos_estimados = plan.minutos
     c.cargo_cierre = cargos.get(plan.cargo_cierre_id) if plan.cargo_cierre_id else None
     c.cargo_revisa_cierre = cargos.get(plan.revisa_cierre_id) if plan.revisa_cierre_id else None
     if (plan.regla_tipo, plan.regla_n) != (t.regla_tipo, t.regla_n):
@@ -241,6 +243,8 @@ def exportar_matriz(anio: int, mes: int) -> bytes:
                  f"{max(0.0, round(despues.horas_semana_cierre - despues.capacidad_semana_cierre, 1))} h. Hay que bajar horas, mover tareas más allá del día 8 o sumar apoyo.") \
         if despues.horas_semana_cierre > despues.capacidad_semana_cierre + 1e-9 else "Con estas horas el trabajo hasta el día 8 cabe en la jornada del equipo."
     r.cell(row=k + 2, column=1, value=veredicto).font = Font(bold=True)
+    for extra, linea in enumerate(matriz.diagnostico(prop), start=5):
+        r.cell(row=k + extra, column=1, value=("Diagnóstico · " if extra == 5 else "") + linea)
     r.cell(row=k + 3, column=1, value=f"Desequilibrio entre el cargo más y el menos ocupado: hoy {antes.desequilibrio_pct} puntos · propuesta {despues.desequilibrio_pct} puntos. Horas de más sobre la jornada (suma de los días con exceso): hoy {round(antes.exceso_total, 1)} h · propuesta {round(despues.exceso_total, 1)} h.")
     r.column_dimensions["A"].width = 26
     for col in "BCDEFGH":

@@ -160,3 +160,4 @@ a.kpi, a.hito { text-decoration: none; color: inherit; } a.kpi:hover b, a.kpi:ho
 .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 24px; } @media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } }
 .ayuda { margin: 4px 0 10px; font-size: 13px; color: var(--hu-gray); } .plan-opcional { margin: 14px 0; padding: 10px 14px; border: 1px solid var(--hu-card-line); background: #fff; } .plan-opcional > summary { cursor: pointer; }
 .adjunto { margin: 4px 0 0 0; font-size: 14px; }
+.diagnostico { margin: 6px 0 0; padding-left: 20px; } .diagnostico li { margin: 6px 0; }

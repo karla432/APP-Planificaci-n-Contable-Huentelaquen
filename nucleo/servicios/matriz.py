@@ -38,6 +38,7 @@ class Plan:
     modo_cierre: str = "igual"
     cargo_cierre_id: int | None = None
     revisa_cierre_id: int | None = None
+    minutos: int | None = None  # horas propuestas por ejecución (vacío = las vigentes)
 
 
 def plan_actual(t: Tarea) -> Plan:
@@ -54,6 +55,7 @@ class Item:
     proceso: str
     horas: float
     tipo: str  # ejecución / revisión
+    cierre: bool = False  # tarea del cierre (días hábiles 1 a 7 o días 8, 9 y 10)
 
 
 @dataclass
@@ -93,9 +95,11 @@ def items_de(t: Tarea, plan: Plan, ctx: Contexto) -> list[Item]:
         fechas = fechas_limite(regla, ctx.anio, ctx.mes, ctx.cal, min_dias_habiles_d7_d10=ctx.min_dias)
     except (ReglaIncompleta, ReglaInvalida, ValueError):
         return []
-    horas = (t.minutos_estimados or 0) / 60
-    if t.minutos_estimados is None:
+    minutos = plan.minutos if plan.minutos is not None else t.minutos_estimados
+    horas = (minutos or 0) / 60
+    if minutos is None:
         ctx.sin_horas.add(t.pk)
+    es_cierre = plan.regla_tipo in CIERRE
     items = []
     for f in fechas:
         ejecuta, revisa = plan.ejecuta_id, plan.revisa_id
@@ -105,9 +109,9 @@ def items_de(t: Tarea, plan: Plan, ctx: Contexto) -> list[Item]:
             if plan.cargo_cierre_id:
                 ejecuta, revisa = plan.cargo_cierre_id, plan.revisa_cierre_id or plan.revisa_id
         if ejecuta in ctx.internos:
-            items.append(Item(f, ejecuta, t.pk, t.codigo, t.subtarea, t.proceso.nombre, horas, "ejecución"))
+            items.append(Item(f, ejecuta, t.pk, t.codigo, t.subtarea, t.proceso.nombre, horas, "ejecución", es_cierre))
         if revisa in ctx.internos and horas:
-            items.append(Item(f, revisa, t.pk, t.codigo, t.subtarea, t.proceso.nombre, horas * ctx.pct_revision, "revisión"))
+            items.append(Item(f, revisa, t.pk, t.codigo, t.subtarea, t.proceso.nombre, horas * ctx.pct_revision, "revisión", es_cierre))
     return items
 
 
@@ -173,6 +177,26 @@ class Matriz:
         if self.sin_horas:
             textos.append(f"{len(self.sin_horas)} tareas no tienen horas estimadas y no suman a la matriz.")
         return textos
+
+    def riesgo_de_cumplimiento(self) -> tuple[int, int]:
+        """(tareas del cierre que caen en un día en que su responsable ya pasó de la jornada, tareas del cierre en la semana del cierre).
+        Una tarea en un día que no cabe es una tarea que probablemente se entregue tarde."""
+        en_riesgo = total = 0
+        for fila in self.filas:
+            for f, items in fila.items.items():
+                if f > self.ctx.hasta:
+                    continue
+                n = sum(1 for it in items if it.tipo == "ejecución" and it.cierre)
+                total += n
+                if fila.exceso(f) > TOLERANCIA:
+                    en_riesgo += n
+        return en_riesgo, total
+
+    @property
+    def cumplimiento_esperado_pct(self) -> float:
+        """Estimación gruesa del % de tareas del cierre que se entregan a tiempo: las que caen en días que caben en la jornada."""
+        en_riesgo, total = self.riesgo_de_cumplimiento()
+        return round((total - en_riesgo) * 100 / total, 1) if total else 100.0
 
     @property
     def exceso_total(self) -> float:
@@ -255,10 +279,45 @@ def _aplicar_reglas_de_operacion(ctx: Contexto, planes: dict, cambios: list):
             cambios.append(Cambio(t, "Semana del cierre", "Igual", "Pausar", f"{_nombre(ctx, p.ejecuta_id)} se enfoca 100 % en el cierre: esta tarea se retoma después del día 8."))
 
 
-def proponer(anio: int, mes: int, ctx: Contexto | None = None, max_pasos: int = 600) -> Propuesta:
-    """Propuesta para el cierre de ese mes: primero las reglas de operación de Karla y luego se reparten las tareas del cierre para que nadie pase de su jornada.
-    Una tarea del cierre solo se mueve a un día posterior (nunca antes: puede depender de información de su día) y como máximo hasta el día 8; solo se reasigna a un
-    cargo que ya trabaja en ese mismo proceso, distinto de quien la revisa. Lo que no cabe se informa, no se esconde."""
+HORAS_PAQUETE = 3.0  # con la skill, el paquete de reportes toma como máximo 3 h (Karla, 01-11-2026)
+PROCESOS_DE_ENTREGA = ("Reportería día 7", "Revisión día 9", "Cierre día 10")  # el paquete del día 8, la revisión del 9 y el cierre del 10: fechas fijas
+PROCESO_PAQUETE = "Reportería día 7"
+PROCESO_ANALISIS = "Análisis de cuentas"
+PROCESO_COSTEO = "Costeo y producción"
+PREFIJOS_COSTO_EN_DESTINO = ("Costo en destino", "Informe de costos")  # lo último que se procesa antes del paquete
+CARGOS_DE_ANALISIS = ("Contador Senior", "Jefa de Control", "Asistente Contable")  # pueden repartirse el análisis de cuentas en paralelo
+GERENTE = "Gerente AyF"
+
+
+def _clasificar(t: Tarea, plan: Plan) -> str:
+    """paquete · fija · costo_en_destino · analisis · normal."""
+    if t.proceso.nombre == PROCESO_PAQUETE and plan.ejecuta_id and t.cargo_ejecuta.nombre == GERENTE:
+        return "paquete"
+    if t.proceso.nombre in PROCESOS_DE_ENTREGA or (t.proceso.nombre == "F29" and plan.regla_tipo == "CIERRE_HITO" and plan.regla_n in (9, 10)):
+        return "fija"
+    if t.proceso.nombre == PROCESO_COSTEO and t.tarea_principal.startswith(PREFIJOS_COSTO_EN_DESTINO):
+        return "costo_en_destino"
+    if t.proceso.nombre == PROCESO_ANALISIS:
+        return "analisis"
+    return "normal"
+
+
+def _texto_dia(plan: Plan) -> str:
+    if plan.regla_tipo == "CIERRE_HITO":
+        return f"Día {plan.regla_n} del mes"
+    return f"Día hábil {plan.regla_n}"
+
+
+def proponer(anio: int, mes: int, ctx: Contexto | None = None, max_pasos: int = 300) -> Propuesta:
+    """Propuesta «en cascada» para el cierre de un mes (control de gestión con foco en el cumplimiento), siguiendo la lógica de Karla:
+
+    1. Las tareas del cierre se hacen **de menor a mayor**, en el orden de los procesos, **ocupando los días desde el 1 en adelante**.
+    2. **Lo último que se procesa es el costo en destino** (el último día de proceso, el «día 7») y **en paralelo** se hace el **análisis de cuentas**, que se reparte
+       entre el Contador Senior, la Jefa de Control y la Asistente Contable.
+    3. El **día 8** solo se procesa: el Gerente AyF prepara el **paquete de reportes** (con la skill, **máximo 3 horas**).
+    4. La Asistente cubre compras y pagos y los otros tres se enfocan en el cierre (reglas de operación).
+    «Día 7» es el último día hábil de proceso antes de la entrega del día 8; si el día 7 cae en inhábil pasa al hábil siguiente.
+    Nada se ejecuta: es una propuesta calculada con horas estimadas."""
     ctx = ctx or contexto(anio, mes)
     planes = {t.pk: plan_actual(t) for t in ctx.tareas.values()}
     cambios: list[Cambio] = []
@@ -267,113 +326,202 @@ def proponer(anio: int, mes: int, ctx: Contexto | None = None, max_pasos: int = 
 
     habiles = ctx.cal.dias_habiles_del_mes(anio, mes)
     indice = {f: n for n, f in enumerate(habiles, start=1)}
-    dias_del_cierre = [f for f in ctx.dias if f <= ctx.hasta]
-    conocen = {}  # proceso → cargos que ya trabajan en él
-    for t in ctx.tareas.values():
-        if t.cargo_ejecuta_id in ctx.internos:
-            conocen.setdefault(t.proceso_id, set()).add(t.cargo_ejecuta_id)
+    ultimo = min(ctx.cal.siguiente_habil(date(anio, mes, 7)), ctx.hasta)  # el «día 7»: el último día de proceso
+    L = max(1, min(indice[ultimo], 7))
+    dias = habiles[:L]
+    gerente = _cargo_por_nombre(ctx, GERENTE)
     tope = {pk: c.horas_mes_max for pk, c in ctx.internos.items() if c.horas_mes_max}
+
+    grupo = {t.pk: _clasificar(t, planes[t.pk]) for t in ctx.tareas.values() if planes[t.pk].regla_tipo in CIERRE and planes[t.pk].ejecuta_id in ctx.internos}
+    movibles = {pk for pk, g in grupo.items() if g != "fija"}
+    motivos: dict[int, str] = {}
+
+    # El paquete de reportes: lo prepara el Gerente AyF el día 8 en un máximo de 3 horas (con la skill).
+    paquete = [t for t in ctx.tareas.values() if grupo.get(t.pk) == "paquete"]
+    total_min = sum(t.minutos_estimados or 0 for t in paquete)
+    if paquete and total_min > HORAS_PAQUETE * 60:
+        escala = HORAS_PAQUETE * 60 / total_min
+        nuevos = [int(round((t.minutos_estimados or 0) * escala)) for t in paquete]
+        nuevos[nuevos.index(max(nuevos))] += int(round(HORAS_PAQUETE * 60)) - sum(nuevos)
+        for t, m in zip(paquete, nuevos):
+            planes[t.pk] = replace(planes[t.pk], minutos=m)
+            motivos[t.pk] = f"Con la skill, el paquete de reportes lo prepara el {GERENTE} el día 8 en un máximo de {HORAS_PAQUETE:g} h en total."
+    movibles -= {t.pk for t in paquete}
 
     items = {t.pk: items_de(t, planes[t.pk], ctx) for t in ctx.tareas.values()}
     carga = {pk: {f: 0.0 for f in ctx.dias} for pk in ctx.internos}
     mes_total = {pk: 0.0 for pk in ctx.internos}
-    for lista in items.values():
+    for pk, lista in items.items():
         for it in lista:
             mes_total[it.cargo_id] += it.horas
-            if it.fecha in carga[it.cargo_id]:
-                carga[it.cargo_id][it.fecha] += it.horas
+            if pk not in movibles and it.fecha in carga[it.cargo_id]:
+                carga[it.cargo_id][it.fecha] += it.horas  # lo que no se mueve ya ocupa su día; lo movible se coloca a continuación
+
+    def libre(c, f):
+        return ctx.capacidad(c, f) - carga[c][f]
 
     def exceso(c, f):
         return max(0.0, carga[c][f] - ctx.capacidad(c, f))
 
-    def aplicar(lista, signo):
-        for it in lista:
-            mes_total[it.cargo_id] += signo * it.horas
+    def poner(t, cargo_id, dia):
+        antes_items = items[t.pk]
+        nuevo = replace(planes[t.pk], ejecuta_id=cargo_id, regla_tipo="CIERRE_DIA_HABIL", regla_n=indice[dia])
+        nuevos = items_de(t, nuevo, ctx)
+        for it in antes_items:
+            mes_total[it.cargo_id] -= it.horas
+        for it in nuevos:
+            mes_total[it.cargo_id] += it.horas
             if it.fecha in carga[it.cargo_id]:
-                carga[it.cargo_id][it.fecha] += signo * it.horas
+                carga[it.cargo_id][it.fecha] += it.horas
+        planes[t.pk], items[t.pk] = nuevo, nuevos
 
-    movibles = [t for t in ctx.tareas.values() if planes[t.pk].regla_tipo == "CIERRE_DIA_HABIL" and planes[t.pk].ejecuta_id in ctx.internos]
-    ya_movidas: dict[int, str] = {}
-    sin_solucion = set()
-    for _ in range(max_pasos):
-        pendientes = [(exceso(c, f), c, f) for c in ctx.internos for f in dias_del_cierre if exceso(c, f) > TOLERANCIA and (c, f) not in sin_solucion]
-        if not pendientes:
-            break
-        _, c0, f0 = max(pendientes)
-        candidatas = [t for t in movibles if any(it.fecha == f0 and it.cargo_id == c0 and it.tipo == "ejecución" for it in items[t.pk])]
-        mejor = None
-        for t in sorted(candidatas, key=lambda t: -((t.minutos_estimados or 0))):
-            p = planes[t.pk]
-            actuales = items[t.pk]
-            valor_actual = sum(exceso(c, f) for c in ctx.internos for f in ctx.dias)
-            for cargo in {p.ejecuta_id} | conocen.get(t.proceso_id, set()):
-                if cargo == p.revisa_id or cargo not in ctx.internos or (cargo == _cargo_por_nombre(ctx, "Gerente AyF") and cargo != p.ejecuta_id and cargo in tope and mes_total[cargo] + (t.minutos_estimados or 0) / 60 > tope[cargo]):
-                    continue
-                for dia in dias_del_cierre:
-                    n = indice.get(dia)
-                    if n is None or n > 7 or (n < (p.regla_n or 1)) or (cargo == p.ejecuta_id and n == p.regla_n):
-                        continue
-                    nuevo = replace(p, ejecuta_id=cargo, regla_n=n)
-                    nuevos = items_de(t, nuevo, ctx)
-                    aplicar(actuales, -1)
-                    aplicar(nuevos, +1)
-                    valor = sum(exceso(c, f) for c in ctx.internos for f in ctx.dias)
-                    aplicar(nuevos, -1)
-                    aplicar(actuales, +1)
-                    clave = (round(valor, 6), cargo != p.ejecuta_id, abs(n - (p.regla_n or n)))  # menos exceso; mejor si no cambia de persona; mejor si se mueve poco
-                    if valor < valor_actual - TOLERANCIA and (mejor is None or clave < mejor[0]):
-                        mejor = (clave, t, nuevo, nuevos)
-        if mejor is None:
-            sin_solucion.add((c0, f0))
-            continue
-        _, t, nuevo, nuevos = mejor
-        aplicar(items[t.pk], -1)
-        aplicar(nuevos, +1)
-        planes_antes = planes[t.pk]
-        items[t.pk], planes[t.pk] = nuevos, nuevo
-        ya_movidas[t.pk] = ya_movidas.get(t.pk, "") or f"{planes_antes.ejecuta_id}|{planes_antes.regla_n}"
-    # Segunda pasada: aunque ya nadie pase de su jornada cada día, se acerca la ocupación de la semana del cierre entre los cargos (el más cargado le pasa trabajo al menos cargado)
-    capacidad_ventana = {c: sum(ctx.capacidad(c, f) for f in dias_del_cierre) for c in ctx.internos}
+    def horas_de(t):
+        m = planes[t.pk].minutos if planes[t.pk].minutos is not None else t.minutos_estimados
+        return (m or 0) / 60
+
+    def cabe(t, cargo_id, dia, h):
+        revisa = planes[t.pk].revisa_id
+        return libre(cargo_id, dia) >= h - TOLERANCIA and (revisa not in ctx.internos or not h or libre(revisa, dia) >= h * ctx.pct_revision - TOLERANCIA)
+
+    def peor_dia(t, cargo_id, h, entre):
+        """Si no cabe en ningún día, el día con más espacio (el menor exceso)."""
+        return max(entre, key=lambda d: (libre(cargo_id, d), -indice[d]))
+
+    ordenadas = sorted((t for t in ctx.tareas.values() if t.pk in movibles), key=lambda t: (t.proceso.orden, t.secuencia, t.codigo))
+    # 1) Lo normal: en orden de proceso, cada tarea en el primer día (desde el 1) en que su responsable tiene espacio.
+    for t in (t for t in ordenadas if grupo[t.pk] == "normal"):
+        c, h = planes[t.pk].ejecuta_id, horas_de(t)
+        dia = next((d for d in dias if cabe(t, c, d, h)), None) or peor_dia(t, c, h, dias)
+        poner(t, c, dia)
+        motivos[t.pk] = "Se ocupan los días desde el 1 en adelante, en el orden de los procesos (de menor a mayor): primer día con espacio para su responsable."
+    # 2) El análisis de cuentas: el último día de proceso, en paralelo entre el Contador Senior, la Jefa de Control y la Asistente Contable.
+    analistas = [pk for nombre in CARGOS_DE_ANALISIS if (pk := _cargo_por_nombre(ctx, nombre))]
+    for t in sorted((t for t in ordenadas if grupo[t.pk] == "analisis"), key=lambda t: -horas_de(t)):
+        h = horas_de(t)
+        elegible = [c for c in analistas if c != planes[t.pk].revisa_id]
+        elegido = None
+        for d in reversed(dias):  # del último día hacia atrás
+            candidatos = [c for c in elegible if cabe(t, c, d, h)]
+            if candidatos:
+                elegido = (max(candidatos, key=lambda c: libre(c, d)), d)
+                break
+        if elegido is None:
+            d = dias[-1]
+            elegido = (max(elegible, key=lambda c: libre(c, d)), d)
+        poner(t, *elegido)
+        motivos[t.pk] = "El análisis de cuentas se hace el último día de proceso y en paralelo entre el Contador Senior, la Jefa de Control y la Asistente Contable."
+    # 3) El costo en destino: lo último que se procesa; se llena hacia atrás desde el último día (el primero de la lista queda más temprano).
+    for t in reversed([t for t in ordenadas if grupo[t.pk] == "costo_en_destino"]):
+        c, h = planes[t.pk].ejecuta_id, horas_de(t)
+        dia = next((d for d in reversed(dias) if cabe(t, c, d, h)), None) or peor_dia(t, c, h, dias)
+        poner(t, c, dia)
+        motivos[t.pk] = "El costo en destino es lo último que se procesa: termina el último día de proceso, antes del paquete del día 8."
+
+    # 4) Equilibrio entre cargos: el más ocupado le pasa trabajo normal a otro que ya trabaja en ese proceso, sin cambiar el día y sin sobrecargar a nadie.
+    conocen = {}
+    for t in ctx.tareas.values():
+        if t.cargo_ejecuta_id in ctx.internos:
+            conocen.setdefault(t.proceso_id, set()).add(t.cargo_ejecuta_id)
+    capacidad_ventana = {c: sum(ctx.capacidad(c, f) for f in dias) for c in ctx.internos}
 
     def ocupacion(c):
-        return sum(carga[c][f] for f in dias_del_cierre) / capacidad_ventana[c] if capacidad_ventana[c] else 0.0
+        return sum(carga[c][f] for f in dias) / capacidad_ventana[c] if capacidad_ventana[c] else 0.0
 
     for _ in range(max_pasos):
         ocupaciones = {c: ocupacion(c) for c in ctx.internos}
         c_alto = max(ocupaciones, key=ocupaciones.get)
         valor_actual = sum(exceso(c, f) for c in ctx.internos for f in ctx.dias)
         mejor = None
-        for t in movibles:
+        for t in ordenadas:
             p = planes[t.pk]
-            if p.ejecuta_id != c_alto:
+            if grupo[t.pk] != "normal" or p.ejecuta_id != c_alto:
                 continue
-            horas_t = (t.minutos_estimados or 0) / 60
-            for c_bajo in conocen.get(t.proceso_id, set()):  # solo a quien ya trabaja en ese proceso
+            h = horas_de(t)
+            for c_bajo in conocen.get(t.proceso_id, set()):
                 if c_bajo == c_alto or c_bajo == p.revisa_id or c_bajo not in ctx.internos or ocupaciones[c_alto] - ocupaciones[c_bajo] < 0.05:
                     continue
-                if c_bajo in tope and mes_total[c_bajo] + horas_t > tope[c_bajo]:
+                if c_bajo in tope and mes_total[c_bajo] + h > tope[c_bajo]:
                     continue
-                actuales, nuevos = items[t.pk], items_de(t, replace(p, ejecuta_id=c_bajo), ctx)
-                aplicar(actuales, -1)
-                aplicar(nuevos, +1)
+                dia = next(f for f in dias if indice[f] == p.regla_n) if p.regla_n in indice.values() and any(indice[f] == p.regla_n for f in dias) else dias[-1]
+                nuevo = replace(p, ejecuta_id=c_bajo)
+                actuales, nuevos = items[t.pk], items_de(t, nuevo, ctx)
+                for it in actuales:
+                    if it.fecha in carga[it.cargo_id]:
+                        carga[it.cargo_id][it.fecha] -= it.horas
+                for it in nuevos:
+                    if it.fecha in carga[it.cargo_id]:
+                        carga[it.cargo_id][it.fecha] += it.horas
                 valor = sum(exceso(c, f) for c in ctx.internos for f in ctx.dias)
                 nuevo_max = max(ocupacion(c_alto), ocupacion(c_bajo))
-                aplicar(nuevos, -1)
-                aplicar(actuales, +1)
+                for it in nuevos:
+                    if it.fecha in carga[it.cargo_id]:
+                        carga[it.cargo_id][it.fecha] -= it.horas
+                for it in actuales:
+                    if it.fecha in carga[it.cargo_id]:
+                        carga[it.cargo_id][it.fecha] += it.horas
                 if valor <= valor_actual + TOLERANCIA and nuevo_max < ocupaciones[c_alto] - 1e-6 and (mejor is None or (nuevo_max, valor) < mejor[0]):
-                    mejor = ((nuevo_max, valor), t, replace(p, ejecuta_id=c_bajo), nuevos)
+                    mejor = ((nuevo_max, valor), t, nuevo, nuevos, actuales)
         if mejor is None:
             break
-        _, t, nuevo, nuevos = mejor
-        aplicar(items[t.pk], -1)
-        aplicar(nuevos, +1)
-        items[t.pk], planes[t.pk] = nuevos, nuevo
-    # los cambios de las tareas del cierre, una vez por tarea, comparando con lo original
-    for t in movibles:
+        _, t, nuevo, nuevos, actuales = mejor
+        for it in actuales:
+            mes_total[it.cargo_id] -= it.horas
+            if it.fecha in carga[it.cargo_id]:
+                carga[it.cargo_id][it.fecha] -= it.horas
+        for it in nuevos:
+            mes_total[it.cargo_id] += it.horas
+            if it.fecha in carga[it.cargo_id]:
+                carga[it.cargo_id][it.fecha] += it.horas
+        planes[t.pk], items[t.pk] = nuevo, nuevos
+        motivos[t.pk] = motivos.get(t.pk, "") + " Cambia de responsable para repartir el cierre: el nuevo ya trabaja en este proceso y no es quien la revisa."
+
+    # Los cambios, una vez por tarea, comparando con lo vigente.
+    for t in ctx.tareas.values():
         p0, p1 = plan_actual(t), planes[t.pk]
-        if p1.regla_n != p0.regla_n:
-            cambios.append(Cambio(t, "Día hábil del cierre", f"Día hábil {p0.regla_n}", f"Día hábil {p1.regla_n}", "Se mueve a un día con espacio para no pasar de la jornada (nunca antes, y como máximo hasta el día 8)."))
+        if (p0.regla_tipo, p0.regla_n) != (p1.regla_tipo, p1.regla_n):
+            cambios.append(Cambio(t, "Día del cierre", _texto_dia(p0), _texto_dia(p1), motivos.get(t.pk, "")))
         if p1.ejecuta_id != p0.ejecuta_id:
-            cambios.append(Cambio(t, "Responsable", _nombre(ctx, p0.ejecuta_id), _nombre(ctx, p1.ejecuta_id), "Para repartir el cierre: su carga superaba la jornada o la de otro cargo era menor; el nuevo responsable ya trabaja en este proceso y no es quien la revisa."))
+            cambios.append(Cambio(t, "Responsable", _nombre(ctx, p0.ejecuta_id), _nombre(ctx, p1.ejecuta_id), motivos.get(t.pk, "")))
+        if p1.minutos is not None and p1.minutos != (t.minutos_estimados or 0):
+            cambios.append(Cambio(t, "Horas por ejecución", f"{(t.minutos_estimados or 0) / 60:.2f} h", f"{p1.minutos / 60:.2f} h", motivos.get(t.pk, "")))
     despues = construir(anio, mes, planes, ctx)
-    return Propuesta(planes, cambios, [(ctx.internos[c], f, exceso(c, f)) for c, f in sorted(sin_solucion, key=lambda x: (x[1], x[0])) if exceso(c, f) > TOLERANCIA], antes, despues)
+    sin_solucion = [(ctx.internos[c], f, exceso(c, f)) for c in ctx.internos for f in ctx.dias if exceso(c, f) > TOLERANCIA and f <= ctx.hasta]
+    return Propuesta(planes, cambios, sorted(sin_solucion, key=lambda x: (x[1], x[0].orden)), antes, despues)
+
+
+def horas_por_proceso(m: Matriz, solo_cierre: bool = True) -> list[tuple[str, float]]:
+    """Dónde se van las horas hasta el día 8: (proceso, horas de ejecución), de mayor a menor."""
+    total: dict[str, float] = {}
+    for fila in m.filas:
+        for f, items in fila.items.items():
+            if f <= m.ctx.hasta:
+                for it in items:
+                    if it.tipo == "ejecución" and (it.cierre or not solo_cierre):
+                        total[it.proceso] = total.get(it.proceso, 0.0) + it.horas
+    return sorted(total.items(), key=lambda kv: -kv[1])
+
+
+def diagnostico(prop: Propuesta) -> list[str]:
+    """Lectura de control de gestión, con foco en el cumplimiento: qué dice la matriz y qué hay que decidir. Solo cifras de la propia matriz."""
+    antes, d = prop.antes, prop.despues
+    demanda, capacidad = d.horas_semana_cierre, d.capacidad_semana_cierre
+    lineas = [f"Hasta el día 8 hay {demanda:.0f} h de trabajo (cierre, operación que continúa y revisiones) y el equipo tiene {capacidad:.0f} h de jornada: ocupación de {demanda * 100 / capacidad:.0f} %." if capacidad else "No hay capacidad en esas fechas."]
+    brecha = demanda - capacidad
+    if brecha > 0:
+        lineas.append(f"Faltan {brecha:.0f} h. Aunque el reparto fuera perfecto el trabajo no cabe: hay que bajar horas estimadas, mover trabajo más allá del día 8 o sumar apoyo.")
+    else:
+        lineas.append("En total el trabajo cabe en la jornada del equipo.")
+    lineas.append(f"Tareas del cierre que caen en un día que cabe en la jornada de su responsable (indicador de cumplimiento a tiempo): {antes.cumplimiento_esperado_pct:.0f} % hoy → {d.cumplimiento_esperado_pct:.0f} % con la propuesta. La meta es 95 %.")
+    mas = max(d.filas, key=lambda f: f.ocupacion_pct)
+    menos = min(d.filas, key=lambda f: f.ocupacion_pct)
+    lineas.append(f"El cargo más exigido es {mas.cargo.nombre} ({mas.ocupacion_pct:.0f} %) y el menos exigido {menos.cargo.nombre} ({menos.ocupacion_pct:.0f} %).")
+    analista = next((f for f in d.filas if f.cargo.nombre == CARGO_ANALISTA), None)
+    if analista is not None and analista.capacidad_semana_cierre:
+        operacion = sum(it.horas for items in analista.items.values() for it in items if it.tipo == "ejecución" and not it.cierre and it.fecha <= d.ctx.hasta)
+        dias = len([f for f in analista.capacidad if f <= d.ctx.hasta])
+        lineas.append(f"La Asistente Contable, al cubrir compras y pagos, tiene {operacion / dias:.1f} h al día solo de operación (caben 9 h de lunes a jueves y 5 h el viernes): "
+                      + ("no le queda tiempo para tareas del cierre." if operacion >= analista.capacidad_semana_cierre else "le queda poco para tareas del cierre."))
+    procesos = horas_por_proceso(d)[:4]
+    if procesos:
+        lineas.append("Los procesos del cierre que más horas consumen: " + "; ".join(f"{nombre} ({h:.0f} h)" for nombre, h in procesos) + ".")
+    return lineas
