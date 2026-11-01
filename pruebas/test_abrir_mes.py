@@ -59,11 +59,11 @@ def test_el_flujo_completo_feriados_anio_y_mes(mundo):
     assert "Cargar los feriados de 2026" in html and "Abrir diciembre 2026" not in html
     # 1) cargar la propuesta de la librería (queda sin confirmar)
     assert c.post(reverse(URL), {"accion": "cargar_feriados", "mes": "2026-12"}).status_code == 302
-    assert Feriado.objects.filter(fecha=date(2026, 12, 8)).exists() and not Feriado.objects.filter(confirmado=True).exists()
+    assert Feriado.objects.filter(fecha=date(2026, 12, 8)).exists() and not Feriado.objects.filter(fecha__year=2026, confirmado=True).exists()
     assert "Sin confirmar" in c.get(reverse(URL), {"mes": "2026-12"}).content.decode()
     # no se abre el año con feriados sin confirmar
     r = c.post(reverse(URL), {"accion": "abrir_anio", "mes": "2026-12"}, follow=True)
-    assert "sin confirmar" in r.content.decode() and Anio.objects.filter(estado="abierto").count() == 0
+    assert "sin confirmar" in r.content.decode() and not Anio.objects.filter(anio=2026, estado="abierto").exists()
     # 2) confirmar y abrir el año
     c.post(reverse(URL), {"accion": "confirmar_feriados", "mes": "2026-12"})
     c.post(reverse(URL), {"accion": "abrir_anio", "mes": "2026-12"})
@@ -112,8 +112,8 @@ def test_agregar_un_feriado_decretado_queda_sin_confirmar(anio_listo):
     f = Feriado.objects.get(fecha=date(2026, 12, 31))
     assert not f.confirmado and f.origen == "manual" and "sin confirmar" in r.content.decode().lower()
     # una fecha de otro año o sin nombre se rechaza con un mensaje claro
-    r = anio_listo.post(reverse(URL), {"accion": "agregar_feriado", "mes": "2026-12", "fecha": "2027-01-01", "nombre": "x", "tipo": "legal"}, follow=True)
-    assert "fecha de 2026" in r.content.decode() and not Feriado.objects.filter(fecha=date(2027, 1, 1)).exists()
+    r = anio_listo.post(reverse(URL), {"accion": "agregar_feriado", "mes": "2026-12", "fecha": "2029-01-01", "nombre": "x", "tipo": "legal"}, follow=True)
+    assert "fecha de 2026" in r.content.decode() and not Feriado.objects.filter(fecha=date(2029, 1, 1)).exists()
 
 
 def test_el_inicio_de_medicion_debe_estar_dentro_del_mes(anio_listo):
@@ -126,3 +126,20 @@ def test_un_mes_o_una_accion_invalida_no_rompe_la_pantalla(mundo):
     assert c.get(reverse(URL), {"mes": "basura"}).status_code == 200
     assert c.get(reverse(URL), {"mes": "2026-13"}).status_code == 200
     assert "Acción desconocida" in c.post(reverse(URL), {"accion": "x", "mes": "2026-12"}, follow=True).content.decode()
+
+
+def test_2027_y_2028_vienen_cargados_con_sus_feriados_confirmados_y_el_calendario_abierto():
+    """Karla (01-11-2026): dejar cargado altiro 2027 y 2028. Los años quedan abiertos para poder abrir sus meses sin más pasos."""
+    for anio in (2027, 2028):
+        assert Anio.objects.get(anio=anio).estado == "abierto"
+        assert Feriado.objects.filter(fecha__year=anio).count() >= 16 and not Feriado.objects.filter(fecha__year=anio, confirmado=False).exists()
+    for f in (date(2027, 1, 1), date(2027, 3, 26), date(2027, 12, 25), date(2028, 1, 1), date(2028, 4, 14), date(2028, 12, 25)):
+        assert Feriado.objects.get(fecha=f).confirmado
+    from nucleo.servicios.feriados import calendario_confirmado
+    cal = calendario_confirmado()
+    assert not cal.es_habil(date(2027, 12, 8)) and cal.es_habil(date(2027, 12, 9)) and not cal.es_habil(date(2028, 9, 18))
+
+
+def test_se_puede_abrir_enero_de_2027_sin_cargar_ni_confirmar_nada(mundo):
+    r = cli(mundo["ger"]).post(reverse(URL), {"accion": "abrir_mes", "mes": "2027-01"}, follow=True)
+    assert Periodo.objects.filter(anio=2027, mes=1).exists() and "Mes 01-2027 abierto" in r.content.decode()

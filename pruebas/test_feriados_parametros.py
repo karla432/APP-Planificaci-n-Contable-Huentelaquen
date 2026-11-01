@@ -15,7 +15,7 @@ def test_la_propuesta_de_la_libreria_queda_sin_confirmar():
     creados = feriados.cargar_propuesta(2026)
     assert creados > 0
     assert Feriado.objects.filter(fecha=date(2026, 12, 8)).exists()
-    assert not Feriado.objects.filter(confirmado=True).exists()
+    assert not Feriado.objects.filter(fecha__year=2026, confirmado=True).exists()  # (2027 y 2028 vienen ya confirmados de fábrica)
 
 
 def test_cargar_la_propuesta_dos_veces_no_duplica_ni_pisa_lo_confirmado():
