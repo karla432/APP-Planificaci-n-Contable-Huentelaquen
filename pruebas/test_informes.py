@@ -197,3 +197,12 @@ def test_el_avance_por_proceso_sigue_el_orden_de_los_codigos(mundo):
     assert [a.proceso for a in kpi.avance_por_proceso(periodo, HOY)][0] == primero.nombre
     primero.refresh_from_db()
     assert primero.codigo.startswith("01-") and f"{primero.codigo}</strong> · {primero.nombre}" in ver(mundo["u"]["lectura"], "informe_panel")
+
+
+@pytest.mark.parametrize("nombre,params", [("informe_panel", {}), ("informe_panel", {"ver": "atrasadas"}), ("informe_panel", {"fecha": "2026-12-03"}), ("informe_cronograma", {}),
+                                           ("informe_cronograma", {"vista": "semana"}), ("informe_cronograma", {"vista": "mes"}), ("informe_tablero", {}), ("informe_carga", {}),
+                                           ("informe_cumplimiento", {}), ("hoy", {}), ("semana", {}), ("mes", {})])
+def test_las_pantallas_tienen_sus_etiquetas_div_bien_cerradas(mundo, nombre, params):
+    """Un </div> de más saca el contenido de su sitio y el menú lateral lo tapa (pasó en el panel). Se cuida en todas las pantallas del cierre."""
+    html = ver(mundo["u"]["lectura"] if nombre.startswith("informe") else mundo["u"]["cont"], nombre, **params)
+    assert html.count("<div") == html.count("</div>"), (nombre, params)

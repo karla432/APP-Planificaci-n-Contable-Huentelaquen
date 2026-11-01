@@ -18,7 +18,6 @@
     <a class="kpi" href="?mes={{ primero|date:'Y-m' }}&ver=bloqueadas#listado"><b>{{ resumen.bloqueadas }}</b><span>Bloqueadas</span></a>
     <a class="kpi rojo" href="?mes={{ primero|date:'Y-m' }}&ver=atrasadas#listado"><b>{{ resumen.atrasadas }}</b><span>Atrasadas · ver cuáles</span></a></div>
 </div>
-</div>
 <section class="card"><h2>Ruta del cierre</h2>
   <p class="meta">Tareas del cierre hechas sobre las que vencen ese día. <strong>Toca un día para ver sus tareas</strong> (las atrasadas se marcan en rojo).
     {% if feriados_mes %}<strong>Feriados del mes:</strong> {% for f in feriados_mes %}{{ f.fecha|date:"d-m-Y" }} ({{ f.nombre }}){% if not forloop.last %}, {% endif %}{% endfor %}.{% endif %}</p>
