@@ -2,12 +2,14 @@
 from datetime import date, timedelta
 
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
 from django.shortcuts import render
 
 from nucleo import permisos
 from nucleo.models import Feriado, Ocurrencia, Periodo, Proceso
 from nucleo.servicios import agenda, carga, kpi, parametros, presentacion, reloj
 from nucleo.servicios.feriados import calendario_confirmado
+from nucleo.views_mantenedor import con_roles
 
 
 def _sin_perfil(request):
@@ -223,3 +225,55 @@ def cronograma(request):
             seleccion = None
     c.update({"columnas": columnas, "filas": filas, "seleccion": seleccion, "feriados_mes": list(Feriado.objects.filter(confirmado=True, fecha__year=periodo.anio, fecha__month=periodo.mes))})
     return render(request, "nucleo/informe_cronograma.html", c)
+
+
+# ---- Matriz del cierre ----------------------------------------------------------------------------------------------
+
+
+def _mes_de_la_matriz(request, hoy: date) -> tuple[int, int]:
+    try:
+        anio, mes = (int(x) for x in request.GET.get("mes", "").split("-"))
+        date(anio, mes, 1)
+        return anio, mes
+    except ValueError:
+        return hoy.year, hoy.month
+
+
+def _clase_de_horas(horas: float, capacidad: float) -> str:
+    if horas > capacidad + 1e-9:
+        return "rd"
+    if capacidad and horas >= capacidad * 0.9:
+        return "wr"
+    return "ok" if horas else "gr"
+
+
+def _tabla_de_matriz(m) -> list[dict]:
+    return [{"fila": f, "celdas": [{"fecha": d, "horas": f.horas[d], "capacidad": f.capacidad[d], "clase": _clase_de_horas(f.horas[d], f.capacidad[d])} for d in m.dias]} for f in m.filas]
+
+
+@con_roles(permisos.GERENTE, permisos.JEFATURA)
+def matriz_del_cierre(request):
+    """Quién hace qué cada día de la semana del cierre, contra su jornada, y una propuesta para equilibrar al equipo. Para revisar antes de entregar."""
+    from nucleo.servicios import matriz
+    hoy = reloj.hoy()
+    anio, mes = _mes_de_la_matriz(request, hoy)
+    primero = date(anio, mes, 1)
+    prop = matriz.proponer(anio, mes)
+    return render(request, "nucleo/informe_matriz.html", {
+        "primero": primero, "anio": anio, "mes": mes, "mes_param": f"{anio}-{mes:02d}", **_navegacion(primero), "prop": prop,
+        "tablas": [("Como está hoy", _tabla_de_matriz(prop.antes)), ("Propuesta", _tabla_de_matriz(prop.despues))], "resumen": list(zip(prop.antes.filas, prop.despues.filas)), "dias": prop.antes.dias,
+        "etiquetas": {d: prop.antes.etiqueta(d) for d in prop.antes.dias}, "alertas": prop.despues.alertas(), "faltan": round(max(0.0, prop.despues.horas_semana_cierre - prop.despues.capacidad_semana_cierre), 1),
+        "cambios": prop.cambios[:60], "mas_cambios": max(len(prop.cambios) - 60, 0), "hasta": prop.antes.ctx.hasta,
+    })
+
+
+@con_roles(permisos.GERENTE, permisos.JEFATURA)
+def matriz_exportar(request):
+    anio, mes = _mes_de_la_matriz(request, reloj.hoy())
+    from nucleo.servicios import auditoria, excel_masivo
+    contenido = excel_masivo.exportar_matriz(anio, mes)
+    auditoria.registrar("matriz.descargada", usuario=request.user, entidad="Periodo", entidad_id=f"{mes:02d}-{anio}")
+    r = HttpResponse(contenido, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    r["Content-Disposition"] = f'attachment; filename="matriz_del_cierre_{anio}-{mes:02d}.xlsx"'
+    r["Cache-Control"] = "no-store"
+    return r

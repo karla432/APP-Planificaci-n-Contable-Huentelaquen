@@ -18,6 +18,7 @@
     <a class="nav-i{% if url_actual == 'informe_cronograma' %} nav-on{% endif %}" href="{% url 'informe_cronograma' %}">Cronograma</a>
     <a class="nav-i{% if url_actual == 'informe_cumplimiento' %} nav-on{% endif %}" href="{% url 'informe_cumplimiento' %}">Cumplimiento por colaborador</a>
     <a class="nav-i{% if url_actual == 'informe_carga' %} nav-on{% endif %}" href="{% url 'informe_carga' %}">Carga del equipo</a>
+    {% if ve_mantenedor_tareas %}<a class="nav-i{% if url_actual == 'informe_matriz' %} nav-on{% endif %}" href="{% url 'informe_matriz' %}">Matriz del cierre</a>{% endif %}
 
     <div class="nav-sec">Planificación</div>
     <a class="nav-i{% if url_actual == 'planificacion' %} nav-on{% endif %}" href="{% url 'planificacion' %}">Árbol y tabla</a>

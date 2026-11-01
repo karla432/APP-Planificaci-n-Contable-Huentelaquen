@@ -6,6 +6,7 @@
   empiezan con = + - @ se guardan como texto para que Excel no los interprete como fórmula.
 - Permisos: Gerente y Jefatura (los mismos que editan tareas); se validan aquí, en el servidor.
 """
+import copy
 import hashlib
 import io
 import re
@@ -22,7 +23,7 @@ from openpyxl.utils.exceptions import InvalidFileException
 from django.db import transaction
 from django.db.models import Count, Q
 
-from nucleo.models import Proceso, Tarea
+from nucleo.models import Cargo, Proceso, Tarea
 from nucleo.servicios import auditoria, estructura, importador
 from nucleo.servicios.errores import ErrorDeNegocio
 from nucleo.servicios.mantenedor import _exigir_edita_tareas
@@ -95,7 +96,23 @@ def _revisa(t: Tarea) -> str:
     return t.cargo_revisa.nombre
 
 
-def exportar_tareas() -> bytes:
+def _con_plan(t: Tarea, plan, cargos: dict) -> Tarea:
+    """Una copia de la tarea (sin guardar) con lo que dice el plan de una propuesta: responsable, día del cierre y semana del cierre."""
+    import copy
+    c = copy.copy(t)
+    c.cargo_ejecuta = cargos.get(plan.ejecuta_id, t.cargo_ejecuta)
+    c.regla_tipo, c.regla_n = plan.regla_tipo, plan.regla_n
+    c.modo_cierre = plan.modo_cierre
+    c.cargo_cierre = cargos.get(plan.cargo_cierre_id) if plan.cargo_cierre_id else None
+    c.cargo_revisa_cierre = cargos.get(plan.revisa_cierre_id) if plan.revisa_cierre_id else None
+    if (plan.regla_tipo, plan.regla_n) != (t.regla_tipo, t.regla_n):
+        c.periodicidad_excel = c.cuando_excel = ""  # el texto original ya no dice lo mismo: se escribe de nuevo desde la regla
+    return c
+
+
+def exportar_tareas(planes: dict | None = None) -> bytes:
+    """La planilla de tareas. Con `planes` (una propuesta de la matriz) escribe lo propuesto en vez de lo vigente."""
+    cargos = {c.pk: c for c in Cargo.objects.all()} if planes else {}
     wb = openpyxl.Workbook()
     hoja = wb.active
     hoja.title = "Planificación"
@@ -105,6 +122,8 @@ def exportar_tareas() -> bytes:
         c.font, c.fill = Font(bold=True), GRIS
     tareas = Tarea.objects.filter(activa=True).select_related("proceso", "cargo_ejecuta", "cargo_revisa", "cargo_cierre", "cargo_revisa_cierre").order_by("proceso__orden", "secuencia", "codigo")
     for n, t in enumerate(tareas, start=4):
+        if planes and t.pk in planes:
+            t = _con_plan(t, planes[t.pk], cargos)
         per, cua = texto_de_periodicidad(t)
         valores = [t.codigo, t.proceso.nombre, t.tarea_principal, t.subtarea, t.cargo_ejecuta.nombre, _revisa(t), per, cua, t.referencia_normativa, t.dia_cierre,
                    None if t.minutos_estimados is None else round(t.minutos_estimados / 60, 4), None if t.ejecuciones_mes is None else float(t.ejecuciones_mes),
@@ -117,24 +136,187 @@ def exportar_tareas() -> bytes:
         hoja.column_dimensions[col].width = ancho
     hoja.freeze_panes = "C4"
     ayuda = wb.create_sheet("Instrucciones")
+    for i, linea in enumerate(INSTRUCCIONES, start=1):
+        ayuda.cell(row=i, column=1, value=linea).font = Font(bold=(i == 1))
+    ayuda.column_dimensions["A"].width = 150
+    return _bytes(wb)
+
+
+INSTRUCCIONES = [
+    "Cómo usar esta planilla",
+    "1. Edita lo que necesites. Cada fila es una subtarea; las filas van en el orden en que se procesan.",
+    "2. La columna «Código» solo sirve para ubicarte: la app no la lee. Una tarea es la misma mientras no cambies Proceso + Tarea principal + Subtarea.",
+    "3. Si cambias el texto de Proceso, Tarea principal o Subtarea, la app lo toma como una tarea nueva y desactiva la anterior (te lo avisa en la vista previa).",
+    "4. Responsable y Revisa deben ser nombres de cargo que ya existen (por ejemplo «Contador Senior»). «Revisa» puede ir vacío.",
+    "5. Periodicidad y Cuándo: Diaria · Todos los días hábiles / Semanal · Lunes / Mensual (cierre) · Día hábil 3 (del 1 al 7) / Mensual (cierre) · D8, D9 o D10 (días del mes: "
+    "reportes listos en la tarde, Gerente General y Directorio; si caen en día inhábil pasan al hábil siguiente) / Mensual · Día 13 / Mensual · Último día del mes / "
+    "Puntual · Día 20 de abril, junio y septiembre.",
+    "5b. Semana del cierre (del primer día hábil al día 8): vacío = la tarea sigue igual · «Pausar» = no se hace esa semana · «Reasignar» = la hace «Responsable en el cierre» "
+    "y la revisa «Revisa en el cierre» (si queda vacío, el revisor de siempre).",
+    "6. El ajuste «día hábil siguiente» de un día fijo no se puede escribir aquí: se cambia en Mantenedor → Tareas.",
+    "7. Las tareas que no estén en el archivo se DESACTIVAN (no se borran). La app te muestra la lista antes de aplicar y pide confirmación.",
+    "8. Celda de horas en verde = horas definidas por la Gerente AyF.",
+]
+
+
+# ---- La matriz del cierre (para que Karla la revise antes de entregarla) -------------------------------------------------------------
+
+ROJO = PatternFill("solid", start_color="FFF8D7DA", end_color="FFF8D7DA")
+AMBAR = PatternFill("solid", start_color="FFFFF3CD", end_color="FFFFF3CD")
+OK = PatternFill("solid", start_color="FFD1E7DD", end_color="FFD1E7DD")
+DIAS_CORTOS = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"]
+
+
+def _relleno(horas: float, capacidad: float):
+    if horas > capacidad + 1e-9:
+        return ROJO
+    return AMBAR if capacidad and horas >= capacidad * 0.9 else (OK if horas else None)
+
+
+def _hoja_de_matriz(wb, titulo: str, m) -> None:
+    hoja = wb.create_sheet(titulo)
+    hoja.cell(row=1, column=1, value=f"{titulo} · horas por persona y día · {m.mes:02d}-{m.anio}").font = Font(bold=True, size=13)
+    hoja.cell(row=2, column=1, value="Rojo: supera la jornada del día (lunes a jueves 9 h, viernes 5 h) · Ámbar: desde el 90 % · Verde: dentro de la jornada. Horas ESTIMADAS.")
+    encabezados = ["Cargo"] + [f"{DIAS_CORTOS[f.weekday()]} {f:%d-%m}" + (f"\n{m.etiqueta(f)}" if m.etiqueta(f) else "") for f in m.dias] + ["Hasta el día 8", "Capacidad hasta el día 8", "Ocupación", "Total del mes", "Tope del mes"]
+    for i, e in enumerate(encabezados, start=1):
+        c = hoja.cell(row=4, column=i, value=e)
+        c.font, c.fill, c.alignment = Font(bold=True), GRIS, Alignment(wrap_text=True, vertical="top", horizontal="center")
+    n = 5
+    for fila in m.filas:
+        hoja.cell(row=n, column=1, value=fila.cargo.nombre).font = Font(bold=True)
+        for col, f in enumerate(m.dias, start=2):
+            c = hoja.cell(row=n, column=col, value=round(fila.horas[f], 2))
+            relleno = _relleno(fila.horas[f], fila.capacidad[f])
+            if relleno:
+                c.fill = relleno
+            c.number_format = "0.0"
+        k = len(m.dias) + 2
+        for extra, v in enumerate([round(fila.horas_semana_cierre, 1), round(fila.capacidad_semana_cierre, 1), f"{fila.ocupacion_pct}%", round(fila.total_mes, 1), fila.tope_mes or ""]):
+            c = hoja.cell(row=n, column=k + extra, value=v)
+            if extra == 4 and fila.pasa_el_tope:
+                c.fill = ROJO
+        n += 1
+    hoja.cell(row=n, column=1, value="Jornada del día").font = Font(italic=True)
+    for col, f in enumerate(m.dias, start=2):
+        hoja.cell(row=n, column=col, value=m.filas[0].capacidad[f] if m.filas else 0).font = Font(italic=True)
+    hoja.column_dimensions["A"].width = 22
+    for col in range(2, len(encabezados) + 1):
+        hoja.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 14
+    hoja.row_dimensions[4].height = 48
+    hoja.freeze_panes = "B5"
+
+
+def exportar_matriz(anio: int, mes: int) -> bytes:
+    """Matriz del cierre de un mes: como está hoy y como quedaría con la propuesta, con el detalle día por día, los cambios y la planilla de tareas con la propuesta aplicada."""
+    from nucleo.servicios import matriz
+    prop = matriz.proponer(anio, mes)
+    antes, despues = prop.antes, prop.despues
+    wb = openpyxl.Workbook()
+    r = wb.active
+    r.title = "Resumen"
+    r["A1"] = f"Matriz del cierre · {mes:02d}-{anio}"
+    r["A1"].font = Font(bold=True, size=14)
+    lineas = [
+        "Para revisar antes de entregarla. Todo son horas ESTIMADAS (la mayoría, estimación base de Legión; 24 definidas por la Gerente AyF): si una hora está mal, corrígela en la planilla de tareas.",
+        "Jornada: lunes a jueves 9 h y viernes 5 h (41 h a la semana). Gerente AyF: máximo 80 h al mes para Huentelauquén.",
+        "Semana del cierre: del primer día hábil al día 8 (reportes listos en la tarde). Día 9: Gerente General. Día 10: Directorio. Si caen en día inhábil, pasan al hábil siguiente.",
+        "Regla de operación propuesta: la Asistente Contable cubre compras y pagos (el Contador Senior solo revisa); Jefa de Control, Contador Senior y Gerente AyF se enfocan 100 % en el cierre.",
+    ]
+    for i, linea in enumerate(lineas, start=3):
+        r.cell(row=i, column=1, value=linea)
+    fila0 = len(lineas) + 5
+    for i, e in enumerate(["Cargo", "Horas hasta el día 8 · hoy", "Horas hasta el día 8 · propuesta", "Capacidad hasta el día 8", "Ocupación · hoy", "Ocupación · propuesta", "Total del mes · propuesta", "Tope del mes"], start=1):
+        c = r.cell(row=fila0, column=i, value=e)
+        c.font, c.fill, c.alignment = Font(bold=True), GRIS, Alignment(wrap_text=True, vertical="top")
+    for k, (a, d) in enumerate(zip(antes.filas, despues.filas), start=fila0 + 1):
+        for col, v in enumerate([a.cargo.nombre, round(a.horas_semana_cierre, 1), round(d.horas_semana_cierre, 1), round(d.capacidad_semana_cierre, 1), f"{a.ocupacion_pct}%", f"{d.ocupacion_pct}%", round(d.total_mes, 1), d.tope_mes or ""], start=1):
+            c = r.cell(row=k, column=col, value=v)
+            if col == 6 and d.ocupacion_pct > 100:
+                c.fill = ROJO
+    k = fila0 + len(antes.filas) + 1
+    for col, v in enumerate(["Equipo", round(antes.horas_semana_cierre, 1), round(despues.horas_semana_cierre, 1), round(despues.capacidad_semana_cierre, 1),
+                             f"{round(antes.horas_semana_cierre * 100 / antes.capacidad_semana_cierre)}%" if antes.capacidad_semana_cierre else "", f"{round(despues.horas_semana_cierre * 100 / despues.capacidad_semana_cierre)}%" if despues.capacidad_semana_cierre else ""], start=1):
+        r.cell(row=k, column=col, value=v).font = Font(bold=True)
+    veredicto = ("Con estas horas estimadas el trabajo hasta el día 8 SUPERA lo que el equipo puede hacer en su jornada: faltan "
+                 f"{max(0.0, round(despues.horas_semana_cierre - despues.capacidad_semana_cierre, 1))} h. Hay que bajar horas, mover tareas más allá del día 8 o sumar apoyo.") \
+        if despues.horas_semana_cierre > despues.capacidad_semana_cierre + 1e-9 else "Con estas horas el trabajo hasta el día 8 cabe en la jornada del equipo."
+    r.cell(row=k + 2, column=1, value=veredicto).font = Font(bold=True)
+    r.cell(row=k + 3, column=1, value=f"Desequilibrio entre el cargo más y el menos ocupado: hoy {antes.desequilibrio_pct} puntos · propuesta {despues.desequilibrio_pct} puntos. Horas de más sobre la jornada (suma de los días con exceso): hoy {round(antes.exceso_total, 1)} h · propuesta {round(despues.exceso_total, 1)} h.")
+    r.column_dimensions["A"].width = 26
+    for col in "BCDEFGH":
+        r.column_dimensions[col].width = 20
+    _hoja_de_matriz(wb, "Matriz hoy", antes)
+    _hoja_de_matriz(wb, "Matriz propuesta", despues)
+
+    d = wb.create_sheet("Detalle por día")
+    for i, e in enumerate(["Escenario", "Fecha", "Cargo", "Código", "Proceso", "Tarea", "Tipo", "Horas"], start=1):
+        c = d.cell(row=1, column=i, value=e)
+        c.font, c.fill = Font(bold=True), GRIS
+    n = 2
+    for nombre, m in (("Hoy", antes), ("Propuesta", despues)):
+        for fila in m.filas:
+            for f in m.dias:
+                for it in fila.items[f]:
+                    for col, v in enumerate([nombre, f, fila.cargo.nombre, it.codigo, it.proceso, it.texto, it.tipo, round(it.horas, 2)], start=1):
+                        c = _poner(d, n, col, v)
+                        if col == 2:
+                            c.number_format = "dd-mm-yyyy"
+                    n += 1
+    for col, ancho in zip("ABCDEFGH", (11, 12, 20, 16, 28, 70, 10, 8)):
+        d.column_dimensions[col].width = ancho
+    d.auto_filter.ref = d.dimensions
+    d.freeze_panes = "A2"
+
+    c = wb.create_sheet("Cambios propuestos")
+    for i, e in enumerate(["Código", "Proceso", "Tarea", "Qué cambia", "Antes", "Después", "Por qué"], start=1):
+        cel = c.cell(row=1, column=i, value=e)
+        cel.font, cel.fill = Font(bold=True), GRIS
+    for n, cambio in enumerate(prop.cambios, start=2):
+        for col, v in enumerate([cambio.tarea.codigo, cambio.tarea.proceso.nombre, cambio.tarea.subtarea, cambio.campo, cambio.antes, cambio.despues, cambio.motivo], start=1):
+            _poner(c, n, col, v)
+    for col, ancho in zip("ABCDEFG", (16, 26, 60, 22, 24, 40, 70)):
+        c.column_dimensions[col].width = ancho
+    c.auto_filter.ref = c.dimensions
+    c.freeze_panes = "A2"
+
+    a = wb.create_sheet("Alertas")
+    a["A1"] = "Lo que sigue sin caber después de la propuesta"
+    a["A1"].font = Font(bold=True)
+    alertas = despues.alertas() or ["Nada: con la propuesta todos caben en su jornada."]
+    for n, texto in enumerate(alertas, start=3):
+        a.cell(row=n, column=1, value=texto)
+    a.column_dimensions["A"].width = 130
+
+    p = wb.create_sheet("Planificación")
+    _volcar_planilla(p, prop.planes)
+    ayuda = wb.create_sheet("Instrucciones")
     for i, linea in enumerate([
-        "Cómo usar esta planilla",
-        "1. Edita lo que necesites. Cada fila es una subtarea; las filas van en el orden en que se procesan.",
-        "2. La columna «Código» solo sirve para ubicarte: la app no la lee. Una tarea es la misma mientras no cambies Proceso + Tarea principal + Subtarea.",
-        "3. Si cambias el texto de Proceso, Tarea principal o Subtarea, la app lo toma como una tarea nueva y desactiva la anterior (te lo avisa en la vista previa).",
-        "4. Responsable y Revisa deben ser nombres de cargo que ya existen (por ejemplo «Contador Senior»). «Revisa» puede ir vacío.",
-        "5. Periodicidad y Cuándo: Diaria · Todos los días hábiles / Semanal · Lunes / Mensual (cierre) · Día hábil 3 (del 1 al 7) / Mensual (cierre) · D8, D9 o D10 (días del mes: "
-        "reportes listos en la tarde, Gerente General y Directorio; si caen en día inhábil pasan al hábil siguiente) / Mensual · Día 13 / Mensual · Último día del mes / "
-        "Puntual · Día 20 de abril, junio y septiembre.",
-        "5b. Semana del cierre (del primer día hábil al día 8): vacío = la tarea sigue igual · «Pausar» = no se hace esa semana · «Reasignar» = la hace «Responsable en el cierre» "
-        "y la revisa «Revisa en el cierre» (si queda vacío, el revisor de siempre).",
-        "6. El ajuste «día hábil siguiente» de un día fijo no se puede escribir aquí: se cambia en Mantenedor → Tareas.",
-        "7. Las tareas que no estén en el archivo se DESACTIVAN (no se borran). La app te muestra la lista antes de aplicar y pide confirmación.",
-        "8. Celda de horas en verde = horas definidas por la Gerente AyF.",
+        "Cómo usar este libro",
+        "1. Revisa «Resumen», «Matriz hoy» y «Matriz propuesta» (rojo = más horas que la jornada). «Detalle por día» lista cada tarea; «Cambios propuestos» dice qué se movió y por qué.",
+        "2. La hoja «Planificación» es la planilla de tareas CON LA PROPUESTA YA APLICADA (responsables, día del cierre y semana del cierre). No se aplica sola.",
+        "3. Si estás de acuerdo (o después de corregirla a mano), en la app: Mantenedor → Tareas → Cargar Excel y sube este mismo archivo. La app te muestra primero qué cambiaría.",
+        "4. La propuesta está calculada con el calendario de este mes; en otros meses los días 8, 9 y 10 caen en otras fechas.",
     ], start=1):
         ayuda.cell(row=i, column=1, value=linea).font = Font(bold=(i == 1))
     ayuda.column_dimensions["A"].width = 150
     return _bytes(wb)
+
+
+def _volcar_planilla(hoja, planes: dict) -> None:
+    """Escribe la planilla de tareas (con una propuesta aplicada) en una hoja ya creada."""
+    libro = openpyxl.load_workbook(io.BytesIO(exportar_tareas(planes)))
+    origen = libro["Planificación"]
+    for fila in origen.iter_rows():
+        for c in fila:
+            if c.value is not None:
+                n = hoja.cell(row=c.row, column=c.column, value=c.value)
+                if isinstance(c.value, str) and c.value[:1] in ("=", "+", "-", "@"):
+                    n.data_type = "s"
+                if c.has_style:
+                    n.font, n.fill = copy.copy(c.font), copy.copy(c.fill)
+    for col, dim in origen.column_dimensions.items():
+        hoja.column_dimensions[col].width = dim.width
+    hoja.freeze_panes = "C4"
 
 
 # ---- La planificación completa (solo lectura: no se vuelve a cargar) ---------------------------------------------------------

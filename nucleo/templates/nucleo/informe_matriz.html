@@ -1,0 +1,39 @@
+{% extends "nucleo/base.html" %}
+{% block titulo %}Matriz del cierre{% endblock %}
+{% block contenido %}
+<div class="encabezado"><div><p class="kick">Informes · Matriz del cierre <span class="pill p-warn">Estimado</span></p><h1 class="ancho">Quién hace qué cada día del cierre</h1></div>
+  <a class="btn" href="{% url 'informe_matriz_exportar' %}?mes={{ mes_param }}">Descargar matriz (Excel)</a></div>
+<div class="navegar"><a class="btn btn-2 btn-sm" href="?mes={{ mes_anterior }}">‹ Mes anterior</a><strong style="text-transform:capitalize">{{ primero|date:"F Y" }}</strong><a class="btn btn-2 btn-sm" href="?mes={{ mes_siguiente }}">Mes siguiente ›</a></div>
+<p class="sub">Jornada: lunes a jueves 9 h y viernes 5 h. El Gerente AyF dedica hasta 80 h al mes. La semana del cierre va del primer día hábil al <strong>día 8 ({{ hasta|date:"l d-m" }})</strong>, cuando los reportes quedan listos en la tarde; el día 9 es del Gerente General y el 10 del Directorio.
+  Son <strong>horas estimadas</strong> y una <strong>propuesta</strong>: no cambia nada hasta que la revises y la cargues.</p>
+
+<section class="card"><h2>¿Cabe el cierre en la jornada del equipo?</h2>
+  <div class="tabla-scroll"><table class="tbl"><thead><tr><th>Cargo</th><th class="n">Hoy (h)</th><th class="n">Propuesta (h)</th><th class="n">Caben hasta el día 8 (h)</th><th class="n">Ocupación hoy</th><th class="n">Ocupación propuesta</th><th class="n">Total del mes</th><th class="n">Tope del mes</th></tr></thead><tbody>
+  {% for a, d in resumen %}<tr><td><strong>{{ d.cargo.nombre }}</strong></td><td class="n">{{ a.horas_semana_cierre|floatformat:1 }}</td><td class="n">{{ d.horas_semana_cierre|floatformat:1 }}</td><td class="n">{{ d.capacidad_semana_cierre|floatformat:0 }}</td>
+    <td class="n">{{ a.ocupacion_pct|floatformat:0 }} %</td><td class="n">{% if d.ocupacion_pct > 100 %}<span class="pill p-red">{{ d.ocupacion_pct|floatformat:0 }} %</span>{% else %}<span class="pill p-ok">{{ d.ocupacion_pct|floatformat:0 }} %</span>{% endif %}</td>
+    <td class="n">{{ d.total_mes|floatformat:1 }}</td><td class="n">{% if d.tope_mes %}{% if d.pasa_el_tope %}<span class="pill p-red">{{ d.tope_mes }} h</span>{% else %}{{ d.tope_mes }} h{% endif %}{% else %}—{% endif %}</td></tr>{% endfor %}
+  <tr><td><strong>Equipo</strong></td><td class="n"><strong>{{ prop.antes.horas_semana_cierre|floatformat:1 }}</strong></td><td class="n"><strong>{{ prop.despues.horas_semana_cierre|floatformat:1 }}</strong></td><td class="n"><strong>{{ prop.despues.capacidad_semana_cierre|floatformat:0 }}</strong></td><td></td><td></td><td></td><td></td></tr>
+  </tbody></table></div>
+  {% if faltan %}<p class="aviso-caja"><strong>Con estas horas estimadas el trabajo hasta el día 8 supera la jornada del equipo en {{ faltan }} h.</strong> Equilibrar los días no alcanza: hay que bajar horas estimadas, mover tareas más allá del día 8 o sumar apoyo. Las horas se corrigen en Mantenedor → Tareas.</p>
+  {% else %}<p class="mensaje">Con estas horas estimadas el trabajo hasta el día 8 cabe en la jornada del equipo.</p>{% endif %}
+  <p class="meta">Desequilibrio entre el cargo más y el menos ocupado: hoy {{ prop.antes.desequilibrio_pct|floatformat:0 }} puntos · propuesta {{ prop.despues.desequilibrio_pct|floatformat:0 }} puntos.</p>
+</section>
+
+{% for titulo, tabla in tablas %}
+<section class="card"><h2>{{ titulo }}</h2>
+  <div class="tabla-scroll"><table class="tbl crono"><thead><tr><th style="min-width:170px">Cargo</th>{% for d in dias %}<th class="c">{{ d|date:"D d-m" }}{% for dd, txt in etiquetas.items %}{% if dd == d and txt %}<br><span class="fino">{{ txt }}</span>{% endif %}{% endfor %}</th>{% endfor %}</tr></thead>
+  <tbody>{% for f in tabla %}<tr><td><strong>{{ f.fila.cargo.nombre }}</strong></td>{% for c in f.celdas %}<td class="c"><span class="celda {{ c.clase }}" title="{{ c.horas|floatformat:1 }} h de {{ c.capacidad|floatformat:0 }} h">{{ c.horas|floatformat:1 }}</span><span class="fino"> / {{ c.capacidad|floatformat:0 }}</span></td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
+  <p class="meta">Horas del día / horas que caben. Rojo: pasa de la jornada · Ámbar: desde el 90 % · Verde: dentro.</p>
+</section>
+{% endfor %}
+
+{% if alertas %}<section class="card"><h2>Lo que sigue sin caber con la propuesta</h2><ul>{% for a in alertas %}<li>{{ a }}</li>{% endfor %}</ul></section>{% endif %}
+
+<section class="card"><h2>Cambios propuestos ({{ prop.cambios|length }})</h2>
+  <p class="meta">No se aplican solos. En el Excel que descargas, la hoja «Planificación» ya trae todo esto aplicado: la revisas y la cargas desde Mantenedor → Tareas → Cargar Excel.</p>
+  <div class="tabla-scroll"><table class="tbl"><thead><tr><th>Código</th><th>Tarea</th><th>Qué cambia</th><th>Antes</th><th>Después</th><th>Por qué</th></tr></thead><tbody>
+  {% for c in cambios %}<tr><td><strong>{{ c.tarea.codigo }}</strong></td><td>{{ c.tarea.subtarea|truncatechars:70 }}<br><span class="meta">{{ c.tarea.proceso.nombre }}</span></td><td>{{ c.campo }}</td><td>{{ c.antes }}</td><td>{{ c.despues }}</td><td class="meta">{{ c.motivo }}</td></tr>
+  {% empty %}<tr><td colspan="6" class="vacio">La propuesta no cambia nada.</td></tr>{% endfor %}</tbody></table></div>
+  {% if mas_cambios %}<p class="meta">… y {{ mas_cambios }} más en el Excel.</p>{% endif %}
+</section>
+{% endblock %}
