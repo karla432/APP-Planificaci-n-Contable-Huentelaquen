@@ -164,3 +164,21 @@ def test_codigo_pro_tar_sub_una_tarea_principal_nueva_abre_numero_y_sus_subtarea
 def test_un_proceso_nuevo_toma_el_codigo_y_el_orden_siguientes(mundo):
     p1, p2 = mundo["proceso"], mantenedor.crear_proceso(mundo["u"]["jefa"], "Proceso nuevo")
     assert p2.orden == p1.orden + 1 and p2.codigo == f"{p2.orden:02d}-{p2.sigla}" and len(p2.sigla) == 3
+
+
+# ---- Minutos de revisión (Karla, 02-11-2026) -----------------------------------------------------------------
+
+
+def test_los_minutos_de_revision_se_guardan_por_tarea_y_vacio_es_el_valor_general(mundo):
+    sin = mantenedor.crear_tarea(mundo["u"]["jefa"], datos(mundo, cargo_revisa_id=mundo["ger"].pk, minutos=120))
+    assert sin.minutos_revision is None  # vacío: la app usa los 15 min generales
+    con = mantenedor.crear_tarea(mundo["u"]["jefa"], datos(mundo, subtarea="Otra", cargo_revisa_id=mundo["ger"].pk, minutos=120, minutos_revision=30))
+    assert con.minutos_revision == 30
+    con = mantenedor.editar_tarea(mundo["u"]["jefa"], con, datos(mundo, subtarea="Otra", cargo_revisa_id=mundo["ger"].pk, minutos=120, minutos_revision=None))
+    assert con.minutos_revision is None
+
+
+@pytest.mark.parametrize("valor", [-1, 481])
+def test_los_minutos_de_revision_fuera_de_rango_se_rechazan(mundo, valor):
+    with pytest.raises(ErrorDeNegocio, match="minutos de revisión"):
+        mantenedor.crear_tarea(mundo["u"]["jefa"], datos(mundo, minutos_revision=valor))

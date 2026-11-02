@@ -13,7 +13,7 @@
       <td><div class="meta-barra"><i class="c-{{ f.clase }}" style="width: {% if f.ocupacion_pct > 100 %}100{% else %}{{ f.ocupacion_pct|stringformat:'f' }}{% endif %}%"></i></div><small>{{ f.ocupacion_pct|floatformat:1 }} % de {{ capacidad }} h</small></td>
       <td><span class="pill p-{{ f.clase }}">{{ f.etiqueta }}</span></td></tr>{% endfor %}</tbody>
   </table></div>
-  <p class="meta">Verde: bajo 90 % · Al límite: de 90 % a 110 % · Sobrecargado: sobre 110 % (parámetros editables). Las horas de revisión son el 25 % de las horas de cada tarea revisada.</p>
+  <p class="meta">Verde: bajo 90 % · Al límite: de 90 % a 110 % · Sobrecargado: sobre 110 % (parámetros editables). Las horas de revisión son los minutos que tarda quien revisa cada tarea (15 min si la tarea no tiene su propio tiempo).</p>
 </section>
 <section class="card"><h2>Carga del cierre por día hábil</h2>
   <p class="meta">Horas de las tareas del cierre que vencen cada día (más la revisión), contra lo que deja libre la operación diaria. En rojo, el día que supera esa capacidad.</p>

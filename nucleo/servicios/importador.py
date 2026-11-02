@@ -140,6 +140,8 @@ class FilaImport:
     dia_cierre: int | None = None
     horas: float | None = None
     ejecuciones: float | None = None
+    minutos_revision: int | None = None  # minutos que tarda quien revisa; vacío = el valor general
+    con_minutos_revision: bool = False  # la planilla trae la columna (si no, no se toca lo que ya hay)
     fuente_horas: str = "estimacion"
     modo_cierre: str = "igual"  # qué pasa en la semana del cierre: igual / reasignar / pausar
     cargo_cierre: str = ""
@@ -213,6 +215,11 @@ def _con_tarea_del_dia_9(filas: list) -> list:
     return filas[:posicion] + [nueva] + filas[posicion:]
 
 
+def _minutos_de_revision(valor) -> int | None:
+    n = _numero(valor)
+    return None if n is None or n < 0 else round(n)
+
+
 def leer_excel(ruta) -> list[FilaImport]:
     wb = openpyxl.load_workbook(ruta if hasattr(ruta, "read") else Path(ruta), data_only=True)
     hoja = wb["Planificación"] if "Planificación" in wb.sheetnames else wb["Tareas"] if "Tareas" in wb.sheetnames else wb.worksheets[0]
@@ -231,7 +238,8 @@ def leer_excel(ruta) -> list[FilaImport]:
     idx = {k: col(v) for k, v in {"proceso": "Proceso", "tarea": "Tarea principal", "sub": "Subtarea", "ejecuta": "Responsable (ejecuta)", "revisa": "Revisa",
                                   "per": "Periodicidad", "cuando": "Cuándo", "obs": "Observación"}.items()}
     opc = {k: col(v, True) for k, v in {"fecha": "Fecha 1.ª vez", "dia": "Día cierre", "horas": "Horas por ejecución", "ejec": "Ejecuciones por mes",
-                                        "modo": "Semana del cierre", "cargo_cierre": "Responsable en el cierre", "revisa_cierre": "Revisa en el cierre"}.items()}
+                                        "modo": "Semana del cierre", "cargo_cierre": "Responsable en el cierre", "revisa_cierre": "Revisa en el cierre",
+                                        "min_revision": "Minutos de revisión"}.items()}
     resultado = []
     for n, r in enumerate(filas[inicio + 1:], start=inicio + 2):
         if not (normalizar(r[idx["tarea"]]) or normalizar(r[idx["sub"]])):
@@ -249,6 +257,7 @@ def leer_excel(ruta) -> list[FilaImport]:
             fecha_1ra=r[opc["fecha"]] if opc["fecha"] is not None else None, observacion=normalizar(r[idx["obs"]]),
             dia_cierre=int(dia) if dia else None, horas=_numero(r[opc["horas"]]) if opc["horas"] is not None else None,
             ejecuciones=_numero(r[opc["ejec"]]) if opc["ejec"] is not None else None, fuente_horas=fuente,
+            minutos_revision=_minutos_de_revision(r[opc["min_revision"]]) if opc["min_revision"] is not None else None, con_minutos_revision=opc["min_revision"] is not None,
             modo_cierre=_modo_cierre(r[opc["modo"]]) if opc["modo"] is not None else "igual",
             cargo_cierre=_cargo_de_la_app(normalizar(r[opc["cargo_cierre"]])) if opc["cargo_cierre"] is not None else "",
             revisa_cierre=_cargo_de_la_app(normalizar(r[opc["revisa_cierre"]])) if opc["revisa_cierre"] is not None else "",
@@ -272,6 +281,7 @@ def _valores(fila: FilaImport) -> dict:
         "ejecuciones_mes": round(fila.ejecuciones, 3) if fila.ejecuciones is not None else None,
         "fuente_horas": fila.fuente_horas, "dia_cierre": fila.dia_cierre,
         "modo_cierre": fila.modo_cierre, "cargo_cierre": fila.cargo_cierre or None, "cargo_revisa_cierre": fila.revisa_cierre or None,
+        **({"minutos_revision": fila.minutos_revision} if fila.con_minutos_revision else {}),
     }
 
 
@@ -284,7 +294,7 @@ def _valores_actuales(t: Tarea) -> dict:
         "regla_estado": t.regla_estado, "referencia_normativa": t.referencia_normativa,
         "requiere_revision": t.requiere_revision, "motivo_revision": t.motivo_revision,
         "minutos_estimados": t.minutos_estimados, "ejecuciones_mes": round(float(t.ejecuciones_mes), 3) if t.ejecuciones_mes is not None else None,
-        "fuente_horas": t.fuente_horas, "dia_cierre": t.dia_cierre,
+        "fuente_horas": t.fuente_horas, "dia_cierre": t.dia_cierre, "minutos_revision": t.minutos_revision,
         "modo_cierre": t.modo_cierre, "cargo_cierre": t.cargo_cierre.nombre if t.cargo_cierre else None, "cargo_revisa_cierre": t.cargo_revisa_cierre.nombre if t.cargo_revisa_cierre else None,
     }
 

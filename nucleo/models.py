@@ -199,6 +199,7 @@ class Tarea(Planificable):
     cuando_excel = models.CharField(max_length=120, blank=True)
     referencia_normativa = models.TextField(blank=True)
     minutos_estimados = models.PositiveIntegerField(null=True, blank=True, help_text="Por ejecución. Estimado: ver `fuente_horas`.")
+    minutos_revision = models.PositiveIntegerField(null=True, blank=True, help_text="Minutos que tarda quien revisa, por ejecución. Vacío = el valor general (parámetro «minutos_revision», 15 min).")
     ejecuciones_mes = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True)
     fuente_horas = models.CharField(max_length=12, default="estimacion", choices=[("estimacion", "Estimación base"), ("gerente", "Definida por la Gerente AyF")])
     secuencia = models.PositiveIntegerField(default=0, help_text="Orden en que se procesan las tareas (el del Excel).")

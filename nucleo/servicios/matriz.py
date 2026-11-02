@@ -14,6 +14,7 @@ from datetime import date
 
 from nucleo.models import Cargo, Tarea
 from nucleo.servicios import kpi, parametros
+from nucleo.servicios.carga import horas_de_revision
 from nucleo.servicios.calendario import JORNADA_HORAS, ventana_del_cierre
 from nucleo.servicios.feriados import calendario_confirmado
 from nucleo.servicios.recurrencia import ReglaIncompleta, ReglaInvalida, fechas_limite
@@ -67,7 +68,7 @@ class Contexto:
     desde: date
     hasta: date  # día 8 (reportes listos)
     dias: list  # fechas de la matriz: del primer día hábil a la entrega al Directorio
-    pct_revision: float
+    min_revision: int  # minutos que tarda quien revisa, cuando la tarea no tiene su propio tiempo
     internos: dict  # cargo_id → Cargo (los que tienen capacidad)
     tareas: dict  # id → Tarea
     sin_horas: set = field(default_factory=set)
@@ -82,7 +83,7 @@ def contexto(anio: int, mes: int) -> Contexto:
     desde, hasta = ventana_del_cierre(cal, anio, mes, min_dias)
     internos = {c.pk: c for c in Cargo.objects.filter(activo=True, es_externo=False)}
     tareas = {t.pk: t for t in Tarea.objects.filter(activa=True, requiere_revision=False).select_related("cargo_ejecuta", "cargo_revisa", "proceso", "padre")}
-    return Contexto(anio, mes, cal, min_dias, desde, hasta, [f for _, f in kpi.hitos_del_mes(anio, mes)], parametros.entero("pct_horas_revision") / 100, internos, tareas)
+    return Contexto(anio, mes, cal, min_dias, desde, hasta, [f for _, f in kpi.hitos_del_mes(anio, mes)], parametros.entero("minutos_revision"), internos, tareas)
 
 
 def items_de(t: Tarea, plan: Plan, ctx: Contexto) -> list[Item]:
@@ -111,7 +112,7 @@ def items_de(t: Tarea, plan: Plan, ctx: Contexto) -> list[Item]:
         if ejecuta in ctx.internos:
             items.append(Item(f, ejecuta, t.pk, t.codigo, t.subtarea, t.proceso.nombre, horas, "ejecución", es_cierre))
         if revisa in ctx.internos and horas:
-            items.append(Item(f, revisa, t.pk, t.codigo, t.subtarea, t.proceso.nombre, horas * ctx.pct_revision, "revisión", es_cierre))
+            items.append(Item(f, revisa, t.pk, t.codigo, t.subtarea, t.proceso.nombre, horas_de_revision(t, ctx.min_revision), "revisión", es_cierre))
     return items
 
 
@@ -381,7 +382,7 @@ def proponer(anio: int, mes: int, ctx: Contexto | None = None, max_pasos: int = 
 
     def cabe(t, cargo_id, dia, h):
         revisa = planes[t.pk].revisa_id
-        return libre(cargo_id, dia) >= h - TOLERANCIA and (revisa not in ctx.internos or not h or libre(revisa, dia) >= h * ctx.pct_revision - TOLERANCIA)
+        return libre(cargo_id, dia) >= h - TOLERANCIA and (revisa not in ctx.internos or not h or libre(revisa, dia) >= horas_de_revision(t, ctx.min_revision) - TOLERANCIA)
 
     def peor_dia(t, cargo_id, h, entre):
         """Si no cabe en ningún día, el día con más espacio (el menor exceso)."""

@@ -17,6 +17,8 @@
   <label for="cargo_revisa">Quién revisa (o recibe, si es de un externo)</label>
   <select id="cargo_revisa" name="cargo_revisa"><option value="">Sin revisor</option>{% for c in cargos %}<option value="{{ c.pk }}" {% if v.cargo_revisa == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}</select>
   <label for="horas">Horas estimadas por ejecución <span class="pill p-warn">Estimado</span></label><input id="horas" name="horas" inputmode="decimal" value="{{ v.horas }}" placeholder="por ejemplo 0,5">
+  <label for="minutos_revision">Minutos que tarda quien revisa <span class="pill p-warn">Estimado</span></label><input id="minutos_revision" name="minutos_revision" inputmode="numeric" value="{{ v.minutos_revision }}" placeholder="vacío = 15 (valor general)">
+  <p class="meta">Por cada vez que se hace la tarea. Si lo dejas vacío, la app usa 15 minutos. Pon 0 si la revisión no toma tiempo.</p>
 
   <label for="tipo">Periodicidad</label>
   <select id="tipo" name="tipo">{% for k, n in tipos %}<option value="{{ k }}" {% if v.tipo == k %}selected{% endif %}>{{ n }}</option>{% endfor %}</select>

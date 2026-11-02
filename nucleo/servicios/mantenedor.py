@@ -41,6 +41,7 @@ class DatosTarea:
     activa: bool = True
     cargo_revisa_id: int | None = None  # quien revisa (o recibe, si la tarea es de un externo); vacío = sin revisor
     minutos: int | None = None  # minutos estimados por ejecución
+    minutos_revision: int | None = None  # minutos que tarda quien revisa cada ejecución; vacío = el valor general (15 min)
     estado_plan: str = "pendiente"  # planificación: estado, fechas y observaciones de la subtarea
     fecha_inicio: date | None = None
     fecha_termino: date | None = None
@@ -58,6 +59,8 @@ def _validar(d: DatosTarea) -> str:
         raise ErrorDeNegocio("Falta la subtarea.")
     if d.tipo not in TIPOS:
         raise ErrorDeNegocio(f"La periodicidad «{d.tipo}» no existe.")
+    if d.minutos_revision is not None and not 0 <= d.minutos_revision <= 480:
+        raise ErrorDeNegocio("Los minutos de revisión deben estar entre 0 y 480 (o déjalos vacíos para usar el valor general).")
     if d.estado_plan not in dict(ESTADOS_PLAN):
         raise ErrorDeNegocio("El estado elegido no existe.")
     if d.modo_cierre not in dict(Tarea.MODOS_CIERRE):
@@ -106,7 +109,7 @@ def _instantanea(t: Tarea) -> dict:
         "cargo_revisa": t.cargo_revisa.nombre if t.cargo_revisa else None, "regla_tipo": t.regla_tipo, "regla_dia_semana": t.regla_dia_semana,
         "regla_n": t.regla_n, "regla_dia": t.regla_dia, "regla_meses": t.regla_meses, "regla_ajuste": t.regla_ajuste, "regla_franja": t.regla_franja,
         "referencia_normativa": t.referencia_normativa, "activa": t.activa, "requiere_revision": t.requiere_revision,
-        "minutos_estimados": t.minutos_estimados, "codigo": t.codigo, "estado_plan": t.estado_plan, "fecha_inicio": str(t.fecha_inicio or ""),
+        "minutos_estimados": t.minutos_estimados, "minutos_revision": t.minutos_revision, "codigo": t.codigo, "estado_plan": t.estado_plan, "fecha_inicio": str(t.fecha_inicio or ""),
         "fecha_termino": str(t.fecha_termino or ""), "observaciones": t.observaciones,
         "modo_cierre": t.modo_cierre, "cargo_cierre": t.cargo_cierre.nombre if t.cargo_cierre else None,
     }
@@ -124,6 +127,7 @@ def _aplicar(t: Tarea, d: DatosTarea, motivo: str):
         revisa = Cargo.objects.filter(nombre=CARGO_JEFA).first()  # quien registra «Recibido» (supuesto, igual que en el importador)
     t.cargo_revisa = revisa  # sin revisor se queda sin revisor: no se inventa
     t.minutos_estimados = d.minutos
+    t.minutos_revision = d.minutos_revision
     t.ejecuciones_mes = ejecuciones_por_mes(d.tipo, d.meses)
     t.regla_tipo, t.regla_dia_semana, t.regla_n, t.regla_dia = d.tipo, d.dia_semana, d.n, d.dia
     t.regla_meses = ",".join(str(m) for m in sorted(d.meses))

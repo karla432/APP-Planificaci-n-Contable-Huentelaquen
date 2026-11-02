@@ -155,3 +155,19 @@ def test_editar_un_usuario_y_la_proteccion_del_propio_perfil(mundo):
     assert r.status_code == 302
     propio = c.post(reverse("mant_usuario_editar", args=[mundo["u"]["ger"].pk]), {"nombre": "Gerente", "correo": "", "rol": "LECTURA", "activo": "on"})
     assert propio.status_code == 403 and permisos.rol_de(mundo["u"]["ger"]) == "GERENTE"
+
+
+def test_el_formulario_de_tarea_pide_los_minutos_de_revision_y_los_guarda(mundo):
+    c = cli(mundo["u"]["jefa"])
+    html = c.get(reverse("mant_tarea_nueva")).content.decode()
+    assert 'name="minutos_revision"' in html and "15" in html  # explica el valor general
+    assert c.post(reverse("mant_tarea_nueva"), datos_post(mundo, minutos_revision="45")).status_code == 302
+    t = Tarea.objects.get(subtarea="Cuadrar el libro de ventas")
+    assert t.minutos_revision == 45
+    url = reverse("mant_tarea_editar", args=[t.pk])
+    assert 'value="45"' in c.get(url).content.decode()
+    c.post(url, datos_post(mundo, minutos_revision=""))
+    t.refresh_from_db()
+    assert t.minutos_revision is None  # vacío = el valor general
+    r = c.post(reverse("mant_tarea_nueva"), datos_post(mundo, subtarea="Otra", minutos_revision="999"))
+    assert r.status_code == 200 and "minutos de revisión" in r.content.decode()

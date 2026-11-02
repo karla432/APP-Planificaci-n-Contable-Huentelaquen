@@ -2,7 +2,7 @@
 hasta que los colaboradores registren horas reales.
 
 - Horas de ejecución al mes = minutos por ejecución × ejecuciones al mes.
-- Horas de revisión al mes = 25 % de las horas de cada tarea que tiene revisor, y se cargan a quien revisa (como en la hoja de planificación).
+- Horas de revisión al mes = minutos de revisión de la tarea (o el valor general, 15 min) × ejecuciones al mes, y se cargan a quien revisa.
 - Capacidad = horas disponibles al mes por persona (160). Los cargos externos no tienen capacidad en la app.
 """
 from dataclasses import dataclass, field
@@ -27,6 +27,15 @@ def _h_por_ejecucion(t: Tarea) -> float:
 
 def _h_al_mes(t: Tarea) -> float:
     return _h_por_ejecucion(t) * float(t.ejecuciones_mes or 0)
+
+
+def horas_de_revision(t: Tarea, por_defecto_min: int | None = None) -> float:
+    """Horas que tarda quien revisa UNA ejecución: las propias de la tarea o, si no tiene, el valor general (15 min).
+    Una tarea sin tiempo de ejecución estimado no carga revisión (no se sabe cuánto es)."""
+    if not t.minutos_estimados:
+        return 0.0
+    minutos = t.minutos_revision if t.minutos_revision is not None else (por_defecto_min if por_defecto_min is not None else parametros.entero("minutos_revision"))
+    return minutos / 60
 
 
 @dataclass
@@ -57,7 +66,7 @@ def _tareas_activas():
 
 def por_cargo() -> list[CargaCargo]:
     capacidad = parametros.entero("horas_disponibles_mes")
-    pct = parametros.entero("pct_horas_revision") / 100
+    min_revision = parametros.entero("minutos_revision")
     filas = {c.pk: CargaCargo(c, capacidad) for c in Cargo.objects.filter(activo=True, es_externo=False)}
     for t in _tareas_activas():
         h = _h_al_mes(t)
@@ -66,7 +75,7 @@ def por_cargo() -> list[CargaCargo]:
             filas[t.cargo_ejecuta_id].horas_ejecucion += h
         if t.cargo_revisa_id in filas:
             filas[t.cargo_revisa_id].tareas_revisa += 1
-            filas[t.cargo_revisa_id].horas_revision += h * pct  # también las de externos: el revisor las recibe y las revisa
+            filas[t.cargo_revisa_id].horas_revision += horas_de_revision(t, min_revision) * float(t.ejecuciones_mes or 0)  # también las de externos: el revisor las recibe y las revisa
     return list(filas.values())
 
 
@@ -103,7 +112,7 @@ def por_dia_de_cierre(anio: int | None = None, mes: int | None = None) -> list[C
     dia_de = {f: int(etiqueta.split()[1]) for etiqueta, f in kpi.hitos_del_mes(anio, mes)}
     dias = parametros.entero("dias_habiles_mes")
     capacidad_dia = parametros.entero("horas_disponibles_mes") / dias
-    pct = parametros.entero("pct_horas_revision") / 100
+    min_revision = parametros.entero("minutos_revision")
     filas = {c.pk: CargaDelCierre(c, horas={d: 0.0 for d in dia_de.values()}, disponible_por_dia=capacidad_dia) for c in Cargo.objects.filter(activo=True, es_externo=False)}
     for t in _tareas_activas():
         if t.regla_tipo in OPERACION and t.cargo_ejecuta_id in filas:
@@ -121,7 +130,7 @@ def por_dia_de_cierre(anio: int | None = None, mes: int | None = None) -> list[C
                 if t.cargo_ejecuta_id in filas:
                     filas[t.cargo_ejecuta_id].horas[n] += h
                 if t.cargo_revisa_id in filas:
-                    filas[t.cargo_revisa_id].horas[n] += h * pct
+                    filas[t.cargo_revisa_id].horas[n] += horas_de_revision(t, min_revision)
     return list(filas.values())
 
 

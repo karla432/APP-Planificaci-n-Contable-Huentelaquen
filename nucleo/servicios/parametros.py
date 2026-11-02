@@ -12,7 +12,7 @@ INICIALES = {
     "min_dias_habiles_d7_d10": ("1", "pendiente_confirmar", "Días hábiles mínimos entre los días 8, 9 y 10 del cierre cuando alguno se corre por caer en día inhábil (supuesto de Legión, 01-11-2026)."),
     "horas_disponibles_mes": ("160", "pendiente_confirmar", "Horas al mes que una persona dedica a Huentelauquén (valor por defecto de la planificación)."),
     "dias_habiles_mes": ("21", "pendiente_confirmar", "Días hábiles de un mes típico, para repartir la carga por día."),
-    "pct_horas_revision": ("25", "pendiente_confirmar", "Horas de revisión = este % de las horas de ejecución de la tarea revisada (planificación)."),
+    "minutos_revision": ("15", "confirmado", "Minutos que tarda quien revisa cada ejecución de una tarea, salvo que la tarea tenga su propio tiempo de revisión (Karla, 02-11-2026)."),
     "carga_ambar": ("90", "pendiente_confirmar", "Desde este % de la capacidad la carga pasa a ámbar."),
     "carga_rojo": ("110", "pendiente_confirmar", "Sobre este % de la capacidad la carga pasa a rojo."),
     "tiempo_obligatorio": ("0", "confirmado", "1 = exigir minutos al marcar «hecha». Apagado en v1 (DEC-09)."),

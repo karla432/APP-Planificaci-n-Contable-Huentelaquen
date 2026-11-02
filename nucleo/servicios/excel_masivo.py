@@ -35,7 +35,7 @@ MAX_DESCOMPRIMIDO = 50 * 1024 * 1024
 MAX_FILAS = 5000
 TITULO = "Hacienda Huentelauquén · Listado maestro de tareas AyF"
 ENCABEZADOS = ["Código", "Proceso", "Tarea principal", "Subtarea", "Responsable (ejecuta)", "Revisa", "Periodicidad", "Cuándo", "Observación",
-               "Día cierre", "Horas por ejecución", "Ejecuciones por mes", "Semana del cierre", "Responsable en el cierre", "Revisa en el cierre"]
+               "Día cierre", "Horas por ejecución", "Ejecuciones por mes", "Semana del cierre", "Responsable en el cierre", "Revisa en el cierre", "Minutos de revisión"]
 VERDE = PatternFill("solid", start_color=importador.RELLENO_GERENTE, end_color=importador.RELLENO_GERENTE)
 GRIS = PatternFill("solid", start_color="FFEDEDED", end_color="FFEDEDED")
 
@@ -129,12 +129,12 @@ def exportar_tareas(planes: dict | None = None) -> bytes:
         per, cua = texto_de_periodicidad(t)
         valores = [t.codigo, t.proceso.nombre, t.tarea_principal, t.subtarea, t.cargo_ejecuta.nombre, _revisa(t), per, cua, t.referencia_normativa, t.dia_cierre,
                    None if t.minutos_estimados is None else round(t.minutos_estimados / 60, 4), None if t.ejecuciones_mes is None else float(t.ejecuciones_mes),
-                   {"igual": "", "reasignar": "Reasignar", "pausar": "Pausar"}[t.modo_cierre], t.cargo_cierre.nombre if t.cargo_cierre else "", t.cargo_revisa_cierre.nombre if t.cargo_revisa_cierre else ""]
+                   {"igual": "", "reasignar": "Reasignar", "pausar": "Pausar"}[t.modo_cierre], t.cargo_cierre.nombre if t.cargo_cierre else "", t.cargo_revisa_cierre.nombre if t.cargo_revisa_cierre else "", t.minutos_revision]
         for col, v in enumerate(valores, start=1):
             _poner(hoja, n, col, v)
         if t.fuente_horas == "gerente":
             hoja.cell(row=n, column=11).fill = VERDE
-    for col, ancho in zip("ABCDEFGHIJKLMNO", (24, 28, 34, 54, 22, 18, 18, 26, 30, 11, 12, 12, 14, 22, 22)):
+    for col, ancho in zip("ABCDEFGHIJKLMNOP", (24, 28, 34, 54, 22, 18, 18, 26, 30, 11, 12, 12, 14, 22, 22, 14)):
         hoja.column_dimensions[col].width = ancho
     hoja.freeze_panes = "C4"
     ayuda = wb.create_sheet("Instrucciones")
@@ -155,6 +155,7 @@ INSTRUCCIONES = [
     "Puntual · Día 20 de abril, junio y septiembre.",
     "5b. Semana del cierre (del primer día hábil al día 8): vacío = la tarea sigue igual · «Pausar» = no se hace esa semana · «Reasignar» = la hace «Responsable en el cierre» "
     "y la revisa «Revisa en el cierre» (si queda vacío, el revisor de siempre).",
+    "5c. Minutos de revisión: lo que tarda quien revisa cada vez que se hace la tarea (por ejemplo 15). Vacío = 15 minutos, el valor general. 0 = la revisión no toma tiempo.",
     "6. El ajuste «día hábil siguiente» de un día fijo no se puede escribir aquí: se cambia en Mantenedor → Tareas.",
     "7. Las tareas que no estén en el archivo se DESACTIVAN (no se borran). La app te muestra la lista antes de aplicar y pide confirmación.",
     "8. Celda de horas en verde = horas definidas por la Gerente AyF.",

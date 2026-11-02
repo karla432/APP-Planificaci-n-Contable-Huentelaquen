@@ -321,3 +321,43 @@ def test_reasignar_sin_responsable_en_el_cierre_no_se_deja_aplicar(base, jefa):
     nuevo = editado(contenido, lambda h: setattr(h.cell(row=4, column=13), "value", "Reasignar"))
     with pytest.raises(ErrorDeNegocio, match="responsable en el cierre"):
         excel_masivo.aplicar_tareas(jefa, nuevo, "x.xlsx")
+
+
+# ---- Minutos de revisión -------------------------------------------------------------------------------------------------
+
+
+def test_los_minutos_de_revision_viajan_en_la_planilla_y_se_pueden_cargar(base, jefa):
+    contenido = excel_masivo.exportar_tareas()
+    encabezados = [c.value for c in libro(contenido)["Planificación"][3]]
+    col = encabezados.index("Minutos de revisión") + 1
+    t = Tarea.objects.filter(activa=True).first()
+    fila_excel = 4 + [f[0] for f in filas(contenido)].index(t.codigo)
+    assert libro(contenido)["Planificación"].cell(row=fila_excel, column=col).value is None  # vacío = 15 min generales
+    nuevo = editado(contenido, lambda h: setattr(h.cell(row=fila_excel, column=col), "value", 20))
+    assert excel_masivo.aplicar_tareas(jefa, nuevo, "x.xlsx")["cambios"] == 1
+    t.refresh_from_db()
+    assert t.minutos_revision == 20
+    again = excel_masivo.exportar_tareas()
+    assert libro(again)["Planificación"].cell(row=fila_excel, column=col).value == 20
+    vp = importador.previsualizar(io.BytesIO(again), incluir_dia_9=False)
+    assert not vp.altas and not vp.cambios and not vp.bajas  # ida y vuelta sin cambios
+    sin_valor = editado(again, lambda h: setattr(h.cell(row=fila_excel, column=col), "value", None))
+    assert excel_masivo.aplicar_tareas(jefa, sin_valor, "x.xlsx")["cambios"] == 1
+    t.refresh_from_db()
+    assert t.minutos_revision is None
+
+
+def test_una_planilla_sin_la_columna_no_borra_los_minutos_de_revision(base, jefa):
+    t = Tarea.objects.filter(activa=True).first()
+    t.minutos_revision = 25
+    t.save()
+    contenido = excel_masivo.exportar_tareas()
+
+    def sin_columna(h):
+        col = [c.value for c in h[3]].index("Minutos de revisión") + 1
+        h.delete_cols(col)
+
+    vp = importador.previsualizar(io.BytesIO(editado(contenido, sin_columna)), incluir_dia_9=False)
+    assert not vp.cambios  # una planilla antigua (sin la columna) no toca lo que ya hay
+    t.refresh_from_db()
+    assert t.minutos_revision == 25
