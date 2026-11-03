@@ -55,8 +55,16 @@ def libro(r):
     return openpyxl.load_workbook(io.BytesIO(r.content))
 
 
-def test_la_pantalla_muestra_hoy_propuesta_cambios_y_si_cabe(mundo):
+def test_la_pantalla_normal_muestra_el_plan_vigente_con_sus_hitos_y_dependencias(mundo):
     html = cli(mundo["u"]["jefa"]).get(reverse("informe_matriz"), {"mes": "2026-12"}).content.decode()
+    for texto in ("Plan del cierre", "plan vigente", "Diagnóstico de control de gestión", "Hitos y puntos de control", "Carga por persona y día", "DH00", "DH03", "Resumen por persona",
+                  "Descargar matriz (Excel)", "Jefa de Control", "Analista Contable", "lunes a jueves 9 h y viernes 5 h", "Ver la propuesta de equilibrio"):
+        assert texto in html, texto
+    assert "Cambios propuestos" not in html and 'class="celda rd"' in html  # la propuesta es opcional; la Jefa tiene 15 h el DH01: rojo
+
+
+def test_la_pantalla_de_la_propuesta_muestra_hoy_propuesta_cambios_y_si_cabe(mundo):
+    html = cli(mundo["u"]["jefa"]).get(reverse("informe_matriz"), {"mes": "2026-12", "ver": "propuesta"}).content.decode()
     for texto in ("Matriz del cierre", "Como está hoy", "Propuesta", "¿Cabe el cierre en la jornada del equipo?", "Cambios propuestos", "Descargar matriz (Excel)", "Jefa de Control", "Analista Contable", "lunes a jueves 9 h y viernes 5 h", "80 h"):
         assert texto in html, texto
     assert 'class="celda rd"' in html  # la Jefa tiene 15 h el día 1: se marca en rojo en «Como está hoy»

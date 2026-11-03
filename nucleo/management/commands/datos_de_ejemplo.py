@@ -11,7 +11,8 @@ from django.core.management.base import BaseCommand, CommandError
 from nucleo.models import Asignacion, Cargo, Colaborador, Ocurrencia
 from nucleo.servicios import feriados, importador, periodos
 
-EXCEL = Path(settings.BASE_DIR) / "docs" / "datos" / "Planificacion_Mensual_Huentelauquen_Revisada.xlsx"
+EXCEL = Path(settings.BASE_DIR) / "docs" / "datos" / "Planificacion_2.0_contabilidad.xlsx"  # el plan vigente (Planificación 2.0, 03-11-2026)
+EXCEL_ANTIGUO = Path(settings.BASE_DIR) / "docs" / "datos" / "Planificacion_Mensual_Huentelauquen_Revisada.xlsx"
 PERSONAS = [  # usuario, nombre de ejemplo, cargo, rol
     ("gerente", "Gerente AyF (ejemplo)", "Gerente AyF", "GERENTE"),
     ("jefa", "Jefa de Control (ejemplo)", "Jefa de Control", "JEFATURA"),
@@ -31,7 +32,9 @@ class Command(BaseCommand):
     def handle(self, *args, password, **opciones):
         if settings.PRODUCCION:
             raise CommandError("Este comando es solo de desarrollo: se niega a correr en producción.")
-        importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
+        # Primero el listado anterior y encima la Planificación 2.0, como pasó en la vida real: así también se ve qué cambió.
+        importador.aplicar(importador.previsualizar(EXCEL_ANTIGUO), usuario=None)
+        importador.aplicar(importador.previsualizar(EXCEL, incluir_dia_9=False), usuario=None)
         for usuario, nombre, cargo, rol in PERSONAS:
             u = get_user_model().objects.create_user(usuario, password=password)
             u.groups.add(Group.objects.get(name=rol))

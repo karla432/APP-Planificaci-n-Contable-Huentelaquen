@@ -12,7 +12,6 @@ import re
 import unicodedata
 from collections import Counter
 
-import openpyxl
 
 from nucleo import siglas
 from nucleo.models import Proceso, Tarea

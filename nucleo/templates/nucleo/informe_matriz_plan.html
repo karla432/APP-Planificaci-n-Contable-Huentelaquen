@@ -1,0 +1,36 @@
+{% extends "nucleo/base.html" %}
+{% block titulo %}Matriz del cierre{% endblock %}
+{% block contenido %}
+<div class="encabezado"><div><p class="kick">Informes · Matriz del cierre <span class="pill p-warn">Estimado</span></p><h1 class="ancho">Plan del cierre: quién hace qué cada día</h1></div>
+  <a class="btn" href="{% url 'informe_matriz_exportar' %}?mes={{ mes_param }}">Descargar matriz (Excel)</a></div>
+<div class="navegar"><a class="btn btn-2 btn-sm" href="?mes={{ mes_anterior }}">‹ Mes anterior</a><strong style="text-transform:capitalize">{{ primero|date:"F Y" }}</strong><a class="btn btn-2 btn-sm" href="?mes={{ mes_siguiente }}">Mes siguiente ›</a></div>
+<p class="sub">Es el <strong>plan vigente</strong> (Planificación 2.0), calculado con el calendario del mes. DH00 es el último día hábil del mes anterior y DH01 el primero. Los reportes quedan listos en la tarde del <strong>DH08 ({{ hasta|date:"l d-m" }})</strong>; el DH09 se revisa con el Gerente General y el DH10 se entrega al Directorio. Jornada: lunes a jueves 9 h y viernes 5 h. Son <strong>horas estimadas</strong>.</p>
+
+<section class="card"><h2>Diagnóstico de control de gestión</h2>
+  <ul class="diagnostico">{% for l in diagnostico %}<li>{{ l }}</li>{% endfor %}</ul></section>
+
+<section class="card"><h2>Hitos y puntos de control</h2>
+  <div class="tabla-scroll"><table class="tbl"><thead><tr><th>Día</th><th>Fecha</th><th>Qué debe estar listo</th><th class="n">Tareas previas</th><th>Estado</th></tr></thead><tbody>
+  {% for h in hitos %}<tr><td><strong>{{ h.dh }}</strong></td><td>{{ h.fecha|date:"D d-m" }}</td><td>{{ h.tarea.subtarea|truncatechars:110 }}<br><span class="meta">{{ h.tarea.codigo }} · {{ h.tarea.cargo_ejecuta.nombre }}</span></td><td class="n">{{ h.previas }}</td>
+    <td>{% if h.cumple %}<span class="pill p-ok">Cumple</span>{% else %}<span class="pill p-red">{{ h.tarde }} previa{{ h.tarde|pluralize }} vence{{ h.tarde|pluralize:",n" }} después</span>{% endif %}</td></tr>
+  {% empty %}<tr><td colspan="5" class="vacio">El plan no marca hitos de control.</td></tr>{% endfor %}</tbody></table></div>
+  {% if dependencias %}<p class="aviso-caja"><strong>Dependencias que no se cumplen:</strong></p><ul>{% for d in dependencias|slice:":12" %}<li>{{ d }}</li>{% endfor %}</ul>{% else %}<p class="mensaje">Cada tarea vence después de sus predecesoras.</p>{% endif %}
+</section>
+
+<section class="card"><h2>Carga por persona y día (DH00 a DH10)</h2>
+  <div class="tabla-scroll"><table class="tbl crono"><thead><tr><th style="min-width:170px">Cargo</th>{% for d in dias %}<th class="c">{{ d|date:"D d-m" }}{% for dd, txt in etiquetas.items %}{% if dd == d and txt %}<br><span class="fino">{{ txt }}</span>{% endif %}{% endfor %}</th>{% endfor %}</tr></thead>
+  <tbody>{% for f in tabla %}<tr><td><strong>{{ f.fila.cargo.nombre }}</strong></td>{% for c in f.celdas %}<td class="c"><span class="celda {{ c.clase }}" title="{{ c.horas|floatformat:1 }} h de {{ c.capacidad|floatformat:0 }} h">{{ c.horas|floatformat:1 }}</span><span class="fino"> / {{ c.capacidad|floatformat:0 }}</span></td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
+  <p class="meta">Horas del día / horas de jornada. Rojo: pasa de la jornada · Ámbar: usa la reserva (pasa el techo de planificación: 90 % la mayoría de los días, 80 % el DH07, 75 % el DH08, 85 % el DH09 y 95 % el DH10) · Verde: dentro.</p>
+</section>
+
+<section class="card"><h2>Resumen por persona</h2>
+  <div class="tabla-scroll"><table class="tbl"><thead><tr><th>Cargo</th><th class="n">DH01 a DH08 (h)</th><th class="n">Caben (h)</th><th class="n">Ocupación</th><th class="n">Total del mes (h)</th><th class="n">Tope del mes</th></tr></thead><tbody>
+  {% for f in m.filas %}<tr><td><strong>{{ f.cargo.nombre }}</strong></td><td class="n">{{ f.horas_semana_cierre|floatformat:1 }}</td><td class="n">{{ f.capacidad_semana_cierre|floatformat:0 }}</td>
+    <td class="n">{% if f.ocupacion_pct > 100 %}<span class="pill p-red">{{ f.ocupacion_pct|floatformat:0 }} %</span>{% else %}<span class="pill p-ok">{{ f.ocupacion_pct|floatformat:0 }} %</span>{% endif %}</td>
+    <td class="n">{{ f.total_mes|floatformat:1 }}</td><td class="n">{% if f.tope_mes %}{% if f.pasa_el_tope %}<span class="pill p-red">{{ f.tope_mes }} h</span>{% else %}{{ f.tope_mes }} h{% endif %}{% else %}—{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+</section>
+
+{% if alertas %}<section class="card"><h2>Alertas</h2><ul>{% for a in alertas %}<li>{{ a }}</li>{% endfor %}</ul></section>{% endif %}
+
+<p class="meta">¿Quieres ver cómo se podría equilibrar el equipo? <a href="?mes={{ mes_param }}&ver=propuesta">Ver la propuesta de equilibrio</a> (opcional: no cambia tu plan).</p>
+{% endblock %}

@@ -1,5 +1,4 @@
 """Planificación 2.0 (Karla, 03-11-2026): el Excel de tres hojas se carga en la app y la matriz reproduce su tabla de carga."""
-import io
 from datetime import date
 from pathlib import Path
 
@@ -11,8 +10,7 @@ from django.test import Client
 from django.urls import reverse
 
 from nucleo.models import Cargo, CambioDeCodigo, Proceso, Tarea
-from nucleo.servicios import importador, matriz, plan2
-from nucleo.servicios.matriz import Plan, plan_actual
+from nucleo.servicios import importador, matriz
 from pruebas.ayudas import anio_abierto, cargo, persona, tarea, usuario_con_rol
 
 pytestmark = pytest.mark.django_db
@@ -214,3 +212,35 @@ def test_la_tarea_nueva_y_la_edicion_conservan_lo_que_trae_el_plan(cargado):
     mantenedor.editar_tarea(jefa, t, d)
     t.refresh_from_db()
     assert t.observaciones == "editada" and t.horas_dh == {"1": 0.8, "2": 1.2} and t.justificacion and t.predecesoras.count() > 0 and t.dh_inicio == 1
+
+
+# ---- Control del plan vigente ----------------------------------------------------------------------------------------------------------------
+
+
+def test_el_plan_de_karla_no_tiene_dependencias_incumplidas_y_sus_hitos_cumplen(cargado):
+    """Sus alertas y su tabla de hitos dicen «CUMPLE»: la app lo comprueba con las predecesoras y el calendario del mes."""
+    anio_abierto(feriados=())
+    m = matriz.construir(2026, 11)
+    assert matriz.dependencias_incumplidas(m) == []
+    hitos = matriz.hitos_del_plan(m)
+    assert len(hitos) >= 6 and all(h["cumple"] for h in hitos)
+    assert [h["dh"] for h in hitos][:2] == ["DH03", "DH04"] and hitos[-1]["dh"] == "DH10"
+
+
+def test_una_dependencia_al_reves_se_detecta_y_el_hito_deja_de_cumplir():
+    anio_abierto(feriados=())
+    jefa = cargo("Jefa de Control")
+    previa, hito = tarea("A", jefa, "CIERRE_DIA_HABIL", n=5), tarea("B", jefa, "CIERRE_DIA_HABIL", n=3)
+    hito.tipo_control = "Hito DH03"
+    hito.save()
+    hito.predecesoras.add(previa)
+    m = matriz.construir(2026, 11)
+    assert matriz.dependencias_incumplidas(m) == ["B vence el DH03 pero su predecesora A vence el DH05."]
+    assert matriz.hitos_del_plan(m)[0]["cumple"] is False and matriz.hitos_del_plan(m)[0]["tarde"] == 1
+    assert any("antes que alguna de sus predecesoras" in linea for linea in matriz.diagnostico_del_plan(m))
+
+
+def test_el_diagnostico_del_plan_de_karla_es_legible(cargado):
+    anio_abierto(feriados=())
+    lineas = matriz.diagnostico_del_plan(matriz.construir(2026, 11))
+    assert any("Entre DH01 y DH08" in linea for linea in lineas) and any("Más exigido" in linea for linea in lineas) and any("predecesoras" in linea for linea in lineas)

@@ -258,6 +258,13 @@ def matriz_del_cierre(request):
     hoy = reloj.hoy()
     anio, mes = _mes_de_la_matriz(request, hoy)
     primero = date(anio, mes, 1)
+    if request.GET.get("ver") != "propuesta":  # lo normal: el plan vigente (la Planificación 2.0); la propuesta de equilibrio es opcional
+        m = matriz.construir(anio, mes)
+        return render(request, "nucleo/informe_matriz_plan.html", {
+            "primero": primero, "anio": anio, "mes": mes, "mes_param": f"{anio}-{mes:02d}", **_navegacion(primero), "m": m, "tabla": _tabla_de_matriz(m), "dias": m.dias,
+            "etiquetas": {d: m.etiqueta(d) for d in m.dias}, "diagnostico": matriz.diagnostico_del_plan(m), "hitos": matriz.hitos_del_plan(m),
+            "dependencias": matriz.dependencias_incumplidas(m), "alertas": m.alertas(), "hasta": m.ctx.hasta,
+        })
     prop = matriz.proponer(anio, mes)
     return render(request, "nucleo/informe_matriz.html", {
         "primero": primero, "anio": anio, "mes": mes, "mes_param": f"{anio}-{mes:02d}", **_navegacion(primero), "prop": prop,

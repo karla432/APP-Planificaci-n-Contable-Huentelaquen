@@ -561,3 +561,85 @@ def diagnostico(prop: Propuesta) -> list[str]:
     if procesos:
         lineas.append("Los procesos del cierre que más horas consumen: " + "; ".join(f"{nombre} ({h:.0f} h)" for nombre, h in procesos) + ".")
     return lineas
+
+
+# ---- Control del plan vigente (Planificación 2.0): dependencias, hitos y diagnóstico ----------------------------------------
+
+
+def _vencimientos(m: Matriz) -> dict[int, date]:
+    """Tarea → fecha en que vence, para las tareas del cierre (una sola fecha por mes)."""
+    from nucleo.servicios.recurrencia import Regla
+    resultado = {}
+    for t in m.ctx.tareas.values():
+        if t.regla_tipo not in CIERRE:
+            continue
+        try:
+            fechas = fechas_limite(Regla(t.regla_tipo, n=t.regla_n), m.anio, m.mes, m.ctx.cal)
+        except (ReglaIncompleta, ReglaInvalida, ValueError):
+            continue
+        if fechas:
+            resultado[t.pk] = fechas[0]
+    return resultado
+
+
+def _dh(m: Matriz, fecha: date) -> str:
+    return f"DH{m.ctx.dias.index(fecha):02d}" if fecha in m.ctx.dias else f"{fecha:%d-%m}"
+
+
+def dependencias_incumplidas(m: Matriz) -> list[str]:
+    """Tareas que vencen ANTES que alguna de sus predecesoras (cada tarea empieza cuando terminan sus predecesoras)."""
+    vence = _vencimientos(m)
+    textos = []
+    for t in sorted(m.ctx.tareas.values(), key=lambda t: t.codigo):
+        if t.pk not in vence:
+            continue
+        for p in t.predecesoras.all():
+            if p.pk in vence and vence[p.pk] > vence[t.pk]:
+                textos.append(f"{t.codigo} vence el {_dh(m, vence[t.pk])} pero su predecesora {p.codigo} vence el {_dh(m, vence[p.pk])}.")
+    return textos
+
+
+def hitos_del_plan(m: Matriz) -> list[dict]:
+    """Los hitos y puntos de control del plan (tareas de tipo «Hito…» o «Control…»), cuándo vencen y si todo lo que los precede llega a tiempo."""
+    vence = _vencimientos(m)
+
+    def previas(t, vistas=None):
+        vistas = set() if vistas is None else vistas
+        for p in t.predecesoras.all():
+            if p.pk not in vistas:
+                vistas.add(p.pk)
+                previas(m.ctx.tareas.get(p.pk, p), vistas)
+        return vistas
+
+    filas = []
+    for t in m.ctx.tareas.values():
+        if t.pk in vence and t.tipo_control.casefold().startswith(("hito", "control (hito", "control de avance")):
+            tarde = [pk for pk in previas(t) if pk in vence and vence[pk] > vence[t.pk]]
+            filas.append({"tarea": t, "dh": _dh(m, vence[t.pk]), "fecha": vence[t.pk], "cumple": not tarde, "previas": len(previas(t)), "tarde": len(tarde)})
+    return sorted(filas, key=lambda f: (f["fecha"], f["tarea"].codigo))
+
+
+def diagnostico_del_plan(m: Matriz) -> list[str]:
+    """Lectura de control de gestión del plan vigente: ¿cabe?, ¿quién está más exigido?, ¿se cumplen las dependencias?"""
+    lineas = []
+    horas, capacidad = m.horas_semana_cierre, m.capacidad_semana_cierre
+    pct = horas * 100 / capacidad if capacidad else 0
+    lineas.append(f"Entre DH01 y DH08 (reportes listos) el plan carga {horas:.0f} h y el equipo tiene {capacidad:.0f} h de jornada: ocupación de {pct:.0f} %.")
+    filas = sorted(m.filas, key=lambda f: f.ocupacion_pct)
+    if filas and filas[-1].capacidad_semana_cierre:
+        lineas.append(f"Más exigido: {filas[-1].cargo.nombre} ({filas[-1].ocupacion_pct:.0f} %). Menos exigido: {filas[0].cargo.nombre} ({filas[0].ocupacion_pct:.0f} %).")
+    sobre_jornada = [(f.cargo.nombre, d) for f in m.filas for d in f.sobrecargados()]
+    sobre_techo = [(f.cargo.nombre, d) for f in m.filas for d in m.dias if f.capacidad[d] and f.capacidad[d] * m.techo(d) + 1e-9 < f.horas[d] <= f.capacidad[d] + 1e-9]
+    if sobre_jornada:
+        lineas.append("Pasan de su jornada: " + "; ".join(f"{n} el {_dh(m, d)}" for n, d in sobre_jornada[:8]) + (" …" if len(sobre_jornada) > 8 else "") + ".")
+    else:
+        lineas.append("Nadie pasa de su jornada diaria.")
+    lineas.append(f"Usan la reserva (pasan el techo de planificación) en {len(sobre_techo)} días-persona." if sobre_techo else "Nadie usa la reserva: todos los días quedan bajo el techo de planificación.")
+    topes = [f for f in m.filas if f.pasa_el_tope]
+    if topes:
+        lineas.append("Sobre su tope mensual: " + ", ".join(f"{f.cargo.nombre} ({f.total_mes:.0f} h de {f.tope_mes} h)" for f in topes) + ".")
+    malas = dependencias_incumplidas(m)
+    lineas.append(f"{len(malas)} tareas vencen antes que alguna de sus predecesoras (ver abajo)." if malas else "Todas las predecesoras vencen antes que sus sucesoras.")
+    if m.sin_horas:
+        lineas.append(f"{len(m.sin_horas)} tareas no tienen horas estimadas y no suman.")
+    return lineas

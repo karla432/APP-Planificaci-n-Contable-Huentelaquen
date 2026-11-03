@@ -30,7 +30,7 @@ def test_el_reloj_ignora_la_variable_en_produccion(monkeypatch, settings):
 
 def test_datos_de_ejemplo_arma_noviembre_como_primer_mes_navegable():
     call_command("datos_de_ejemplo", "--password", "ejemplo-ejemplo-1")
-    assert Tarea.objects.count() == 195  # 195 filas del Excel, una repetida, más la revisión del día 9
+    assert Tarea.objects.filter(activa=True).count() == 206 and Tarea.objects.count() == 214  # la Planificación 2.0 (206 tareas) encima del listado anterior (8 quedan desactivadas)
     assert Colaborador.objects.filter(usuario__isnull=False).count() == 4
     assert list(Periodo.objects.values_list("anio", "mes")) == [(2026, 11)]  # el calendario empieza en noviembre; diciembre se abre después
     assert Periodo.objects.get(mes=11).inicio_medicion == date(2026, 11, 5)

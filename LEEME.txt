@@ -8,4 +8,6 @@ PLANIFICACION CONTABLE HUENTELAUQUEN - para verla en tu computador
    Clave de ejemplo:  Ejemplo-local-2026
 4. Para cerrar: en la ventana negra presiona Ctrl+C y ciérrala.
 
-Son datos de EJEMPLO (se simula el lunes 09-11-2026, con noviembre como primer mes). Para empezar de cero, borra el archivo db_local.sqlite3.
+Son datos de EJEMPLO (se simula el lunes 09-11-2026, con noviembre como primer mes) con tu Planificación 2.0 ya cargada.
+Si ya habías abierto una versión anterior, borra antes el archivo db_local.sqlite3 para que se arme de nuevo con el plan nuevo.
+En la pantalla «Matriz del cierre» ves el plan día por día (DH00 a DH10), con los hitos y la carga de cada persona.
