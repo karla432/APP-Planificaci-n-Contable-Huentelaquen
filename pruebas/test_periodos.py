@@ -68,7 +68,7 @@ def test_el_cierre_de_diciembre_cae_en_las_fechas_correctas(equipo):
     fechas = {o.tarea.codigo: o.fecha_limite for o in Ocurrencia.objects.select_related("tarea")}
     assert fechas == {
         "TAR-0011": date(2026, 12, 1), "TAR-0012": date(2026, 12, 2), "TAR-0013": date(2026, 12, 3), "TAR-0014": date(2026, 12, 4),
-        "TAR-0020": date(2026, 12, 9), "TAR-0021": date(2026, 12, 11), "TAR-0022": date(2026, 12, 11),  # el 8 es feriado: día 8 → 09-12, día 10 → 11-12
+        "TAR-0020": date(2026, 12, 11), "TAR-0021": date(2026, 12, 15), "TAR-0022": date(2026, 12, 11),  # el 08 es feriado: DH08 = 11-12 y DH10 = 15-12
     }
 
 

@@ -71,7 +71,9 @@ def test_los_valores_iniciales_son_los_de_legion_y_quedan_pendientes():
     assert parametros.entero("umbral_ambar") == 90
     assert parametros.entero("plazo_revision_dias_habiles") == 1
     assert parametros.entero("minimo_muestra_semaforo") == 10
-    assert parametros.entero("min_dias_habiles_d7_d10") == 1
+    assert parametros.entero("minutos_revision") == 0  # la revisión va dentro de las horas de quien ejecuta (Karla, 03-11-2026)
+    with pytest.raises(ErrorDeNegocio):
+        parametros.entero("min_dias_habiles_d7_d10")  # ya no existe: DH08/09/10 son días hábiles
     assert parametros.estado("umbral_ambar") == "pendiente_confirmar"
     assert parametros.estado("meta_cumplimiento") == "confirmado"  # la meta del 95 % la fijó Karla
 

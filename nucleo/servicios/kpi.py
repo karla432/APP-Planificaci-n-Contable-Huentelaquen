@@ -172,7 +172,7 @@ DESCRIPCION_DE_ENTREGAS = {8: "Reportes listos (en la tarde)", 9: "Entrega al Ge
 
 def entregas(anio: int, mes: int) -> dict[int, date]:
     """Las fechas de los días 8, 9 y 10 del cierre, ya corridas al día hábil siguiente si caen en día inhábil (Karla, 01-11-2026)."""
-    return hitos_de_entrega(calendario_confirmado(), anio, mes, parametros.entero("min_dias_habiles_d7_d10"))
+    return hitos_de_entrega(calendario_confirmado(), anio, mes)
 
 
 def descripciones_del_mes(anio: int, mes: int) -> dict[date, str]:

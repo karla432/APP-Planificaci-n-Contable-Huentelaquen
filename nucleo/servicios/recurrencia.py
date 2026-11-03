@@ -25,7 +25,7 @@ class ReglaIncompleta(ValueError):
 class Regla:
     tipo: str
     dia_semana: int | None = None  # 0 = lunes … 4 = viernes (SEMANAL)
-    n: int | None = None  # n-ésimo día hábil (CIERRE_DIA_HABIL) o día 8, 9 o 10 del mes (CIERRE_HITO)
+    n: int | None = None  # n-ésimo día hábil (CIERRE_DIA_HABIL; 0 = último hábil del mes anterior) o DH08, DH09 o DH10 (CIERRE_HITO)
     dia: int | None = None  # día del mes (DIA_FIJO, MESES)
     meses: tuple[int, ...] = ()  # MESES
     ajuste: str = "siguiente"  # qué hacer si cae en día inhábil
@@ -47,7 +47,6 @@ def fechas_limite(
     anio: int,
     mes: int,
     cal: Calendario,
-    min_dias_habiles_d7_d10: int = 1,
     inicio_medicion: date | None = None,
 ) -> list[date]:
     if regla.tipo not in TIPOS:
@@ -69,12 +68,13 @@ def fechas_limite(
     elif regla.tipo == "CIERRE_DIA_HABIL":
         if regla.n is None:
             raise ReglaIncompleta("Falta el número de día hábil.")
-        # Un día hábil que cae después del día 8 (reportes listos en la tarde) vence ese día 8: nada del cierre pasa del 8 salvo las entregas del 9 y el 10.
-        fechas = [min(cal.dia_habil_n(anio, mes, regla.n), hitos_de_entrega(cal, anio, mes, min_dias_habiles_d7_d10)[8])]
+        if not 0 <= regla.n <= 31:
+            raise ReglaInvalida("El día hábil del cierre debe estar entre 0 (último hábil del mes anterior) y 31.")
+        fechas = [cal.dia_habil_n(anio, mes, regla.n)]
     elif regla.tipo == "CIERRE_HITO":
         if regla.n not in (8, 9, 10):
-            raise ReglaInvalida("El hito de cierre debe ser el día 8 (reportes listos), el 9 (Gerente General) o el 10 (Directorio).")
-        fechas = [hitos_de_entrega(cal, anio, mes, min_dias_habiles_d7_d10)[regla.n]]
+            raise ReglaInvalida("El hito de cierre debe ser el día hábil 8 (reportes listos), el 9 (Gerente General) o el 10 (Directorio).")
+        fechas = [hitos_de_entrega(cal, anio, mes)[regla.n]]
     elif regla.tipo == "DIA_FIJO":
         if regla.dia is None:
             raise ReglaIncompleta("Falta el día del mes.")

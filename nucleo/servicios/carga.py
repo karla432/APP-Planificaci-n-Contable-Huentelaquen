@@ -119,7 +119,7 @@ def por_dia_de_cierre(anio: int | None = None, mes: int | None = None) -> list[C
             filas[t.cargo_ejecuta_id].disponible_por_dia -= _h_al_mes(t) / dias
         if t.regla_tipo in kpi.TIPOS_DE_CIERRE:
             try:
-                fechas = fechas_limite(t.regla(), anio, mes, cal, min_dias_habiles_d7_d10=parametros.entero("min_dias_habiles_d7_d10"))
+                fechas = fechas_limite(t.regla(), anio, mes, cal)
             except ValueError:
                 continue
             h = _h_por_ejecucion(t)

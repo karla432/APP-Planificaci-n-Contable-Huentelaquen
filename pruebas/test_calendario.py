@@ -64,36 +64,28 @@ def test_dias_habiles_entre_misma_fecha_es_cero():
     assert cal.dias_habiles_entre(date(2026, 12, 4), date(2026, 12, 4)) == 0
 
 
-# ---- Los días 8, 9 y 10 del cierre (Karla, 01-11-2026) ---------------------------------------
+# ---- DH08, DH09 y DH10 del cierre: días HÁBILES (Karla, 03-11-2026, Planificación 2.0) -------------------------
 
 
-def entregas(cal, anio, mes, minimo=1):
-    h = hitos_de_entrega(cal, anio, mes, minimo)
+def entregas(cal, anio, mes):
+    h = hitos_de_entrega(cal, anio, mes)
     return h[8], h[9], h[10]
 
 
-def test_si_los_dias_8_9_y_10_son_habiles_no_se_mueven():
-    # Marzo de 2027: lunes 8, martes 9 y miércoles 10.
-    assert entregas(Calendario([]), 2027, 3) == (date(2027, 3, 8), date(2027, 3, 9), date(2027, 3, 10))
+def test_noviembre_2026_dh08_dh09_y_dh10_son_el_11_el_12_y_el_13():
+    # Es lo que dice la Planificación 2.0: DH01 = lunes 02-11, DH08 = 11-11, DH09 = 12-11, DH10 = 13-11 (viernes de 5 h).
+    assert entregas(Calendario([]), 2026, 11) == (date(2026, 11, 11), date(2026, 11, 12), date(2026, 11, 13))
 
 
-def test_noviembre_2026_el_8_es_domingo_y_todo_se_corre_al_habil_siguiente():
-    # 08-11 domingo → lunes 09 (reportes listos en la tarde); el 9 es lunes pero ya está ocupado por el paso anterior → martes 10; el 10 → miércoles 11.
-    assert entregas(Calendario([]), 2026, 11) == (date(2026, 11, 9), date(2026, 11, 10), date(2026, 11, 11))
+def test_diciembre_2026_los_feriados_corren_los_dias_habiles():
+    # El 08-12 y el 25-12 son feriados: DH01 = martes 01, DH05 = lunes 07, DH06 = miércoles 09 … DH08 = viernes 11, DH09 = lunes 14, DH10 = martes 15.
+    assert entregas(Calendario(FERIADOS_2026), 2026, 12) == (date(2026, 12, 11), date(2026, 12, 14), date(2026, 12, 15))
 
 
-def test_diciembre_2026_el_8_es_feriado():
-    assert entregas(Calendario(FERIADOS_2026), 2026, 12) == (date(2026, 12, 9), date(2026, 12, 10), date(2026, 12, 11))
-
-
-def test_el_9_y_el_10_en_fin_de_semana_pasan_al_lunes_y_al_martes():
-    # Enero 2027: el 8 es viernes, el 9 sábado y el 10 domingo.
-    assert entregas(Calendario([]), 2027, 1) == (date(2027, 1, 8), date(2027, 1, 11), date(2027, 1, 12))
-
-
-def test_el_minimo_de_dias_entre_pasos_es_un_parametro():
-    assert entregas(Calendario([]), 2026, 11, minimo=0) == (date(2026, 11, 9), date(2026, 11, 9), date(2026, 11, 10))
-    assert entregas(Calendario([]), 2027, 3, minimo=2) == (date(2027, 3, 8), date(2027, 3, 10), date(2027, 3, 12))
+def test_el_dh00_es_el_ultimo_dia_habil_del_mes_anterior():
+    assert Calendario([]).dia_habil_n(2026, 11, 0) == date(2026, 10, 30)  # viernes
+    assert Calendario([date(2026, 10, 30)]).dia_habil_n(2026, 11, 0) == date(2026, 10, 29)
+    assert Calendario(FERIADOS_2026).dia_habil_n(2026, 12, 0) == date(2026, 11, 30)
 
 
 def test_los_tres_pasos_nunca_caen_el_mismo_dia_ni_en_dia_inhabil():
@@ -104,9 +96,9 @@ def test_los_tres_pasos_nunca_caen_el_mismo_dia_ni_en_dia_inhabil():
             assert d8 < d9 < d10 and all(cal.es_habil(d) for d in (d8, d9, d10))
 
 
-def test_la_semana_del_cierre_va_del_primer_habil_al_dia_8():
-    assert ventana_del_cierre(Calendario([]), 2026, 11) == (date(2026, 11, 2), date(2026, 11, 9))
-    assert ventana_del_cierre(Calendario(FERIADOS_2026), 2026, 12) == (date(2026, 12, 1), date(2026, 12, 9))
+def test_las_semanas_del_cierre_van_de_dh01_a_dh10():
+    assert ventana_del_cierre(Calendario([]), 2026, 11) == (date(2026, 11, 2), date(2026, 11, 13))
+    assert ventana_del_cierre(Calendario(FERIADOS_2026), 2026, 12) == (date(2026, 12, 1), date(2026, 12, 15))
 
 
 def test_la_jornada_es_de_9_horas_de_lunes_a_jueves_y_5_el_viernes():

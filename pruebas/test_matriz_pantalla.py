@@ -87,10 +87,11 @@ def test_la_descarga_es_un_excel_con_todas_las_hojas_para_revisar(mundo):
     assert EventoAuditoria.objects.filter(accion="matriz.descargada").exists()
     hoja = wb["Matriz hoy"]
     cabecera = [c.value for c in hoja[4]]
-    assert cabecera[0] == "Cargo" and any("jue 03-12" in str(c) for c in cabecera) and any("Reportes listos" in str(c) for c in cabecera)
+    assert cabecera[0] == "Cargo" and any("jue 03-12" in str(c) and "DH03" in str(c) for c in cabecera) and any("Reportes listos" in str(c) for c in cabecera)
+    assert "DH00" in str(cabecera[1]) and "lun 30-11" in str(cabecera[1])  # el último día hábil del mes anterior
     jefa = next(f for f in hoja.iter_rows(min_row=5, values_only=True) if f[0] == "Jefa de Control")
-    assert jefa[1] == 15.0  # 15 h el martes 01-12 (día hábil 1)
-    assert hoja.cell(row=jefa_fila(hoja), column=2).fill.start_color.rgb.endswith("F8D7DA")  # en rojo
+    assert jefa[1] == 0 and jefa[2] == 15.0  # 15 h el martes 01-12 (DH01); el DH00 (30-11) va vacío
+    assert hoja.cell(row=jefa_fila(hoja), column=3).fill.start_color.rgb.endswith("F8D7DA")  # en rojo
 
 
 def jefa_fila(hoja):

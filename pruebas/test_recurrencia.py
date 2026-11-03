@@ -50,15 +50,21 @@ def test_cierre_dia_habil_n(n, esperada):
     assert fechas_limite(Regla("CIERRE_DIA_HABIL", n=n), 2026, 12, DIC_2026) == [esperada]
 
 
-def test_cierre_hito_dias_8_9_y_10_diciembre_2026():
-    # El 08-12 es feriado: el día 8 pasa al 09, y el 9 y el 10 al hábil siguiente de cada paso anterior.
-    assert fechas_limite(Regla("CIERRE_HITO", n=8), 2026, 12, DIC_2026) == [date(2026, 12, 9)]
-    assert fechas_limite(Regla("CIERRE_HITO", n=9), 2026, 12, DIC_2026) == [date(2026, 12, 10)]
-    assert fechas_limite(Regla("CIERRE_HITO", n=10), 2026, 12, DIC_2026) == [date(2026, 12, 11)]
+def test_cierre_hito_dias_habiles_8_9_y_10_diciembre_2026():
+    # DH08, DH09 y DH10 son días hábiles (03-11-2026). Con el 08 y el 25 de diciembre feriados: viernes 11, lunes 14 y martes 15.
+    assert fechas_limite(Regla("CIERRE_HITO", n=8), 2026, 12, DIC_2026) == [date(2026, 12, 11)]
+    assert fechas_limite(Regla("CIERRE_HITO", n=9), 2026, 12, DIC_2026) == [date(2026, 12, 14)]
+    assert fechas_limite(Regla("CIERRE_HITO", n=10), 2026, 12, DIC_2026) == [date(2026, 12, 15)]
 
 
-def test_cierre_hito_con_el_dia_8_en_domingo():
-    assert fechas_limite(Regla("CIERRE_HITO", n=8), 2026, 11, SIN_FERIADOS) == [date(2026, 11, 9)]
+def test_cierre_hito_noviembre_2026_es_el_11_12_y_13():
+    assert [fechas_limite(Regla("CIERRE_HITO", n=n), 2026, 11, SIN_FERIADOS)[0] for n in (8, 9, 10)] == [date(2026, 11, 11), date(2026, 11, 12), date(2026, 11, 13)]
+
+
+def test_cierre_dia_habil_acepta_del_dh00_al_dh15_sin_toparse_en_el_8():
+    assert fechas_limite(Regla("CIERRE_DIA_HABIL", n=0), 2026, 11, SIN_FERIADOS) == [date(2026, 10, 30)]
+    assert fechas_limite(Regla("CIERRE_DIA_HABIL", n=13), 2026, 11, SIN_FERIADOS) == [date(2026, 11, 18)]
+    assert fechas_limite(Regla("CIERRE_DIA_HABIL", n=15), 2026, 11, SIN_FERIADOS) == [date(2026, 11, 20)]
 
 
 def test_cierre_hito_solo_acepta_8_9_o_10():

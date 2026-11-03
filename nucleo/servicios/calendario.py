@@ -1,4 +1,4 @@
-"""Días hábiles y fechas de entrega del cierre (días 8, 9 y 10). Lógica pura: no toca la base de datos.
+"""Días hábiles y fechas de entrega del cierre (DH08, DH09 y DH10). Lógica pura: no toca la base de datos.
 
 Día hábil = lunes a viernes que no sea feriado. Las fechas son fechas de negocio (America/Santiago), sin hora.
 Solo deben pasarse feriados CONFIRMADOS (ver `nucleo.models.Feriado`).
@@ -37,7 +37,9 @@ class Calendario:
         return [d for d in (date(anio, mes, n) for n in range(1, ultimo + 1)) if self.es_habil(d)]
 
     def dia_habil_n(self, anio: int, mes: int, n: int) -> date:
-        """El n-ésimo día hábil del mes (n = 1 es el primero)."""
+        """El n-ésimo día hábil del mes (n = 1 es el primero). n = 0 (DH00) es el último día hábil del mes anterior."""
+        if n == 0:
+            return self.anterior_habil(date(anio, mes, 1) - timedelta(days=1))
         habiles = self.dias_habiles_del_mes(anio, mes)
         if not 1 <= n <= len(habiles):
             raise ValueError(f"El mes {mes:02d}-{anio} no tiene un día hábil número {n}.")
@@ -61,27 +63,18 @@ class Calendario:
         return cuenta
 
 
-def _no_antes_de(cal: Calendario, base: date, anterior: date, min_dias_habiles_entre: int) -> date:
-    """El día hábil siguiente a `base` (o `base` si ya es hábil), pero al menos `min_dias_habiles_entre` días hábiles después de `anterior`."""
-    return max(cal.siguiente_habil(base), cal.sumar_dias_habiles(anterior, min_dias_habiles_entre))
+def hitos_de_entrega(cal: Calendario, anio: int, mes: int) -> dict[int, date]:
+    """Las tres fechas del cierre del mes `mes`: son **días hábiles** DH08, DH09 y DH10 (Karla, 03-11-2026, según la Planificación 2.0).
 
+    - DH08: análisis hecho y reportes listos, **en la tarde**;
+    - DH09: se entrega al Gerente General (revisión);
+    - DH10: se entrega al Directorio.
 
-def hitos_de_entrega(cal: Calendario, anio: int, mes: int, min_dias_habiles_entre: int = 1) -> dict[int, date]:
-    """Las tres fechas del cierre del mes `mes` (Karla, 01-11-2026): son **días del mes**, no días hábiles.
-
-    - día 8: análisis hecho y reportes listos, **en la tarde**;
-    - día 9: se entrega al Gerente General (revisión);
-    - día 10: se entrega al Directorio.
-
-    Si uno cae en día inhábil, el cumplimiento se corre al **día hábil siguiente**. Para que cada paso ocurra después del anterior, entre
-    uno y otro hay al menos `min_dias_habiles_entre` días hábiles (parámetro `min_dias_habiles_d7_d10`; supuesto de Legión, editable).
+    Reemplaza la regla del 01-11-2026 (días 8, 9 y 10 del mes).
     """
-    d8 = cal.siguiente_habil(date(anio, mes, 8))
-    d9 = _no_antes_de(cal, date(anio, mes, 9), d8, min_dias_habiles_entre)
-    d10 = _no_antes_de(cal, date(anio, mes, 10), d9, min_dias_habiles_entre)
-    return {8: d8, 9: d9, 10: d10}
+    return {8: cal.dia_habil_n(anio, mes, 8), 9: cal.dia_habil_n(anio, mes, 9), 10: cal.dia_habil_n(anio, mes, 10)}
 
 
-def ventana_del_cierre(cal: Calendario, anio: int, mes: int, min_dias_habiles_entre: int = 1) -> tuple[date, date]:
-    """De qué día a qué día es «la semana del cierre»: del primer día hábil del mes al día 8 (reportes listos)."""
-    return cal.dia_habil_n(anio, mes, 1), hitos_de_entrega(cal, anio, mes, min_dias_habiles_entre)[8]
+def ventana_del_cierre(cal: Calendario, anio: int, mes: int) -> tuple[date, date]:
+    """«Semana del cierre» (las dos semanas de cierre): del primer día hábil (DH01) al día de entrega al Directorio (DH10)."""
+    return cal.dia_habil_n(anio, mes, 1), cal.dia_habil_n(anio, mes, 10)

@@ -13,7 +13,7 @@ from datetime import date
 from django.db import transaction
 
 from nucleo.models import Anio, Asignacion, Ocurrencia, Periodo, Tarea
-from nucleo.servicios import auditoria, parametros
+from nucleo.servicios import auditoria
 from nucleo.servicios.errores import ErrorDeNegocio
 from nucleo.servicios.calendario import ventana_del_cierre
 from nucleo.servicios.feriados import calendario_confirmado
@@ -72,8 +72,7 @@ def vista_previa(anio: int, mes: int, inicio_medicion: date | None = None) -> Vi
     vp = VistaPreviaMes(anio, mes, inicio)
 
     cal = calendario_confirmado()
-    min_dias = parametros.entero("min_dias_habiles_d7_d10")
-    desde_cierre, hasta_cierre = ventana_del_cierre(cal, anio, mes, min_dias)  # la semana del cierre: del primer día hábil al día 8 (reportes listos)
+    desde_cierre, hasta_cierre = ventana_del_cierre(cal, anio, mes)  # las semanas del cierre: de DH01 a DH10
     vigentes: dict[int, list] = {}
     for a in Asignacion.objects.select_related("colaborador").filter(colaborador__activo=True):
         vigentes.setdefault(a.cargo_id, []).append(a)
@@ -93,7 +92,7 @@ def vista_previa(anio: int, mes: int, inicio_medicion: date | None = None) -> Vi
             vp.avisos.append(Aviso("sin_regla", t, "La tarea no tiene regla de recurrencia."))
             continue
         try:
-            fechas = fechas_limite(t.regla(), anio, mes, cal, min_dias_habiles_d7_d10=min_dias, inicio_medicion=inicio)
+            fechas = fechas_limite(t.regla(), anio, mes, cal, inicio_medicion=inicio)
         except ReglaIncompleta as e:
             vp.avisos.append(Aviso("regla_incompleta", t, str(e)))
             continue

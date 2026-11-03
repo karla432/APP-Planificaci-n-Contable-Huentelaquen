@@ -4,11 +4,17 @@ from datetime import date
 import pytest
 
 from nucleo.models import Cargo, Tarea
-from nucleo.servicios import matriz
+from nucleo.servicios import matriz, parametros
 from pruebas.ayudas import anio_abierto, cargo, tarea
 
 pytestmark = pytest.mark.django_db
-# Diciembre de 2026 (08 y 25 feriados): semana del cierre = 1, 2, 3, 4, 7 y 9 de diciembre; el día 9 es el 10 y el día 10 el 11.
+
+
+@pytest.fixture(autouse=True)
+def revision_de_15_minutos():
+    """Estas pruebas miden el mecanismo de la revisión con 15 minutos; el valor general real es 0 (va dentro de las horas de quien ejecuta)."""
+    parametros.guardar("minutos_revision", "15", usuario=None, confirmado=True)
+# Diciembre de 2026 (08 y 25 feriados): DH01 = 01-12 … DH05 = 07-12, DH06 = 09-12, DH07 = 10-12, DH08 = 11-12, DH09 = 14-12, DH10 = 15-12; DH00 = 30-11.
 LUN, MAR, MIE, JUE, VIE = date(2026, 12, 7), date(2026, 12, 1), date(2026, 12, 2), date(2026, 12, 3), date(2026, 12, 4)
 
 
@@ -87,14 +93,14 @@ def test_lo_pausado_y_lo_reasignado_en_la_semana_del_cierre_cambia_la_matriz(equ
     t.save()
     m = matriz.construir(2026, 12)
     assert fila(m, "Contador Senior").horas[JUE] == 0 and fila(m, "Asistente Contable").horas[JUE] == 0
-    assert fila(m, "Contador Senior").horas[date(2026, 12, 10)] == pytest.approx(2.0)  # el día 10 se retoma
+    assert fila(m, "Contador Senior").horas[date(2026, 12, 15)] == 0  # se pausa hasta DH10 (15-12); se retoma el 16-12
 
 
 def test_ocupacion_y_equilibrio_de_la_semana_del_cierre(equipo):
     hacer("T1", equipo["Jefa de Control"], "CIERRE_DIA_HABIL", 5, n=1)
     m = matriz.construir(2026, 12)
     j = fila(m, "Jefa de Control")
-    assert j.horas_semana_cierre == 5 and j.capacidad_semana_cierre == 9 + 9 + 9 + 5 + 9 + 9 and m.desequilibrio_pct == j.ocupacion_pct > 0
+    assert j.horas_semana_cierre == 5 and j.capacidad_semana_cierre == 9 + 9 + 9 + 5 + 9 + 9 + 9 + 5 and m.desequilibrio_pct == j.ocupacion_pct > 0
 
 
 # ---- La propuesta --------------------------------------------------------------------------------------------------------------
@@ -150,7 +156,7 @@ def test_las_tareas_se_ocupan_de_menor_a_mayor_desde_el_dia_1_aunque_el_excel_la
     prop = matriz.proponer(2026, 12)
     dias = [prop.planes[t.pk].regla_n for t in Tarea.objects.order_by("proceso__orden")]
     assert dias == [1, 2, 3, 4]  # siguiendo el orden de los procesos: de menor a mayor
-    assert max(dias) <= 5  # el último día de proceso de diciembre de 2026 es el 07-12 (día hábil 5); el día 8 se entrega el 09-12
+    assert max(dias) <= 7  # el último día de proceso de diciembre de 2026 es el DH07 (10-12); el DH08 (11-12) son los reportes
 
 
 def test_el_analisis_de_cuentas_va_el_ultimo_dia_de_proceso_repartido_entre_contador_jefa_y_asistente(equipo):
@@ -158,7 +164,7 @@ def test_el_analisis_de_cuentas_va_el_ultimo_dia_de_proceso_repartido_entre_cont
         hacer(f"A{i}", equipo["Jefa de Control"], "CIERRE_DIA_HABIL", 2, n=5, proceso="Análisis de cuentas")  # 12 h que hoy hace solo la Jefa
     prop = matriz.proponer(2026, 12)
     planes = [prop.planes[t.pk] for t in Tarea.objects.all()]
-    assert {p.regla_n for p in planes} == {5}  # el último día de proceso: lunes 07-12 (día hábil 5)
+    assert {p.regla_n for p in planes} == {7}  # el último día de proceso: DH07 (jueves 10-12)
     assert {p.ejecuta_id for p in planes} <= {equipo["Jefa de Control"].pk, equipo["Contador Senior"].pk, equipo["Asistente Contable"].pk} and len({p.ejecuta_id for p in planes}) == 3
     assert prop.despues.exceso_total == pytest.approx(0) and any("en paralelo" in c.motivo for c in prop.cambios)
 
@@ -170,7 +176,7 @@ def test_el_costo_en_destino_es_lo_ultimo_que_se_procesa_y_el_primero_de_la_list
         t.save()
     prop = matriz.proponer(2026, 12)
     dias = [prop.planes[t.pk].regla_n for t in Tarea.objects.order_by("secuencia", "codigo")]
-    assert dias == sorted(dias) and dias[-1] == 5  # termina el último día de proceso
+    assert dias == sorted(dias) and dias[-1] == 7  # termina el último día de proceso (DH07)
     assert all(h <= 9 + 1e-9 for h in fila(prop.despues, "Gerente AyF").horas.values())
 
 
@@ -180,7 +186,7 @@ def test_el_paquete_de_reportes_lo_prepara_el_gerente_el_dia_8_en_maximo_3_horas
     prop = matriz.proponer(2026, 12)
     minutos = [prop.planes[t.pk].minutos for t in Tarea.objects.all()]
     assert sum(minutos) == 180 and all(prop.planes[t.pk].regla_tipo == "CIERRE_HITO" and prop.planes[t.pk].regla_n == 8 for t in Tarea.objects.all())
-    assert fila(prop.despues, "Gerente AyF").horas[date(2026, 12, 9)] == pytest.approx(3.0)  # el día 8 (09-12)
+    assert fila(prop.despues, "Gerente AyF").horas[date(2026, 12, 11)] == pytest.approx(3.0)  # DH08 (11-12)
     assert any(c.campo == "Horas por ejecución" for c in prop.cambios)
 
 
@@ -261,8 +267,8 @@ def test_el_tope_de_80_horas_del_gerente_no_se_rompe_al_repartir(equipo):
 
 
 def test_el_diagnostico_dice_si_cabe_cuanto_falta_y_donde_se_van_las_horas(equipo):
-    for i in range(20):
-        hacer(f"C{i}", equipo["Jefa de Control"], "CIERRE_DIA_HABIL", 9, n=1, proceso="Costeo y producción")  # 180 h para una sola persona
+    for i in range(30):
+        hacer(f"C{i}", equipo["Jefa de Control"], "CIERRE_DIA_HABIL", 9, n=1, proceso="Costeo y producción")  # 270 h para una sola persona
     hacer("O", equipo["Contador Senior"], "DIARIA_HABIL", 9, proceso="Compras")  # la Asistente cubrirá esto
     diag = " ".join(matriz.diagnostico(matriz.proponer(2026, 12)))
     assert "Faltan" in diag and "no cabe" in diag and "95 %" in diag and "Asistente Contable" in diag and "Costeo y producción" in diag and "más exigido" in diag

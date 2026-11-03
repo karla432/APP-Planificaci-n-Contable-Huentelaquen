@@ -9,6 +9,12 @@ from pruebas.ayudas import cargo, persona, tarea, usuario_con_rol
 pytestmark = pytest.mark.django_db
 
 
+@pytest.fixture(autouse=True)
+def revision_de_15_minutos():
+    """Estas pruebas miden el mecanismo de la revisión con 15 minutos; el valor general real es 0 (va dentro de las horas de quien ejecuta)."""
+    parametros.guardar("minutos_revision", "15", usuario=None, confirmado=True)
+
+
 def con_horas(t, minutos, ejecuciones, **cambios):
     t.minutos_estimados, t.ejecuciones_mes = minutos, ejecuciones
     for k, v in cambios.items():
@@ -70,7 +76,7 @@ def test_carga_del_cierre_por_dia_habil_con_la_capacidad_que_deja_la_operacion(m
     cierre = carga.por_dia_de_cierre(2026, 12)
     g, c = fila(cierre, "Gerente AyF"), fila(cierre, "Contador Senior")
     assert g.horas[3] == pytest.approx(2 + 0.25 + 0.25) and c.horas[3] == pytest.approx(0.5)
-    assert g.horas[1] == 0 and len(g.horas) == 8  # del día hábil 1 a la entrega al Directorio
+    assert g.horas[1] == 0 and len(g.horas) == 10  # del día hábil 1 (DH01) a la entrega al Directorio (DH10)
     assert c.disponible_por_dia == pytest.approx(160 / 21 - 21 / 21, abs=0.01)  # la operación diaria ya ocupa 1 h por día
     assert g.disponible_por_dia == pytest.approx(160 / 21, abs=0.01)
 
@@ -82,7 +88,7 @@ def test_un_dia_sobre_la_capacidad_se_marca(mundo):
 
 
 def test_los_parametros_de_carga_son_pendientes_de_confirmar():
-    assert parametros.entero("horas_disponibles_mes") == 160 and parametros.entero("minutos_revision") == 15
+    assert parametros.entero("horas_disponibles_mes") == 160 and parametros.entero("minutos_revision") == 15  # (fijado por la prueba)
     assert parametros.estado("horas_disponibles_mes") == "pendiente_confirmar"
 
 

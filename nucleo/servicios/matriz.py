@@ -64,7 +64,6 @@ class Contexto:
     anio: int
     mes: int
     cal: object
-    min_dias: int
     desde: date
     hasta: date  # día 8 (reportes listos)
     dias: list  # fechas de la matriz: del primer día hábil a la entrega al Directorio
@@ -72,6 +71,7 @@ class Contexto:
     internos: dict  # cargo_id → Cargo (los que tienen capacidad)
     tareas: dict  # id → Tarea
     sin_horas: set = field(default_factory=set)
+    hasta_pausa: date | None = None  # DH10: hasta aquí rige lo que se pausa o reasigna en las semanas de cierre
 
     def capacidad(self, cargo_id: int, fecha: date) -> float:
         return float(JORNADA_HORAS[fecha.weekday()]) if self.cal.es_habil(fecha) else 0.0
@@ -79,11 +79,11 @@ class Contexto:
 
 def contexto(anio: int, mes: int) -> Contexto:
     cal = calendario_confirmado()
-    min_dias = parametros.entero("min_dias_habiles_d7_d10")
-    desde, hasta = ventana_del_cierre(cal, anio, mes, min_dias)
+    desde, hasta_pausa = ventana_del_cierre(cal, anio, mes)
+    hasta = cal.dia_habil_n(anio, mes, 8)  # DH08: reportes listos
     internos = {c.pk: c for c in Cargo.objects.filter(activo=True, es_externo=False)}
     tareas = {t.pk: t for t in Tarea.objects.filter(activa=True, requiere_revision=False).select_related("cargo_ejecuta", "cargo_revisa", "proceso", "padre")}
-    return Contexto(anio, mes, cal, min_dias, desde, hasta, [f for _, f in kpi.hitos_del_mes(anio, mes)], parametros.entero("minutos_revision"), internos, tareas)
+    return Contexto(anio, mes, cal, desde, hasta, [cal.dia_habil_n(anio, mes, 0)] + [f for _, f in kpi.hitos_del_mes(anio, mes)], parametros.entero("minutos_revision"), internos, tareas, hasta_pausa=hasta_pausa)
 
 
 def items_de(t: Tarea, plan: Plan, ctx: Contexto) -> list[Item]:
@@ -93,7 +93,7 @@ def items_de(t: Tarea, plan: Plan, ctx: Contexto) -> list[Item]:
     from nucleo.servicios.recurrencia import Regla
     regla = Regla(plan.regla_tipo, dia_semana=t.regla_dia_semana, n=plan.regla_n, dia=t.regla_dia, meses=tuple(int(m) for m in t.regla_meses.split(",") if m.strip()), ajuste=t.regla_ajuste)
     try:
-        fechas = fechas_limite(regla, ctx.anio, ctx.mes, ctx.cal, min_dias_habiles_d7_d10=ctx.min_dias)
+        fechas = fechas_limite(regla, ctx.anio, ctx.mes, ctx.cal)
     except (ReglaIncompleta, ReglaInvalida, ValueError):
         return []
     minutos = plan.minutos if plan.minutos is not None else t.minutos_estimados
@@ -104,7 +104,7 @@ def items_de(t: Tarea, plan: Plan, ctx: Contexto) -> list[Item]:
     items = []
     for f in fechas:
         ejecuta, revisa = plan.ejecuta_id, plan.revisa_id
-        if plan.modo_cierre != "igual" and ctx.desde <= f <= ctx.hasta:
+        if plan.modo_cierre != "igual" and ctx.desde <= f <= ctx.hasta_pausa:
             if plan.modo_cierre == "pausar":
                 continue
             if plan.cargo_cierre_id:
@@ -127,7 +127,8 @@ class FilaDeCargo:
     items: dict  # fecha → [Item]
     total_mes: float = 0.0
     tope_mes: int | None = None
-    hasta: date | None = None  # día 8: fin de la semana del cierre
+    hasta: date | None = None  # DH08: reportes listos
+    desde: date | None = None  # DH01: el DH00 (último hábil del mes anterior) se ve en la matriz pero no cuenta en la semana del cierre
 
     def exceso(self, fecha: date) -> float:
         return max(0.0, self.horas.get(fecha, 0.0) - self.capacidad.get(fecha, 0.0))
@@ -137,12 +138,15 @@ class FilaDeCargo:
 
     @property
     def horas_semana_cierre(self) -> float:
-        """Horas desde el primer día hábil hasta el día 8 (los reportes listos)."""
-        return sum(h for f, h in self.horas.items() if self.hasta is None or f <= self.hasta)
+        """Horas desde el primer día hábil (DH01) hasta DH08 (los reportes listos)."""
+        return sum(h for f, h in self.horas.items() if self._en_la_semana(f))
 
     @property
     def capacidad_semana_cierre(self) -> float:
-        return sum(c for f, c in self.capacidad.items() if self.hasta is None or f <= self.hasta)
+        return sum(c for f, c in self.capacidad.items() if self._en_la_semana(f))
+
+    def _en_la_semana(self, f: date) -> bool:
+        return (self.desde is None or f >= self.desde) and (self.hasta is None or f <= self.hasta)
 
     @property
     def ocupacion_pct(self) -> float:
@@ -166,7 +170,10 @@ class Matriz:
         return self.ctx.dias
 
     def etiqueta(self, fecha: date) -> str:
-        return kpi.descripciones_del_mes(self.anio, self.mes).get(fecha, "")
+        """«DH03», y a continuación qué pasa ese día si es una de las entregas (reportes listos, Gerente General, Directorio)."""
+        dh = f"DH{self.ctx.dias.index(fecha):02d}" if fecha in self.ctx.dias else ""  # ctx.dias[0] es el DH00
+        entrega = kpi.descripciones_del_mes(self.anio, self.mes).get(fecha, "")
+        return f"{dh} · {entrega}" if entrega else dh
 
     def alertas(self) -> list[str]:
         textos = []
@@ -231,7 +238,7 @@ def construir(anio: int, mes: int, planes: dict[int, Plan] | None = None, ctx: C
             if it.fecha in dias:
                 horas[it.cargo_id][it.fecha] += it.horas
                 detalle[it.cargo_id][it.fecha].append(it)
-    filas = [FilaDeCargo(c, horas[pk], {f: ctx.capacidad(pk, f) for f in ctx.dias}, detalle[pk], total_mes[pk], c.horas_mes_max, ctx.hasta) for pk, c in sorted(ctx.internos.items(), key=lambda kv: (kv[1].orden, kv[1].nombre))]
+    filas = [FilaDeCargo(c, horas[pk], {f: ctx.capacidad(pk, f) for f in ctx.dias}, detalle[pk], total_mes[pk], c.horas_mes_max, ctx.hasta, ctx.desde) for pk, c in sorted(ctx.internos.items(), key=lambda kv: (kv[1].orden, kv[1].nombre))]
     return Matriz(anio, mes, ctx, filas, sorted(ctx.sin_horas))
 
 
@@ -327,7 +334,7 @@ def proponer(anio: int, mes: int, ctx: Contexto | None = None, max_pasos: int = 
 
     habiles = ctx.cal.dias_habiles_del_mes(anio, mes)
     indice = {f: n for n, f in enumerate(habiles, start=1)}
-    ultimo = min(ctx.cal.siguiente_habil(date(anio, mes, 7)), ctx.hasta)  # el «día 7»: el último día de proceso
+    ultimo = min(ctx.cal.dia_habil_n(anio, mes, 7), ctx.hasta)  # DH07: el último día de proceso
     L = max(1, min(indice[ultimo], 7))
     dias = habiles[:L]
     gerente = _cargo_por_nombre(ctx, GERENTE)
