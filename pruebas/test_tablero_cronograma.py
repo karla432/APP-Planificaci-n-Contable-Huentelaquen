@@ -22,7 +22,7 @@ def reloj(monkeypatch):
 
 @pytest.fixture
 def mundo():
-    ger, cont, asis = cargo("Gerente AyF"), cargo("Contador Senior"), cargo("Asistente Contable")
+    ger, cont, asis = cargo("Gerente AyF"), cargo("Contador Senior"), cargo("Analista Contable")
     persona("Gerente", ger)
     p = {"cont": persona("Contadora", cont), "asis": persona("Asistente", asis)}
     u = {"cont": usuario_con_rol("cont", "COLABORADOR", p["cont"]), "lectura": usuario_con_rol("lectura", "LECTURA")}
@@ -79,7 +79,7 @@ def test_el_tablero_se_filtra_por_proceso_y_por_mis_tareas(mundo):
     h = ver(mundo["u"]["lectura"], "informe_tablero", proceso=mundo["proceso"]["Pagos"].pk)
     assert "Subtarea TAR-0003" in h and "Subtarea TAR-0001" not in h
     h = ver(mundo["u"]["cont"], "informe_tablero", solo_mias="1")
-    assert "Subtarea TAR-0001" in h and "Subtarea TAR-0005" not in h  # TAR-0005 es de la Asistente
+    assert "Subtarea TAR-0001" in h and "Subtarea TAR-0005" not in h  # TAR-0005 es de la Analista
 
 
 def test_las_tarjetas_enlazan_al_detalle_y_muestran_dia_y_atraso(mundo):

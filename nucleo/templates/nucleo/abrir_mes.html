@@ -68,7 +68,7 @@
 
     <h3>Vista previa</h3>
     <p>Se generarían <strong>{{ vp.ocurrencias|length }}</strong> ocurrencia{{ vp.ocurrencias|length|pluralize }} nuevas{% if vp.ya_existian %}; <strong>{{ vp.ya_existian }}</strong> ya existían{% endif %}.</p>
-    {% if vp.pausadas or vp.reasignadas %}<p class="aviso-caja"><strong>Semana del cierre</strong> (del primer día hábil al día 8): {{ vp.pausadas|length }} ocurrencia{{ vp.pausadas|length|pluralize }} se pausa{{ vp.pausadas|length|pluralize:",n" }} y {{ vp.reasignadas }} la{{ vp.reasignadas|pluralize }} hace otro cargo, para que el equipo se enfoque en el cierre.</p>{% endif %}
+    {% if vp.pausadas or vp.reasignadas %}<p class="aviso-caja"><strong>Semanas del cierre</strong> (DH01 a DH10): {{ vp.pausadas|length }} ocurrencia{{ vp.pausadas|length|pluralize }} se pausa{{ vp.pausadas|length|pluralize:",n" }} y {{ vp.reasignadas }} la{{ vp.reasignadas|pluralize }} hace otro cargo, para que el equipo se enfoque en el cierre.</p>{% endif %}
     {% if resumen %}<div class="tabla-scroll"><table class="tbl">
       <thead><tr><th>Periodicidad</th><th class="n">Tareas</th><th class="n">Ocurrencias</th></tr></thead><tbody>
       {% for r in resumen %}<tr><td>{{ r.texto }}</td><td class="n">{{ r.tareas }}</td><td class="n">{{ r.ocurrencias }}</td></tr>{% endfor %}

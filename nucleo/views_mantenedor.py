@@ -96,7 +96,7 @@ def _valores_de(t: Tarea | None) -> dict:
     if t is None:
         return {"proceso": "", "tarea_principal": "", "subtarea": "", "cargo_ejecuta": "", "tipo": "CIERRE_DIA_HABIL", "dia_semana": "", "franja": "", "n": "", "dia": "",
                 "meses": [], "ajuste": "siguiente", "referencia": "", "activa": True, "cargo_revisa": "", "horas": "", "minutos_revision": "", "estado_plan": "pendiente", "fecha_inicio": "",
-                "fecha_termino": "", "observaciones": "", "modo_cierre": "igual", "cargo_cierre": "", "revisa_cierre": ""}
+                "fecha_termino": "", "observaciones": "", "modo_cierre": "igual", "cargo_cierre": "", "revisa_cierre": "", "dh_inicio": ""}
     return {"proceso": str(t.proceso_id), "tarea_principal": t.tarea_principal, "subtarea": t.subtarea, "cargo_ejecuta": str(t.cargo_ejecuta_id), "tipo": t.regla_tipo,
             "dia_semana": "" if t.regla_dia_semana is None else str(t.regla_dia_semana), "franja": t.regla_franja, "n": "" if t.regla_n is None else str(t.regla_n),
             "dia": "" if t.regla_dia is None else str(t.regla_dia), "meses": [m for m in t.regla_meses.split(",") if m], "ajuste": t.regla_ajuste,
@@ -104,7 +104,7 @@ def _valores_de(t: Tarea | None) -> dict:
             "horas": "" if t.minutos_estimados is None else str(round(t.minutos_estimados / 60, 2)).replace(".", ","),
             "minutos_revision": "" if t.minutos_revision is None else str(t.minutos_revision), "estado_plan": t.estado_plan,
             "fecha_inicio": str(t.fecha_inicio or ""), "fecha_termino": str(t.fecha_termino or ""), "observaciones": t.observaciones,
-            "modo_cierre": t.modo_cierre, "cargo_cierre": str(t.cargo_cierre_id or ""), "revisa_cierre": str(t.cargo_revisa_cierre_id or "")}
+            "modo_cierre": t.modo_cierre, "cargo_cierre": str(t.cargo_cierre_id or ""), "revisa_cierre": str(t.cargo_revisa_cierre_id or ""), "dh_inicio": "" if t.dh_inicio is None else str(t.dh_inicio)}
 
 
 def _valores_de_post(post) -> dict:
@@ -113,7 +113,7 @@ def _valores_de_post(post) -> dict:
             "meses": post.getlist("meses"), "ajuste": post.get("ajuste", "siguiente"), "referencia": post.get("referencia", ""), "activa": post.get("activa") == "on", "cargo_revisa": post.get("cargo_revisa", ""),
             "horas": post.get("horas", ""), "minutos_revision": post.get("minutos_revision", ""), "estado_plan": post.get("estado_plan", "pendiente"), "fecha_inicio": post.get("fecha_inicio", ""),
             "fecha_termino": post.get("fecha_termino", ""), "observaciones": post.get("observaciones", ""), "modo_cierre": post.get("modo_cierre", "igual"),
-            "cargo_cierre": post.get("cargo_cierre", ""), "revisa_cierre": post.get("revisa_cierre", "")}
+            "cargo_cierre": post.get("cargo_cierre", ""), "revisa_cierre": post.get("revisa_cierre", ""), "dh_inicio": post.get("dh_inicio", "")}
 
 
 def _datos_de(v: dict) -> mantenedor.DatosTarea:
@@ -122,7 +122,7 @@ def _datos_de(v: dict) -> mantenedor.DatosTarea:
         dia_semana=_entero(v["dia_semana"]), franja=v["franja"], n=_entero(v["n"]), dia=_entero(v["dia"]), meses=tuple(m for m in (_entero(x) for x in v["meses"]) if m),
         ajuste=v["ajuste"], referencia=v["referencia"], activa=v["activa"], cargo_revisa_id=_entero(v["cargo_revisa"]), minutos=_minutos(v["horas"]), minutos_revision=_entero(v["minutos_revision"]),
         estado_plan=v["estado_plan"], fecha_inicio=_fecha(v["fecha_inicio"]), fecha_termino=_fecha(v["fecha_termino"]), observaciones=v["observaciones"],
-        modo_cierre=v["modo_cierre"], cargo_cierre_id=_entero(v["cargo_cierre"]), cargo_revisa_cierre_id=_entero(v["revisa_cierre"]),
+        modo_cierre=v["modo_cierre"], cargo_cierre_id=_entero(v["cargo_cierre"]), cargo_revisa_cierre_id=_entero(v["revisa_cierre"]), dh_inicio=_entero(v["dh_inicio"]),
     )
 
 
@@ -256,7 +256,10 @@ ETIQUETAS_DE_CAMPO = {
     "regla_dia_semana": "Día de la semana", "regla_n": "Día hábil del cierre", "regla_dia": "Día del mes", "regla_meses": "Meses", "regla_ajuste": "Ajuste si es inhábil",
     "regla_franja": "Franja", "referencia_normativa": "Observación", "minutos_estimados": "Minutos estimados", "minutos_revision": "Minutos de revisión", "ejecuciones_mes": "Ejecuciones al mes",
     "fuente_horas": "Quién definió las horas", "dia_cierre": "Día de cierre (Excel)", "revisa_excel": "Revisa (Excel)", "regla_estado": "Estado de la regla",
-    "requiere_revision": "Requiere revisión", "motivo_revision": "Motivo de revisión",
+    "requiere_revision": "Requiere revisión", "motivo_revision": "Motivo de revisión", "proceso_nombre": "Proceso", "tarea_principal": "Tarea principal", "subtarea": "Subtarea",
+    "dh_inicio": "Empieza el día hábil", "horas_dh": "Horas por día hábil", "horas_semana": "Horas por día de la semana", "al_terminar_cierre": "Al terminar el cierre",
+    "tipo_control": "Tipo de control", "cambio_plan": "Cambio respecto del plan anterior", "justificacion": "Justificación", "modo_cierre": "En las semanas del cierre",
+    "cargo_cierre": "Responsable en el cierre", "cargo_revisa_cierre": "Revisa en el cierre", "minutos_revision": "Minutos de revisión",
 }
 
 

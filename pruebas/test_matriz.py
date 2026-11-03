@@ -21,7 +21,7 @@ LUN, MAR, MIE, JUE, VIE = date(2026, 12, 7), date(2026, 12, 1), date(2026, 12, 2
 @pytest.fixture
 def equipo():
     anio_abierto()
-    nombres = (("Gerente AyF", 1), ("Jefa de Control", 2), ("Contador Senior", 3), ("Asistente Contable", 4))
+    nombres = (("Gerente AyF", 1), ("Jefa de Control", 2), ("Contador Senior", 3), ("Analista Contable", 4))
     c = {n: cargo(n) for n, _ in nombres}
     for n, orden in nombres:
         Cargo.objects.filter(nombre=n).update(orden=orden)
@@ -48,7 +48,7 @@ def test_la_jornada_es_9_horas_de_lunes_a_jueves_y_5_el_viernes_y_el_feriado_no_
     j = fila(m, "Jefa de Control")
     assert j.capacidad[MAR] == 9 and j.capacidad[JUE] == 9 and j.capacidad[VIE] == 5 and j.capacidad[date(2026, 12, 11)] == 5
     assert date(2026, 12, 8) not in j.capacidad  # el feriado no es un día de la matriz
-    assert [f.cargo.nombre for f in m.filas] == ["Gerente AyF", "Jefa de Control", "Contador Senior", "Asistente Contable"]  # en el orden de los cargos
+    assert [f.cargo.nombre for f in m.filas] == ["Gerente AyF", "Jefa de Control", "Contador Senior", "Analista Contable"]  # en el orden de los cargos
 
 
 def test_la_matriz_suma_las_horas_de_cada_persona_por_dia_y_la_revision_en_minutos(equipo):
@@ -84,15 +84,15 @@ def test_el_gerente_no_puede_pasar_de_80_horas_al_mes(equipo):
 
 def test_lo_pausado_y_lo_reasignado_en_la_semana_del_cierre_cambia_la_matriz(equipo):
     t = hacer("T1", equipo["Contador Senior"], "DIARIA_HABIL", 2)
-    t.modo_cierre, t.cargo_cierre, t.cargo_revisa_cierre = "reasignar", equipo["Asistente Contable"], equipo["Contador Senior"]
+    t.modo_cierre, t.cargo_cierre, t.cargo_revisa_cierre = "reasignar", equipo["Analista Contable"], equipo["Contador Senior"]
     t.save()
     m = matriz.construir(2026, 12)
     assert fila(m, "Contador Senior").horas[JUE] == pytest.approx(0.25)  # solo revisa: 15 min, aunque la tarea demore 2 h
-    assert fila(m, "Asistente Contable").horas[JUE] == pytest.approx(2.0)
+    assert fila(m, "Analista Contable").horas[JUE] == pytest.approx(2.0)
     t.modo_cierre = "pausar"
     t.save()
     m = matriz.construir(2026, 12)
-    assert fila(m, "Contador Senior").horas[JUE] == 0 and fila(m, "Asistente Contable").horas[JUE] == 0
+    assert fila(m, "Contador Senior").horas[JUE] == 0 and fila(m, "Analista Contable").horas[JUE] == 0
     assert fila(m, "Contador Senior").horas[date(2026, 12, 15)] == 0  # se pausa hasta DH10 (15-12); se retoma el 16-12
 
 
@@ -119,15 +119,15 @@ def test_la_analista_cubre_compras_y_pagos_y_el_contador_solo_revisa(equipo):
     prop = matriz.proponer(2026, 12)
     for t in (c, p):
         plan = prop.planes[t.pk]
-        assert (plan.modo_cierre, plan.cargo_cierre_id, plan.revisa_cierre_id) == ("reasignar", equipo["Asistente Contable"].pk, equipo["Contador Senior"].pk)
+        assert (plan.modo_cierre, plan.cargo_cierre_id, plan.revisa_cierre_id) == ("reasignar", equipo["Analista Contable"].pk, equipo["Contador Senior"].pk)
     assert fila(prop.despues, "Contador Senior").horas[JUE] == pytest.approx(0.25)  # solo revisa (15 min)
-    assert fila(prop.despues, "Asistente Contable").horas[JUE] == pytest.approx(2.0)
+    assert fila(prop.despues, "Analista Contable").horas[JUE] == pytest.approx(2.0)
 
 
 def test_lo_demas_de_operacion_de_los_tres_enfocados_se_pausa_y_lo_de_la_analista_sigue(equipo):
     otro = hacer("T1", equipo["Jefa de Control"], "SEMANAL", 3, proceso="Seguimiento", dia_semana=3)
     jefe = hacer("T2", equipo["Contador Senior"], "DIARIA_HABIL", 1, proceso="Seguimiento")
-    suya = hacer("T3", equipo["Asistente Contable"], "DIARIA_HABIL", 1, proceso="Ventas")
+    suya = hacer("T3", equipo["Analista Contable"], "DIARIA_HABIL", 1, proceso="Ventas")
     prop = matriz.proponer(2026, 12)
     assert prop.planes[otro.pk].modo_cierre == "pausar" and prop.planes[jefe.pk].modo_cierre == "pausar"
     assert prop.planes[suya.pk].modo_cierre == "igual"  # la analista da continuidad a su propio trabajo
@@ -165,7 +165,7 @@ def test_el_analisis_de_cuentas_va_el_ultimo_dia_de_proceso_repartido_entre_cont
     prop = matriz.proponer(2026, 12)
     planes = [prop.planes[t.pk] for t in Tarea.objects.all()]
     assert {p.regla_n for p in planes} == {7}  # el último día de proceso: DH07 (jueves 10-12)
-    assert {p.ejecuta_id for p in planes} <= {equipo["Jefa de Control"].pk, equipo["Contador Senior"].pk, equipo["Asistente Contable"].pk} and len({p.ejecuta_id for p in planes}) == 3
+    assert {p.ejecuta_id for p in planes} <= {equipo["Jefa de Control"].pk, equipo["Contador Senior"].pk, equipo["Analista Contable"].pk} and len({p.ejecuta_id for p in planes}) == 3
     assert prop.despues.exceso_total == pytest.approx(0) and any("en paralelo" in c.motivo for c in prop.cambios)
 
 
@@ -226,11 +226,11 @@ def test_se_reasigna_solo_a_quien_ya_trabaja_en_el_proceso_y_nunca_a_quien_la_re
     for i in range(3):
         hacer(f"C{i}", equipo["Jefa de Control"], "CIERRE_DIA_HABIL", 5, revisa=equipo["Gerente AyF"], n=1, proceso="Costeo")
     hacer("K", equipo["Contador Senior"], "CIERRE_DIA_HABIL", 1, n=5, proceso="Costeo")  # el Contador ya trabaja en Costeo
-    hacer("L", equipo["Asistente Contable"], "CIERRE_DIA_HABIL", 1, n=5, proceso="Otro")
+    hacer("L", equipo["Analista Contable"], "CIERRE_DIA_HABIL", 1, n=5, proceso="Otro")
     prop = matriz.proponer(2026, 12)
     for t in Tarea.objects.filter(codigo__startswith="C"):
         plan = prop.planes[t.pk]
-        assert plan.ejecuta_id in (equipo["Jefa de Control"].pk, equipo["Contador Senior"].pk)  # nunca la Asistente, que no trabaja en Costeo
+        assert plan.ejecuta_id in (equipo["Jefa de Control"].pk, equipo["Contador Senior"].pk)  # nunca la Analista, que no trabaja en Costeo
         assert plan.ejecuta_id != plan.revisa_id  # y nunca el que revisa
 
 
@@ -251,10 +251,10 @@ def test_la_propuesta_no_empeora_nada(equipo):
 def test_la_propuesta_acerca_la_ocupacion_entre_los_cargos(equipo):
     for i in range(5):
         hacer(f"J{i}", equipo["Jefa de Control"], "CIERRE_DIA_HABIL", 4, n=3, proceso="Costeo")  # 20 h de la Jefa (el día hábil 3 caben 9)
-    hacer("A", equipo["Asistente Contable"], "CIERRE_DIA_HABIL", 1, n=5, proceso="Costeo")  # la Asistente ya trabaja en Costeo y está libre
+    hacer("A", equipo["Analista Contable"], "CIERRE_DIA_HABIL", 1, n=5, proceso="Costeo")  # la Analista ya trabaja en Costeo y está libre
     prop = matriz.proponer(2026, 12)
     assert prop.despues.desequilibrio_pct < prop.antes.desequilibrio_pct
-    assert fila(prop.despues, "Asistente Contable").horas_semana_cierre > fila(prop.antes, "Asistente Contable").horas_semana_cierre
+    assert fila(prop.despues, "Analista Contable").horas_semana_cierre > fila(prop.antes, "Analista Contable").horas_semana_cierre
     assert prop.despues.exceso_total <= prop.antes.exceso_total + 1e-9
 
 
@@ -269,9 +269,9 @@ def test_el_tope_de_80_horas_del_gerente_no_se_rompe_al_repartir(equipo):
 def test_el_diagnostico_dice_si_cabe_cuanto_falta_y_donde_se_van_las_horas(equipo):
     for i in range(30):
         hacer(f"C{i}", equipo["Jefa de Control"], "CIERRE_DIA_HABIL", 9, n=1, proceso="Costeo y producción")  # 270 h para una sola persona
-    hacer("O", equipo["Contador Senior"], "DIARIA_HABIL", 9, proceso="Compras")  # la Asistente cubrirá esto
+    hacer("O", equipo["Contador Senior"], "DIARIA_HABIL", 9, proceso="Compras")  # la Analista cubrirá esto
     diag = " ".join(matriz.diagnostico(matriz.proponer(2026, 12)))
-    assert "Faltan" in diag and "no cabe" in diag and "95 %" in diag and "Asistente Contable" in diag and "Costeo y producción" in diag and "más exigido" in diag
+    assert "Faltan" in diag and "no cabe" in diag and "95 %" in diag and "Analista Contable" in diag and "Costeo y producción" in diag and "más exigido" in diag
 
 
 def test_si_todo_cabe_el_diagnostico_lo_dice(equipo):
@@ -281,9 +281,9 @@ def test_si_todo_cabe_el_diagnostico_lo_dice(equipo):
 
 def test_el_ejemplo_de_karla_la_analista_demora_2_horas_y_el_contador_revisa_en_15_minutos(equipo):
     """02-11-2026: «analista en la tarea se demora 2 horas y contador senior que revisa 15 minutos»."""
-    t = hacer("T1", equipo["Asistente Contable"], "CIERRE_DIA_HABIL", 2, revisa=equipo["Contador Senior"], n=3)  # jueves 03-12
+    t = hacer("T1", equipo["Analista Contable"], "CIERRE_DIA_HABIL", 2, revisa=equipo["Contador Senior"], n=3)  # jueves 03-12
     m = matriz.construir(2026, 12)
-    assert fila(m, "Asistente Contable").horas[JUE] == pytest.approx(2.0)
+    assert fila(m, "Analista Contable").horas[JUE] == pytest.approx(2.0)
     assert fila(m, "Contador Senior").horas[JUE] == pytest.approx(0.25)  # 15 min, no el 25 % (30 min)
     t.minutos_revision = 40  # esta tarea en particular se revisa en 40 min
     t.save()

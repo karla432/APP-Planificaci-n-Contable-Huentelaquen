@@ -92,19 +92,19 @@ def test_la_lista_de_tareas_sigue_el_orden_de_proceso(mundo):
 
 def test_subir_el_excel_muestra_la_vista_previa_y_no_guarda(mundo):
     c = cli(mundo["jefa"])
-    contenido = con_cambio(lambda h: setattr(h["E4"], "value", "Asistente Contable"))
+    contenido = con_cambio(lambda h: setattr(h["E4"], "value", "Analista Contable"))
     r = c.post(reverse("mant_tareas_cargar"), {"accion": "revisar", "archivo": archivo(contenido)})
     html = r.content.decode()
     assert r.status_code == 200 and "Aún no se guardó nada" in html and "Tareas modificadas" in html and "Responsable" in html
-    assert "Aplicar la carga" in html and Tarea.objects.get(secuencia=1).cargo_ejecuta.nombre != "Asistente Contable"
+    assert "Aplicar la carga" in html and Tarea.objects.get(secuencia=1).cargo_ejecuta.nombre != "Analista Contable"
 
 
 def test_confirmar_aplica_los_cambios(mundo):
     c = cli(mundo["jefa"])
-    c.post(reverse("mant_tareas_cargar"), {"accion": "revisar", "archivo": archivo(con_cambio(lambda h: setattr(h["E4"], "value", "Asistente Contable")))})
+    c.post(reverse("mant_tareas_cargar"), {"accion": "revisar", "archivo": archivo(con_cambio(lambda h: setattr(h["E4"], "value", "Analista Contable")))})
     r = c.post(reverse("mant_tareas_cargar"), {"accion": "aplicar"}, follow=True)
     assert "Carga aplicada" in r.content.decode() and "1 modificadas" in r.content.decode()
-    assert Tarea.objects.get(secuencia=1).cargo_ejecuta.nombre == "Asistente Contable"
+    assert Tarea.objects.get(secuencia=1).cargo_ejecuta.nombre == "Analista Contable"
     # el archivo en espera ya no sirve: aplicar otra vez avisa que venció
     assert "venció" in c.post(reverse("mant_tareas_cargar"), {"accion": "aplicar"}, follow=True).content.decode()
 
@@ -120,7 +120,7 @@ def test_desactivar_tareas_exige_marcar_la_confirmacion(mundo):
 
 def test_cancelar_no_cambia_nada_y_borra_el_archivo(mundo):
     c = cli(mundo["jefa"])
-    c.post(reverse("mant_tareas_cargar"), {"accion": "revisar", "archivo": archivo(con_cambio(lambda h: setattr(h["E4"], "value", "Asistente Contable")))})
+    c.post(reverse("mant_tareas_cargar"), {"accion": "revisar", "archivo": archivo(con_cambio(lambda h: setattr(h["E4"], "value", "Analista Contable")))})
     token = c.session["carga_masiva"]["token"]
     r = c.post(reverse("mant_tareas_cargar"), {"accion": "cancelar"}, follow=True)
     assert "Carga cancelada" in r.content.decode() and "carga_masiva" not in c.session

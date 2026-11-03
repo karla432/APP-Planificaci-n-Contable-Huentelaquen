@@ -21,7 +21,7 @@ def reloj(monkeypatch):
 
 @pytest.fixture
 def mundo():
-    ger, cont, asist, bodega = cargo("Gerente AyF"), cargo("Contador Senior"), cargo("Asistente Contable"), cargo("Bodega", externo=True)
+    ger, cont, asist, bodega = cargo("Gerente AyF"), cargo("Contador Senior"), cargo("Analista Contable"), cargo("Bodega", externo=True)
     p = {"ger": persona("Gerente", ger), "cont": persona("Contador", cont), "asist": persona("Asistente", asist)}
     u = {k: usuario_con_rol(k, r, p[k]) for k, r in (("ger", "GERENTE"), ("cont", "COLABORADOR"), ("asist", "COLABORADOR"))}
     anio_abierto()

@@ -2,7 +2,7 @@
 hasta que los colaboradores registren horas reales.
 
 - Horas de ejecución al mes = minutos por ejecución × ejecuciones al mes.
-- Horas de revisión al mes = minutos de revisión de la tarea (o el valor general, 15 min) × ejecuciones al mes, y se cargan a quien revisa.
+- Horas de revisión al mes = minutos de revisión de la tarea (o el valor general, hoy 0) × ejecuciones al mes, y se cargan a quien revisa.
 - Capacidad = horas disponibles al mes por persona (160). Los cargos externos no tienen capacidad en la app.
 """
 from dataclasses import dataclass, field
@@ -30,7 +30,7 @@ def _h_al_mes(t: Tarea) -> float:
 
 
 def horas_de_revision(t: Tarea, por_defecto_min: int | None = None) -> float:
-    """Horas que tarda quien revisa UNA ejecución: las propias de la tarea o, si no tiene, el valor general (15 min).
+    """Horas que tarda quien revisa UNA ejecución: las propias de la tarea o, si no tiene, el valor general (hoy 0: va dentro de las horas de quien ejecuta).
     Una tarea sin tiempo de ejecución estimado no carga revisión (no se sabe cuánto es)."""
     if not t.minutos_estimados:
         return 0.0

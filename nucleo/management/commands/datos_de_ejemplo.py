@@ -16,7 +16,7 @@ PERSONAS = [  # usuario, nombre de ejemplo, cargo, rol
     ("gerente", "Gerente AyF (ejemplo)", "Gerente AyF", "GERENTE"),
     ("jefa", "Jefa de Control (ejemplo)", "Jefa de Control", "JEFATURA"),
     ("contadora", "Contador Senior (ejemplo)", "Contador Senior", "COLABORADOR"),
-    ("asistente", "Asistente Contable (ejemplo)", "Asistente Contable", "COLABORADOR"),
+    ("asistente", "Analista Contable (ejemplo)", "Analista Contable", "COLABORADOR"),
 ]
 SCL = ZoneInfo("America/Santiago")
 CORTE = date(2026, 11, 6)  # hasta aquí llega el avance simulado

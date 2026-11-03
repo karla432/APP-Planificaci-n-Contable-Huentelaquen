@@ -17,7 +17,7 @@ class Cargo(models.Model):
     es_externo = models.BooleanField(default=False, help_text="Sin cuenta: la Jefa marca «Recibido».")
     activo = models.BooleanField(default=True)
     horas_mes_max = models.PositiveSmallIntegerField(null=True, blank=True, help_text="Máximo de horas al mes que este cargo dedica a Huentelauquén (por ejemplo, el Gerente AyF: 80). Vacío = jornada completa.")
-    orden = models.PositiveSmallIntegerField(default=100, help_text="Orden en las listas: Gerente AyF, Jefa de Control, Contador Senior, Asistente Contable, y después los externos.")
+    orden = models.PositiveSmallIntegerField(default=100, help_text="Orden en las listas: Gerente AyF, Jefa de Control, Contador Senior, Analista Contable, y después los externos.")
 
     class Meta:
         ordering = ["orden", "nombre"]
@@ -89,7 +89,7 @@ class Proceso(Planificable):
 
     nombre = models.CharField(max_length=160, unique=True)
     activo = models.BooleanField(default=True)
-    orden = models.PositiveSmallIntegerField(default=0, help_text="Orden de ejecución (1, 2, 3…). Único. Cambiarlo actualiza el prefijo de todos los códigos del proceso.")
+    orden = models.PositiveSmallIntegerField(null=True, blank=True, help_text="Orden de ejecución (0, 1, 2…). Único; el 0 es «Control del cierre». Cambiarlo actualiza el prefijo de todos los códigos del proceso.")
     sigla = models.CharField(max_length=3, unique=True, blank=True, help_text="Tres letras mayúsculas que identifican al proceso (VEN, COM…).")
     codigo = models.CharField(max_length=10, unique=True, blank=True, help_text="OO-PPP, por ejemplo 02-VEN. Lo genera la app.")
     responsable = models.ForeignKey("Cargo", null=True, blank=True, on_delete=models.PROTECT, related_name="+")
@@ -101,8 +101,9 @@ class Proceso(Planificable):
     def save(self, *args, **kwargs):
         from nucleo import siglas
         from nucleo.servicios import codigos
-        if not self.orden:
-            self.orden = (Proceso.objects.aggregate(m=models.Max("orden"))["m"] or 0) + 1
+        if self.orden is None:
+            maximo = Proceso.objects.aggregate(m=models.Max("orden"))["m"]
+            self.orden = 1 if maximo is None else maximo + 1
         if not self.sigla:
             self.sigla = siglas.derivar(self.nombre, set(Proceso.objects.exclude(pk=self.pk).values_list("sigla", flat=True)))
         self.sigla = self.sigla.upper()
@@ -199,16 +200,27 @@ class Tarea(Planificable):
     cuando_excel = models.CharField(max_length=120, blank=True)
     referencia_normativa = models.TextField(blank=True)
     minutos_estimados = models.PositiveIntegerField(null=True, blank=True, help_text="Por ejecución. Estimado: ver `fuente_horas`.")
-    minutos_revision = models.PositiveIntegerField(null=True, blank=True, help_text="Minutos que tarda quien revisa, por ejecución. Vacío = el valor general (parámetro «minutos_revision», 15 min).")
+    minutos_revision = models.PositiveIntegerField(null=True, blank=True, help_text="Minutos que tarda quien revisa, por ejecución. Vacío = el valor general (parámetro «minutos_revision», hoy 0: va dentro de las horas de quien ejecuta).")
     ejecuciones_mes = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True)
-    fuente_horas = models.CharField(max_length=12, default="estimacion", choices=[("estimacion", "Estimación base"), ("gerente", "Definida por la Gerente AyF")])
+    fuente_horas = models.CharField(max_length=12, default="estimacion", choices=[("estimacion", "Estimación base"), ("gerente", "Definida por la Gerente AyF"), ("estimada", "Estimada por la Planificación 2.0"), ("ajustada", "Ajustada en la Planificación 2.0")])
     secuencia = models.PositiveIntegerField(default=0, help_text="Orden en que se procesan las tareas (el del Excel).")
     dia_cierre = models.PositiveSmallIntegerField(null=True, blank=True, help_text="Día hábil del cierre que indica el Excel (informativo).")
     activa = models.BooleanField(default=True)
     requiere_revision = models.BooleanField(default=False)
     motivo_revision = models.TextField(blank=True)
-    MODOS_CIERRE = [("igual", "Igual que el resto del mes"), ("reasignar", "La hace otro cargo en la semana del cierre"), ("pausar", "Se pausa en la semana del cierre")]
-    modo_cierre = models.CharField(max_length=10, choices=MODOS_CIERRE, default="igual", help_text="Qué pasa con esta tarea desde el primer día hábil hasta el día 8 (la semana del cierre).")
+    MODOS_CIERRE = [("igual", "Igual que el resto del mes"), ("reasignar", "La hace otro cargo en las semanas del cierre"), ("pausar", "Se pausa en las semanas del cierre"),
+                    ("fuera", "Fuera del equipo contable (no consume sus horas)")]
+    modo_cierre = models.CharField(max_length=10, choices=MODOS_CIERRE, default="igual", help_text="Qué pasa con esta tarea de DH01 a DH10 (las semanas del cierre).")
+    AL_TERMINAR = [("", "—"), ("al_dia", "Se pone al día (registro acumulado)"), ("retoma", "Se retoma sin recuperar")]
+    al_terminar_cierre = models.CharField(max_length=10, blank=True, choices=AL_TERMINAR, help_text="Si se pausó: qué pasa con lo no hecho al terminar el cierre.")
+    # Planificación 2.0 (Karla, 03-11-2026)
+    dh_inicio = models.PositiveSmallIntegerField(null=True, blank=True, help_text="Cierre: día hábil en que empieza la tarea, si dura más de un día (vence el día de «Día hábil»).")
+    horas_dh = models.JSONField(null=True, blank=True, help_text="Cierre: horas por día hábil, por ejemplo {\"2\": 0.8, \"3\": 1.2}. Vacío = todas el día que vence.")
+    horas_semana = models.JSONField(null=True, blank=True, help_text="Diaria/semanal: horas por día de la semana (0 = lunes … 4 = viernes), por ejemplo {\"0\": 2, \"1\": 1}. Vacío = las horas por ejecución todos los días.")
+    tipo_control = models.CharField(max_length=60, blank=True, help_text="Ejecución, Control, Aprobación, Hito DH03…")
+    cambio_plan = models.CharField(max_length=160, blank=True, help_text="Qué cambió respecto del plan anterior (Reprogramada, Reasignada, Nueva…).")
+    justificacion = models.TextField(blank=True, help_text="Por qué se cambió.")
+    predecesoras = models.ManyToManyField("self", symmetrical=False, related_name="sucesoras", blank=True, help_text="Tareas que deben terminar antes de que esta empiece.")
     cargo_cierre = models.ForeignKey(Cargo, null=True, blank=True, on_delete=models.PROTECT, related_name="+", help_text="Quién la ejecuta en la semana del cierre (si se reasigna).")
     cargo_revisa_cierre = models.ForeignKey(Cargo, null=True, blank=True, on_delete=models.PROTECT, related_name="+", help_text="Quién la revisa en la semana del cierre (si se reasigna).")
 

@@ -122,17 +122,17 @@ def test_un_texto_que_empieza_con_igual_no_se_vuelve_formula(base):
 
 
 def test_cargar_muestra_primero_una_vista_previa_y_no_guarda_nada(base, jefa):
-    contenido = editado(excel_masivo.exportar_tareas(), lambda h: setattr(h["E4"], "value", "Asistente Contable"))
+    contenido = editado(excel_masivo.exportar_tareas(), lambda h: setattr(h["E4"], "value", "Analista Contable"))
     vp = excel_masivo.previsualizar_tareas(jefa, contenido, "x.xlsx")
     assert len(vp.cambios) == 1 and not vp.altas and not vp.bajas
-    assert Tarea.objects.get(secuencia=1).cargo_ejecuta.nombre != "Asistente Contable"
+    assert Tarea.objects.get(secuencia=1).cargo_ejecuta.nombre != "Analista Contable"
 
 
 def test_aplicar_guarda_el_cambio_y_deja_constancia_con_el_archivo(base, jefa):
-    contenido = editado(excel_masivo.exportar_tareas(), lambda h: setattr(h["E4"], "value", "Asistente Contable"))
+    contenido = editado(excel_masivo.exportar_tareas(), lambda h: setattr(h["E4"], "value", "Analista Contable"))
     r = excel_masivo.aplicar_tareas(jefa, contenido, "tareas.xlsx")
     assert r["cambios"] == 1
-    assert Tarea.objects.get(secuencia=1).cargo_ejecuta.nombre == "Asistente Contable"
+    assert Tarea.objects.get(secuencia=1).cargo_ejecuta.nombre == "Analista Contable"
     e = EventoAuditoria.objects.filter(accion="importacion.aplicada").latest("id")
     assert e.despues["origen"] == "carga masiva" and e.despues["archivo"] == "tareas.xlsx" and len(e.despues["sha256"]) == 64
 
@@ -140,12 +140,12 @@ def test_aplicar_guarda_el_cambio_y_deja_constancia_con_el_archivo(base, jefa):
 def test_una_fila_nueva_crea_la_tarea_con_su_codigo_pro_tar_sub(base, jefa):
     def agregar(h):
         n = h.max_row + 1
-        for col, v in enumerate(["", "Seguimiento", "Seguimiento diario", "Revisar correos nuevos", "Asistente Contable", "", "Diaria", "Todos los días hábiles", None, None, 0.25, 21], start=1):
+        for col, v in enumerate(["", "Seguimiento", "Seguimiento diario", "Revisar correos nuevos", "Analista Contable", "", "Diaria", "Todos los días hábiles", None, None, 0.25, 21], start=1):
             h.cell(row=n, column=col, value=v)
     r = excel_masivo.aplicar_tareas(jefa, editado(excel_masivo.exportar_tareas(), agregar), "x.xlsx")
     assert r["altas"] == 1
     t = Tarea.objects.get(subtarea="Revisar correos nuevos")
-    assert t.codigo.startswith("01-SEG.0") and t.minutos_estimados == 15 and t.cargo_ejecuta.nombre == "Asistente Contable"
+    assert t.codigo.startswith("01-SEG.0") and t.minutos_estimados == 15 and t.cargo_ejecuta.nombre == "Analista Contable"
 
 
 def test_las_tareas_que_faltan_en_el_archivo_se_desactivan_solo_con_confirmacion(base, jefa):
@@ -301,11 +301,11 @@ def test_los_procesos_que_no_estan_en_el_archivo_quedan_despues_como_estaban(bas
 
 def test_la_semana_del_cierre_viaja_en_la_planilla_y_se_puede_cargar(base, jefa):
     t = Tarea.objects.filter(regla_tipo="DIARIA_HABIL").first()
-    t.modo_cierre, t.cargo_cierre, t.cargo_revisa_cierre = "reasignar", Cargo.objects.get(nombre="Asistente Contable"), Cargo.objects.get(nombre="Contador Senior")
+    t.modo_cierre, t.cargo_cierre, t.cargo_revisa_cierre = "reasignar", Cargo.objects.get(nombre="Analista Contable"), Cargo.objects.get(nombre="Contador Senior")
     t.save()
     contenido = excel_masivo.exportar_tareas()
     fila = next(f for f in filas(contenido) if f[0] == t.codigo)
-    assert fila[12:15] == ["Reasignar", "Asistente Contable", "Contador Senior"]
+    assert fila[12:15] == ["Reasignar", "Analista Contable", "Contador Senior"]
     vp = importador.previsualizar(io.BytesIO(contenido), incluir_dia_9=False)
     assert not vp.altas and not vp.cambios and not vp.bajas  # ida y vuelta sin cambios
     # editar: pausarla en vez de reasignarla

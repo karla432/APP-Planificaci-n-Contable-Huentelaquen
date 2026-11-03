@@ -129,7 +129,7 @@ def exportar_tareas(planes: dict | None = None) -> bytes:
         per, cua = texto_de_periodicidad(t)
         valores = [t.codigo, t.proceso.nombre, t.tarea_principal, t.subtarea, t.cargo_ejecuta.nombre, _revisa(t), per, cua, t.referencia_normativa, t.dia_cierre,
                    None if t.minutos_estimados is None else round(t.minutos_estimados / 60, 4), None if t.ejecuciones_mes is None else float(t.ejecuciones_mes),
-                   {"igual": "", "reasignar": "Reasignar", "pausar": "Pausar"}[t.modo_cierre], t.cargo_cierre.nombre if t.cargo_cierre else "", t.cargo_revisa_cierre.nombre if t.cargo_revisa_cierre else "", t.minutos_revision]
+                   {"igual": "", "reasignar": "Reasignar", "pausar": "Pausar", "fuera": "Fuera del equipo contable"}[t.modo_cierre], t.cargo_cierre.nombre if t.cargo_cierre else "", t.cargo_revisa_cierre.nombre if t.cargo_revisa_cierre else "", t.minutos_revision]
         for col, v in enumerate(valores, start=1):
             _poner(hoja, n, col, v)
         if t.fuente_horas == "gerente":
@@ -150,12 +150,12 @@ INSTRUCCIONES = [
     "2. La columna «Código» solo sirve para ubicarte: la app no la lee. Una tarea es la misma mientras no cambies Proceso + Tarea principal + Subtarea.",
     "3. Si cambias el texto de Proceso, Tarea principal o Subtarea, la app lo toma como una tarea nueva y desactiva la anterior (te lo avisa en la vista previa).",
     "4. Responsable y Revisa deben ser nombres de cargo que ya existen (por ejemplo «Contador Senior»). «Revisa» puede ir vacío.",
-    "5. Periodicidad y Cuándo: Diaria · Todos los días hábiles / Semanal · Lunes / Mensual (cierre) · Día hábil 3 (del 1 al 7) / Mensual (cierre) · D8, D9 o D10 (días del mes: "
-    "reportes listos en la tarde, Gerente General y Directorio; si caen en día inhábil pasan al hábil siguiente) / Mensual · Día 13 / Mensual · Último día del mes / "
+    "5. Periodicidad y Cuándo: Diaria · Todos los días hábiles / Semanal · Lunes / Mensual (cierre) · Día hábil 3 (también «Día hábil 4 a 5», «Día hábil 13» y «Último día hábil del mes anterior» = DH00) / "
+    "Mensual (cierre) · Día hábil 8, 9 o 10 (DH08 reportes listos en la tarde, DH09 Gerente General, DH10 Directorio) / Mensual · Día 13 / Mensual · Último día del mes / "
     "Puntual · Día 20 de abril, junio y septiembre.",
-    "5b. Semana del cierre (del primer día hábil al día 8): vacío = la tarea sigue igual · «Pausar» = no se hace esa semana · «Reasignar» = la hace «Responsable en el cierre» "
+    "5b. Semanas del cierre (DH01 a DH10): vacío = la tarea sigue igual · «Pausar» = no se hace en las semanas del cierre (DH01 a DH10) · «Fuera del equipo contable» = no consume horas del equipo · «Reasignar» = la hace «Responsable en el cierre» "
     "y la revisa «Revisa en el cierre» (si queda vacío, el revisor de siempre).",
-    "5c. Minutos de revisión: lo que tarda quien revisa cada vez que se hace la tarea (por ejemplo 15). Vacío = 15 minutos, el valor general. 0 = la revisión no toma tiempo.",
+    "5c. Minutos de revisión: lo que tarda quien revisa cada vez que se hace la tarea (por ejemplo 15). Vacío = 0: la revisión va dentro de las horas de quien ejecuta (Karla, 03-11-2026).",
     "6. El ajuste «día hábil siguiente» de un día fijo no se puede escribir aquí: se cambia en Mantenedor → Tareas.",
     "7. Las tareas que no estén en el archivo se DESACTIVAN (no se borran). La app te muestra la lista antes de aplicar y pide confirmación.",
     "8. Celda de horas en verde = horas definidas por la Gerente AyF.",
@@ -170,10 +170,10 @@ OK = PatternFill("solid", start_color="FFD1E7DD", end_color="FFD1E7DD")
 DIAS_CORTOS = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"]
 
 
-def _relleno(horas: float, capacidad: float):
+def _relleno(horas: float, capacidad: float, techo: float = 0.9):
     if horas > capacidad + 1e-9:
         return ROJO
-    return AMBAR if capacidad and horas >= capacidad * 0.9 else (OK if horas else None)
+    return AMBAR if capacidad and horas > capacidad * techo + 1e-9 else (OK if horas else None)
 
 
 def _hoja_de_matriz(wb, titulo: str, m) -> None:
@@ -189,7 +189,7 @@ def _hoja_de_matriz(wb, titulo: str, m) -> None:
         hoja.cell(row=n, column=1, value=fila.cargo.nombre).font = Font(bold=True)
         for col, f in enumerate(m.dias, start=2):
             c = hoja.cell(row=n, column=col, value=round(fila.horas[f], 2))
-            relleno = _relleno(fila.horas[f], fila.capacidad[f])
+            relleno = _relleno(fila.horas[f], fila.capacidad[f], m.techo(f))
             if relleno:
                 c.fill = relleno
             c.number_format = "0.0"
@@ -222,8 +222,8 @@ def exportar_matriz(anio: int, mes: int) -> bytes:
     lineas = [
         "Para revisar antes de entregarla. Todo son horas ESTIMADAS (la mayoría, estimación base de Legión; 24 definidas por la Gerente AyF): si una hora está mal, corrígela en la planilla de tareas.",
         "Jornada: lunes a jueves 9 h y viernes 5 h (41 h a la semana). Gerente AyF: máximo 80 h al mes para Huentelauquén.",
-        "Semana del cierre: del primer día hábil al día 8 (reportes listos en la tarde). Día 9: Gerente General. Día 10: Directorio. Si caen en día inhábil, pasan al hábil siguiente.",
-        "Regla de operación propuesta: la Asistente Contable cubre compras y pagos (el Contador Senior solo revisa); Jefa de Control, Contador Senior y Gerente AyF se enfocan 100 % en el cierre.",
+        "Semanas del cierre: de DH01 a DH10. DH08: reportes listos en la tarde. DH09: Gerente General. DH10: Directorio (son días hábiles).",
+        "Regla de operación propuesta: la Analista Contable cubre compras y pagos (el Contador Senior solo revisa); Jefa de Control, Contador Senior y Gerente AyF se enfocan 100 % en el cierre.",
     ]
     for i, linea in enumerate(lineas, start=3):
         r.cell(row=i, column=1, value=linea)

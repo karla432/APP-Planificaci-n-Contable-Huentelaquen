@@ -239,16 +239,16 @@ def _mes_de_la_matriz(request, hoy: date) -> tuple[int, int]:
         return hoy.year, hoy.month
 
 
-def _clase_de_horas(horas: float, capacidad: float) -> str:
+def _clase_de_horas(horas: float, capacidad: float, techo: float = 0.9) -> str:
     if horas > capacidad + 1e-9:
         return "rd"
-    if capacidad and horas >= capacidad * 0.9:
+    if capacidad and horas > capacidad * techo + 1e-9:  # pasa el techo de planificación: se usa la reserva
         return "wr"
     return "ok" if horas else "gr"
 
 
 def _tabla_de_matriz(m) -> list[dict]:
-    return [{"fila": f, "celdas": [{"fecha": d, "horas": f.horas[d], "capacidad": f.capacidad[d], "clase": _clase_de_horas(f.horas[d], f.capacidad[d])} for d in m.dias]} for f in m.filas]
+    return [{"fila": f, "celdas": [{"fecha": d, "horas": f.horas[d], "capacidad": f.capacidad[d], "clase": _clase_de_horas(f.horas[d], f.capacidad[d], m.techo(d))} for d in m.dias]} for f in m.filas]
 
 
 @con_roles(permisos.GERENTE, permisos.JEFATURA)

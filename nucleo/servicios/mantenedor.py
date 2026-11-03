@@ -49,6 +49,7 @@ class DatosTarea:
     modo_cierre: str = "igual"  # semana del cierre: igual / reasignar / pausar
     cargo_cierre_id: int | None = None
     cargo_revisa_cierre_id: int | None = None
+    dh_inicio: int | None = None  # cierre de varios días: día hábil en que empieza (vence el de «n»)
 
 
 def _validar(d: DatosTarea) -> str:
@@ -76,10 +77,12 @@ def _validar(d: DatosTarea) -> str:
         raise ErrorDeNegocio("El ajuste para días inhábiles debe ser «siguiente» o «anterior».")
     if d.tipo == "SEMANAL" and d.dia_semana not in range(5):
         raise ErrorDeNegocio("Falta el día de la semana (lunes a viernes).")
-    if d.tipo == "CIERRE_DIA_HABIL" and d.n not in range(1, 8):
-        raise ErrorDeNegocio("El día hábil del cierre debe estar entre 1 y 7. Para los días 8, 9 y 10 del mes usa «Día 8, 9 o 10».")
+    if d.tipo == "CIERRE_DIA_HABIL" and (d.n is None or not (0 <= d.n <= 7 or 11 <= d.n <= 31)):
+        raise ErrorDeNegocio("El día hábil del cierre debe ser 0 (último hábil del mes anterior), de 1 a 7 o de 11 en adelante. Para el DH08, DH09 y DH10 usa «Día hábil 8, 9 o 10».")
     if d.tipo == "CIERRE_HITO" and d.n not in (8, 9, 10):
-        raise ErrorDeNegocio("El hito del cierre debe ser el día 8, 9 o 10 del mes.")
+        raise ErrorDeNegocio("El hito del cierre debe ser el día hábil 8, 9 o 10.")
+    if d.dh_inicio is not None and (d.tipo not in ("CIERRE_DIA_HABIL", "CIERRE_HITO") or d.n is None or not 0 <= d.dh_inicio < d.n):
+        raise ErrorDeNegocio("«Empieza el día hábil» solo vale en tareas del cierre y debe ser anterior al día en que vence.")
     if d.tipo == "DIA_FIJO" and d.dia not in range(1, 32):
         raise ErrorDeNegocio("El día del mes debe estar entre 1 y 31.")
     if d.tipo == "MESES":
@@ -111,7 +114,7 @@ def _instantanea(t: Tarea) -> dict:
         "referencia_normativa": t.referencia_normativa, "activa": t.activa, "requiere_revision": t.requiere_revision,
         "minutos_estimados": t.minutos_estimados, "minutos_revision": t.minutos_revision, "codigo": t.codigo, "estado_plan": t.estado_plan, "fecha_inicio": str(t.fecha_inicio or ""),
         "fecha_termino": str(t.fecha_termino or ""), "observaciones": t.observaciones,
-        "modo_cierre": t.modo_cierre, "cargo_cierre": t.cargo_cierre.nombre if t.cargo_cierre else None,
+        "modo_cierre": t.modo_cierre, "cargo_cierre": t.cargo_cierre.nombre if t.cargo_cierre else None, "dh_inicio": t.dh_inicio,
     }
 
 
@@ -135,6 +138,7 @@ def _aplicar(t: Tarea, d: DatosTarea, motivo: str):
     t.referencia_normativa, t.activa = d.referencia.strip(), d.activa
     t.estado_plan, t.fecha_inicio, t.fecha_termino, t.observaciones = d.estado_plan, d.fecha_inicio, d.fecha_termino, d.observaciones.strip()
     t.modo_cierre = d.modo_cierre
+    t.dh_inicio = d.dh_inicio if d.tipo in ("CIERRE_DIA_HABIL", "CIERRE_HITO") else None
     t.cargo_cierre = Cargo.objects.filter(pk=d.cargo_cierre_id).first() if d.modo_cierre == "reasignar" else None
     t.cargo_revisa_cierre = Cargo.objects.filter(pk=d.cargo_revisa_cierre_id).first() if d.modo_cierre == "reasignar" and d.cargo_revisa_cierre_id else None
     if t.activa:  # una subtarea activa necesita su proceso y su tarea activos

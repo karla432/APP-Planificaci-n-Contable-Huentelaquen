@@ -70,8 +70,11 @@ def test_solo_gerente_y_jefatura_editan_tareas(mundo, quien):
     "cambios,mensaje",
     [
         (dict(tipo="SEMANAL", n=None), "día de la semana"),
-        (dict(tipo="CIERRE_HITO", n=7), "día 8, 9 o 10"),
-        (dict(tipo="CIERRE_DIA_HABIL", n=0), "día hábil"),
+        (dict(tipo="CIERRE_HITO", n=7), "día hábil 8, 9 o 10"),
+        (dict(tipo="CIERRE_DIA_HABIL", n=9), "día hábil"),  # el 8, 9 y 10 son hitos
+        (dict(tipo="CIERRE_DIA_HABIL", n=None), "día hábil"),
+        (dict(tipo="CIERRE_DIA_HABIL", n=3, dh_inicio=3), "Empieza el día hábil"),  # no puede empezar el mismo día en que vence
+        (dict(tipo="SEMANAL", dia_semana=1, dh_inicio=1), "Empieza el día hábil"),
         (dict(tipo="DIA_FIJO", n=None, dia=32), "día del mes"),
         (dict(tipo="QUINCENAL"), "periodicidad"),
         (dict(subtarea="   "), "subtarea"),
@@ -182,3 +185,10 @@ def test_los_minutos_de_revision_se_guardan_por_tarea_y_vacio_es_el_valor_genera
 def test_los_minutos_de_revision_fuera_de_rango_se_rechazan(mundo, valor):
     with pytest.raises(ErrorDeNegocio, match="minutos de revisión"):
         mantenedor.crear_tarea(mundo["u"]["jefa"], datos(mundo, minutos_revision=valor))
+
+
+def test_el_cierre_acepta_dh00_dias_sobre_el_8_y_rangos(mundo):
+    uno = mantenedor.crear_tarea(mundo["u"]["jefa"], datos(mundo, subtarea="Insumos", n=0))
+    otro = mantenedor.crear_tarea(mundo["u"]["jefa"], datos(mundo, subtarea="Previred", n=13))
+    rango = mantenedor.crear_tarea(mundo["u"]["jefa"], datos(mundo, subtarea="Regularizar", n=5, dh_inicio=4))
+    assert (uno.regla_n, otro.regla_n, rango.regla_n, rango.dh_inicio) == (0, 13, 5, 4) and uno.dh_inicio is None

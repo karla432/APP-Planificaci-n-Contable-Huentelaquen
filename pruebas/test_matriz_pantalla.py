@@ -22,7 +22,7 @@ def reloj(monkeypatch):
 @pytest.fixture
 def mundo():
     anio_abierto()
-    nombres = (("Gerente AyF", 1), ("Jefa de Control", 2), ("Contador Senior", 3), ("Asistente Contable", 4))
+    nombres = (("Gerente AyF", 1), ("Jefa de Control", 2), ("Contador Senior", 3), ("Analista Contable", 4))
     c = {n: cargo(n) for n, _ in nombres}
     for n, orden in nombres:
         Cargo.objects.filter(nombre=n).update(orden=orden)
@@ -57,7 +57,7 @@ def libro(r):
 
 def test_la_pantalla_muestra_hoy_propuesta_cambios_y_si_cabe(mundo):
     html = cli(mundo["u"]["jefa"]).get(reverse("informe_matriz"), {"mes": "2026-12"}).content.decode()
-    for texto in ("Matriz del cierre", "Como está hoy", "Propuesta", "¿Cabe el cierre en la jornada del equipo?", "Cambios propuestos", "Descargar matriz (Excel)", "Jefa de Control", "Asistente Contable", "lunes a jueves 9 h y viernes 5 h", "80 h"):
+    for texto in ("Matriz del cierre", "Como está hoy", "Propuesta", "¿Cabe el cierre en la jornada del equipo?", "Cambios propuestos", "Descargar matriz (Excel)", "Jefa de Control", "Analista Contable", "lunes a jueves 9 h y viernes 5 h", "80 h"):
         assert texto in html, texto
     assert 'class="celda rd"' in html  # la Jefa tiene 15 h el día 1: se marca en rojo en «Como está hoy»
 
@@ -109,7 +109,7 @@ def test_la_hoja_planificacion_trae_la_propuesta_aplicada_y_se_puede_cargar(mund
     hoja = wb["Planificación"]
     filas = {f[0]: f for f in hoja.iter_rows(min_row=4, values_only=True) if f[0]}
     o1 = filas[Tarea.objects.get(subtarea="Subtarea O1").codigo]
-    assert o1[12:15] == ("Reasignar", "Asistente Contable", "Contador Senior")  # compras: la analista cubre y el contador solo revisa
+    assert o1[12:15] == ("Reasignar", "Analista Contable", "Contador Senior")  # compras: la analista cubre y el contador solo revisa
     # cargada, aplica la propuesta y deja la planificación como dice la hoja
     contenido = io.BytesIO()
     wb.save(contenido)
@@ -118,7 +118,7 @@ def test_la_hoja_planificacion_trae_la_propuesta_aplicada_y_se_puede_cargar(mund
     assert not vp.altas and not vp.bajas and len(vp.cambios) >= 1
     excel_masivo.aplicar_tareas(jefa, contenido.getvalue(), "matriz.xlsx")
     t = Tarea.objects.get(subtarea="Subtarea O1")
-    assert (t.modo_cierre, t.cargo_cierre.nombre, t.cargo_revisa_cierre.nombre) == ("reasignar", "Asistente Contable", "Contador Senior")
+    assert (t.modo_cierre, t.cargo_cierre.nombre, t.cargo_revisa_cierre.nombre) == ("reasignar", "Analista Contable", "Contador Senior")
 
 
 def test_cargar_la_propuesta_y_volver_a_calcular_deja_menos_exceso(mundo):

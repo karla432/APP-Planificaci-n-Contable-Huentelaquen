@@ -14,7 +14,7 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def equipo():
-    cont, asist, jefa = cargo("Contador Senior"), cargo("Asistente Contable"), cargo("Jefa de Control")
+    cont, asist, jefa = cargo("Contador Senior"), cargo("Analista Contable"), cargo("Jefa de Control")
     return {"cont": cont, "asist": asist, "jefa": jefa, "p_cont": persona("Contador", cont), "p_asist": persona("Asistente", asist), "p_jefa": persona("Jefa", jefa)}
 
 

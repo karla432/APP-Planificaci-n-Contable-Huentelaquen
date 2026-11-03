@@ -17,16 +17,17 @@
   <label for="cargo_revisa">Quién revisa (o recibe, si es de un externo)</label>
   <select id="cargo_revisa" name="cargo_revisa"><option value="">Sin revisor</option>{% for c in cargos %}<option value="{{ c.pk }}" {% if v.cargo_revisa == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}</select>
   <label for="horas">Horas estimadas por ejecución <span class="pill p-warn">Estimado</span></label><input id="horas" name="horas" inputmode="decimal" value="{{ v.horas }}" placeholder="por ejemplo 0,5">
-  <label for="minutos_revision">Minutos que tarda quien revisa <span class="pill p-warn">Estimado</span></label><input id="minutos_revision" name="minutos_revision" inputmode="numeric" value="{{ v.minutos_revision }}" placeholder="vacío = 15 (valor general)">
-  <p class="meta">Por cada vez que se hace la tarea. Si lo dejas vacío, la app usa 15 minutos. Pon 0 si la revisión no toma tiempo.</p>
+  <label for="minutos_revision">Minutos que tarda quien revisa <span class="pill p-warn">Estimado</span></label><input id="minutos_revision" name="minutos_revision" inputmode="numeric" value="{{ v.minutos_revision }}" placeholder="vacío = 0 (va dentro de las horas de quien ejecuta)">
+  <p class="meta">Por cada vez que se hace la tarea. Si lo dejas vacío, la revisión se considera incluida en las horas de quien ejecuta (0 minutos extra). Escribe los minutos solo si la revisión de esta tarea es un trabajo aparte.</p>
 
   <label for="tipo">Periodicidad</label>
   <select id="tipo" name="tipo">{% for k, n in tipos %}<option value="{{ k }}" {% if v.tipo == k %}selected{% endif %}>{{ n }}</option>{% endfor %}</select>
   <div class="grupo" data-para="SEMANAL"><label for="dia_semana">Día de la semana</label>
     <select id="dia_semana" name="dia_semana"><option value="">—</option>{% for k, n in dias %}<option value="{{ k }}" {% if v.dia_semana == k|stringformat:"s" %}selected{% endif %}>{{ n }}</option>{% endfor %}</select>
     <label for="franja">Franja (opcional)</label><select id="franja" name="franja"><option value="">Sin franja</option><option value="mañana" {% if v.franja == "mañana" %}selected{% endif %}>Mañana</option><option value="tarde" {% if v.franja == "tarde" %}selected{% endif %}>Tarde</option></select></div>
-  <div class="grupo" data-para="CIERRE_DIA_HABIL CIERRE_HITO"><label for="n">Día hábil del cierre (1 a 7) o día del mes del hito (8, 9 o 10)</label><input id="n" name="n" type="number" min="1" max="10" value="{{ v.n }}">
-    <p class="meta">Los días 8 (reportes listos en la tarde), 9 (Gerente General) y 10 (Directorio) son <strong>días del mes</strong>: si caen en día inhábil pasan al día hábil siguiente.</p></div>
+  <div class="grupo" data-para="CIERRE_DIA_HABIL CIERRE_HITO"><label for="n">Día hábil en que vence (0 a 31)</label><input id="n" name="n" type="number" min="0" max="31" value="{{ v.n }}">
+    <p class="meta">DH01 es el primer día hábil del mes y DH00 el último día hábil del mes anterior. Los <strong>días hábiles</strong> 8 (reportes listos en la tarde), 9 (Gerente General) y 10 (Directorio) son las entregas; use «Día hábil 8, 9 o 10» para ellas.</p>
+    <label for="dh_inicio">Empieza el día hábil (solo si dura más de un día)</label><input id="dh_inicio" name="dh_inicio" type="number" min="0" max="30" value="{{ v.dh_inicio }}" placeholder="vacío = empieza y vence el mismo día"></div>
   <div class="grupo" data-para="DIA_FIJO MESES"><label for="dia">Día del mes</label><input id="dia" name="dia" type="number" min="1" max="31" value="{{ v.dia }}"></div>
   <div class="grupo" data-para="MESES"><fieldset><legend>Meses</legend>{% for k, n in meses %}<label class="check"><input type="checkbox" name="meses" value="{{ k }}" {% if k|stringformat:"s" in v.meses %}checked{% endif %}> {{ n }}</label>{% endfor %}</fieldset></div>
   <div class="grupo" data-para="DIA_FIJO FIN_DE_MES MESES"><label for="ajuste">Si cae en día inhábil, pasa al día hábil…</label>
@@ -38,7 +39,7 @@
     <label for="fecha_termino">Fecha de término</label><input id="fecha_termino" name="fecha_termino" type="date" value="{{ v.fecha_termino }}">
     <label for="observaciones">Observaciones</label><textarea id="observaciones" name="observaciones" rows="2">{{ v.observaciones }}</textarea></fieldset>
   <fieldset><legend>Semana del cierre</legend>
-    <p class="ayuda">La semana del cierre va del primer día hábil del mes al día 8 (reportes listos). Para que el equipo se enfoque en el cierre, una tarea de operación se puede <strong>pausar</strong> esa semana o dejar que la haga <strong>otro cargo</strong>.</p>
+    <p class="ayuda">Las semanas del cierre van del DH01 (primer día hábil) al DH10 (entrega al Directorio). Para que el equipo se enfoque en el cierre, una tarea de operación se puede <strong>pausar</strong>, dejar que la haga <strong>otro cargo</strong> o quedar <strong>fuera del equipo contable</strong> (no consume sus horas).</p>
     <label for="modo_cierre">En la semana del cierre</label><select id="modo_cierre" name="modo_cierre">{% for k, n in modos_cierre %}<option value="{{ k }}" {% if v.modo_cierre == k %}selected{% endif %}>{{ n }}</option>{% endfor %}</select>
     <div class="grupo-modo" data-modo="reasignar"><label for="cargo_cierre">La hace</label><select id="cargo_cierre" name="cargo_cierre"><option value="">—</option>{% for c in cargos %}<option value="{{ c.pk }}" {% if v.cargo_cierre == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}</select>
       <label for="revisa_cierre">La revisa (si queda vacío, quien la revisa siempre)</label><select id="revisa_cierre" name="revisa_cierre"><option value="">—</option>{% for c in cargos %}<option value="{{ c.pk }}" {% if v.revisa_cierre == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}</select></div></fieldset>

@@ -11,7 +11,7 @@ Primero `previsualizar` (no guarda nada) y, tras confirmar, `aplicar`. Reglas de
 - El contenido del Excel es dato, no instrucción: solo se leen celdas (sin evaluar fórmulas).
 
 Cierre (Karla, 31-10-2026): con todas las tareas no se llega al día 7, así que el cierre va del día hábil 1 al 8, el 9 se revisa con la
-Gerencia General y el 10 se liberan los informes al Directorio. Son días del mes (al hábil siguiente si caen en día inhábil): «D7» se convierte en el día 8 y «D10» en el día 10.
+Gerencia General y el 10 se liberan los informes al Directorio. Desde el 03-11-2026 son días hábiles (DH08, DH09, DH10): «D7» se convierte en el DH08 y «D10» en el DH10.
 """
 import hashlib
 import re
@@ -32,11 +32,13 @@ from nucleo.servicios.recurrencia import Regla, ReglaIncompleta, ReglaInvalida, 
 
 CARGO_JEFA = "Jefa de Control"
 # El Excel usa otros nombres para dos cargos; en la app rigen los que definió Karla (31-10-2026): son cargos distintos.
-NOMBRES_DE_CARGO = {"Contadora Senior": "Contador Senior", "Jefa Gestión y Control": "Jefa de Control", "Jefa de Gestión y Control": "Jefa de Control"}
+NOMBRES_DE_CARGO = {"Contadora Senior": "Contador Senior", "Jefa Gestión y Control": "Jefa de Control", "Jefa de Gestión y Control": "Jefa de Control",
+                    "Jefa Control": "Jefa de Control",  # así aparece en 8 filas de la Planificación 2.0
+                    "Asistente Contable": "Analista Contable"}  # Karla (03-11-2026): el cargo se llama Analista Contable
 CARGO_GERENTE = "Gerente AyF"
 CARGOS_EXTERNOS = {"Vendedor Stgo", "RR.HH.", "Jefe Bodega", "Gerencia", "Gerencia / Directorio", "Bodega", "Jefaturas de área", "Jefatura Lechería", "Rafael"}
-# Orden de los cargos en las listas (Karla, 31-10-2026): Gerente AyF, Jefa de Control, Contador Senior, Asistente Contable; después los externos.
-ORDEN_CARGOS = {"Gerente AyF": 1, "Jefa de Control": 2, "Contador Senior": 3, "Asistente Contable": 4}
+# Orden de los cargos en las listas (Karla, 31-10-2026): Gerente AyF, Jefa de Control, Contador Senior, Analista Contable; después los externos.
+ORDEN_CARGOS = {"Gerente AyF": 1, "Jefa de Control": 2, "Contador Senior": 3, "Analista Contable": 4}
 ORDEN_EXTERNOS = 50
 DEDICACION_HORAS_MES = {"Gerente AyF": 80}  # Karla (01-11-2026): el Gerente AyF dedica como máximo 80 h al mes a Huentelauquén
 RELLENO_GERENTE = "FFE2EFDA"  # verde: horas definidas por la Gerente AyF (el resto es estimación base)
@@ -68,13 +70,14 @@ class Conversion:
     estado: str = "confirmado"
     motivo_revision: str = ""
     nota: str = ""
+    dh_inicio: int | None = None  # cierre que dura más de un día: día hábil en que empieza («Día hábil 4 a 5» → 4)
 
 
 def _revision(motivo: str, regla: Regla | None = None) -> Conversion:
     return Conversion(regla=regla, motivo_revision=motivo)
 
 
-def convertir_regla(periodicidad, cuando) -> Conversion:
+def convertir_regla(periodicidad, cuando, plan2: bool = False) -> Conversion:
     per, cua = normalizar(periodicidad), normalizar(cuando)
     per_l, cua_l = per.casefold(), _sin_acentos(cua.casefold())
     if not per:
@@ -84,7 +87,11 @@ def convertir_regla(periodicidad, cuando) -> Conversion:
     if per_l == "diaria":
         if re.fullmatch(r"todos los dias habiles", cua_l):
             return Conversion(Regla("DIARIA_HABIL"))
+        if plan2 and re.match(r"lunes a jueves", cua_l):  # «el lunes registra también el viernes»: las horas de cada día van en horas_semana
+            return Conversion(Regla("DIARIA_HABIL"), nota=cua)
         if dia_semana:
+            if plan2:  # en la Planificación 2.0 una «diaria» que se hace un solo día de la semana es semanal
+                return Conversion(Regla("SEMANAL", dia_semana=DIAS[dia_semana.group(1).replace("miercoles", "miércoles")]), nota=f"Diaria con un solo día: se toma como semanal ({cua}).")
             return _revision(f"Contradicción: periodicidad «{per}» pero «Cuándo» dice «{cua}».")
     elif per_l == "semanal":
         if not cua:
@@ -93,11 +100,16 @@ def convertir_regla(periodicidad, cuando) -> Conversion:
             nombre = dia_semana.group(1).replace("miercoles", "miércoles")
             return Conversion(Regla("SEMANAL", dia_semana=DIAS[nombre]), franja=(dia_semana.group(2) or "").replace("manana", "mañana"))
     elif per_l in ("mensual (cierre)", "mensual"):
-        m = re.fullmatch(r"dia habil (\d+)", cua_l)
-        if m and 1 <= int(m.group(1)) <= 7:
-            return Conversion(Regla("CIERRE_DIA_HABIL", n=int(m.group(1))))
-        if m and 8 <= int(m.group(1)) <= 10:  # los días 8, 9 y 10 son fechas del mes (Karla, 01-11-2026), no días hábiles
-            return Conversion(Regla("CIERRE_HITO", n=int(m.group(1))), nota=f"«Día hábil {m.group(1)}» se entiende como el día {m.group(1)} del mes (al hábil siguiente si es inhábil).")
+        if cua_l in ("ultimo dia habil del mes anterior", "ultimo dia habil del mes"):  # DH00: el último hábil antes del mes de cierre
+            return Conversion(Regla("CIERRE_DIA_HABIL", n=0))
+        m = re.fullmatch(r"dia habil (\d+)(?: a (\d+))?", cua_l)
+        if m:
+            inicio, fin = (int(m.group(1)), int(m.group(2))) if m.group(2) else (None, int(m.group(1)))
+            if inicio is not None and inicio >= fin:
+                return _revision(f"El rango «{cua}» va al revés.")
+            if 1 <= fin <= 31:
+                # DH08, DH09 y DH10 son días hábiles (Karla, 03-11-2026): reportes listos, Gerente General y Directorio.
+                return Conversion(Regla("CIERRE_HITO" if 8 <= fin <= 10 else "CIERRE_DIA_HABIL", n=fin), dh_inicio=inicio)
         m = re.match(r"d(7|8|9|10)\b", cua_l)
         if m:
             n = 8 if m.group(1) == "7" else int(m.group(1))
@@ -109,7 +121,7 @@ def convertir_regla(periodicidad, cuando) -> Conversion:
         if cua_l == "ultimo dia del mes":
             return Conversion(Regla("FIN_DE_MES", ajuste="anterior"), estado="pendiente_confirmar")
     elif per_l == "puntual":
-        if cua_l.startswith("al "):
+        if cua_l.startswith("al ") or cua_l == "segun vencimiento":
             return Conversion(Regla("EVENTO"))
         con_dia = re.match(r"dia (\d{1,2}) de (.+)", cua_l)
         if con_dia and 1 <= int(con_dia.group(1)) <= 31:
@@ -142,12 +154,14 @@ class FilaImport:
     ejecuciones: float | None = None
     minutos_revision: int | None = None  # minutos que tarda quien revisa; vacío = el valor general
     con_minutos_revision: bool = False  # la planilla trae la columna (si no, no se toca lo que ya hay)
-    fuente_horas: str = "estimacion"
+    fuente_horas: str | None = "estimacion"
     modo_cierre: str = "igual"  # qué pasa en la semana del cierre: igual / reasignar / pausar
     cargo_cierre: str = ""
     revisa_cierre: str = ""
     clave: str = ""
     conversion: Conversion | None = None
+    extra: dict | None = None  # solo en la Planificación 2.0 (ver plan2.py): código del archivo, predecesoras, horas por día, tipo de control…
+    clave_existente: str = ""  # clave estable de la tarea de la app que corresponde a esta fila (Planificación 2.0)
 
     @property
     def externa(self) -> bool:
@@ -176,6 +190,12 @@ class VistaPrevia:
     secuencias: dict = field(default_factory=dict)  # clave estable → orden en el Excel
     orden_procesos: list = field(default_factory=list)  # procesos en el orden en que aparecen en el Excel
     total_filas: int = 0
+    # Planificación 2.0
+    procesos_plan: dict = field(default_factory=dict)  # nombre → (OO, PPP)
+    renombres_procesos: dict = field(default_factory=dict)  # nombre actual → nombre nuevo
+    filas_plan: list = field(default_factory=list)
+    movidas: list = field(default_factory=list)  # (Tarea, FilaImport): cambian de proceso, y por eso de código
+    orden_desde: int = 1  # 0 cuando existe el proceso 00 «Control del cierre»
 
 
 def _numero(valor):
@@ -186,12 +206,14 @@ def _numero(valor):
 
 
 def _modo_cierre(valor) -> str:
-    """«Reasignar» / «Pausar» / vacío, como lo escribe una persona en el Excel."""
+    """«Reasignar» / «Pausar» / «Fuera del equipo contable» / vacío, como lo escribe una persona en el Excel."""
     v = _sin_acentos(normalizar(valor).casefold())
     if v.startswith("reasign") or v.startswith("otro"):
         return "reasignar"
     if v.startswith("paus"):
         return "pausar"
+    if v.startswith("fuera"):
+        return "fuera"
     return "igual"
 
 
@@ -222,6 +244,9 @@ def _minutos_de_revision(valor) -> int | None:
 
 def leer_excel(ruta) -> list[FilaImport]:
     wb = openpyxl.load_workbook(ruta if hasattr(ruta, "read") else Path(ruta), data_only=True)
+    from nucleo.servicios import plan2
+    if plan2.es_plan2(wb):  # el Excel de tres hojas (Maestro, Diario-Semanal y Mensual)
+        return plan2.leer(wb)
     hoja = wb["Planificación"] if "Planificación" in wb.sheetnames else wb["Tareas"] if "Tareas" in wb.sheetnames else wb.worksheets[0]
     filas = list(hoja.iter_rows(values_only=True))
     inicio = next(i for i, r in enumerate(filas) if r and "Proceso" in r)
@@ -266,6 +291,15 @@ def leer_excel(ruta) -> list[FilaImport]:
 
 
 def _valores(fila: FilaImport) -> dict:
+    v = _valores_base(fila)
+    if fila.extra is not None:
+        v.pop("dia_cierre", None)
+        if fila.fuente_horas is None:
+            v.pop("fuente_horas", None)
+    return v
+
+
+def _valores_base(fila: FilaImport) -> dict:
     c = fila.conversion
     r = c.regla
     motivo = c.motivo_revision or ("Falta el responsable (ejecuta)." if not fila.ejecuta else "")
@@ -282,7 +316,24 @@ def _valores(fila: FilaImport) -> dict:
         "fuente_horas": fila.fuente_horas, "dia_cierre": fila.dia_cierre,
         "modo_cierre": fila.modo_cierre, "cargo_cierre": fila.cargo_cierre or None, "cargo_revisa_cierre": fila.revisa_cierre or None,
         **({"minutos_revision": fila.minutos_revision} if fila.con_minutos_revision else {}),
+        **_valores_plan2(fila),
     }
+
+
+def _valores_plan2(fila: FilaImport) -> dict:
+    """Lo propio de la Planificación 2.0. Las fechas del archivo no se leen y las horas «Original» no pisan lo que ya está definido."""
+    if fila.extra is None:
+        return {}
+    from nucleo.servicios.mantenedor import ejecuciones_por_mes
+    r = fila.conversion.regla
+    e = fila.extra
+    v = {"ejecuciones_mes": ejecuciones_por_mes(r.tipo, r.meses) if r else None, "dh_inicio": fila.conversion.dh_inicio, "horas_dh": e.get("horas_dh"),
+         "horas_semana": e.get("horas_semana"), "al_terminar_cierre": e.get("al_terminar_cierre", ""), "tipo_control": e["tipo_control"],
+         "cambio_plan": e["cambio_plan"], "justificacion": e["justificacion"], "proceso_nombre": fila.proceso, "tarea_principal": fila.tarea_principal,
+         "subtarea": fila.subtarea}
+    if fila.fuente_horas is not None:
+        v["fuente_horas"] = fila.fuente_horas
+    return v
 
 
 def _valores_actuales(t: Tarea) -> dict:
@@ -295,6 +346,9 @@ def _valores_actuales(t: Tarea) -> dict:
         "requiere_revision": t.requiere_revision, "motivo_revision": t.motivo_revision,
         "minutos_estimados": t.minutos_estimados, "ejecuciones_mes": round(float(t.ejecuciones_mes), 3) if t.ejecuciones_mes is not None else None,
         "fuente_horas": t.fuente_horas, "dia_cierre": t.dia_cierre, "minutos_revision": t.minutos_revision,
+        "dh_inicio": t.dh_inicio, "horas_dh": t.horas_dh, "horas_semana": t.horas_semana, "al_terminar_cierre": t.al_terminar_cierre,
+        "tipo_control": t.tipo_control, "cambio_plan": t.cambio_plan, "justificacion": t.justificacion, "proceso_nombre": t.proceso.nombre,
+        "tarea_principal": t.tarea_principal, "subtarea": t.subtarea,
         "modo_cierre": t.modo_cierre, "cargo_cierre": t.cargo_cierre.nombre if t.cargo_cierre else None, "cargo_revisa_cierre": t.cargo_revisa_cierre.nombre if t.cargo_revisa_cierre else None,
     }
 
@@ -320,24 +374,35 @@ def previsualizar(ruta, calendario: Calendario | None = None, incluir_dia_9: boo
         from nucleo.models import Feriado
         calendario = Calendario(Feriado.objects.filter(confirmado=True).values_list("fecha", flat=True))
     filas = leer_excel(ruta)
-    if incluir_dia_9:  # la carga masiva desde la pantalla no la resucita si alguien la quitó a propósito
+    es_plan2 = any(f.extra is not None for f in filas)
+    if incluir_dia_9 and not es_plan2:  # la carga masiva desde la pantalla no la resucita si alguien la quitó a propósito
         filas = _con_tarea_del_dia_9(filas)
     vp = VistaPrevia(total_filas=len(filas))
-    existentes = {t.clave_estable: t for t in Tarea.objects.select_related("cargo_ejecuta", "cargo_revisa")}
+    existentes = {t.clave_estable: t for t in Tarea.objects.select_related("cargo_ejecuta", "cargo_revisa", "proceso")}
     procesos = set(Proceso.objects.values_list("nombre", flat=True))
     cargos = set(Cargo.objects.values_list("nombre", flat=True))
-    vistas = set()
     for f in filas:
         f.clave = _clave(f.proceso, f.tarea_principal, f.subtarea)
-        if f.clave in vistas:
+    if es_plan2:
+        from nucleo.servicios import plan2
+        vp.procesos_plan = plan2.resolver_procesos(filas)
+        vp.renombres_procesos = plan2.renombres_de_procesos(vp.procesos_plan)
+        plan2.emparejar(filas, existentes, vp.renombres_procesos)
+        vp.filas_plan = filas
+        vp.orden_procesos = [n for n, _ in sorted(vp.procesos_plan.items(), key=lambda kv: kv[1][0])]
+        vp.orden_desde = 0 if any(oo == 0 for oo, _ in vp.procesos_plan.values()) else 1
+    vistas, en_archivo = set(), set()
+    for f in filas:
+        if f.clave in en_archivo:
             vp.duplicadas.append(f)
             continue
-        vistas.add(f.clave)
+        en_archivo.add(f.clave)
+        vistas.add(f.clave_existente or f.clave)
         f.secuencia = len(vp.secuencias) + 1  # el orden cuenta solo las tareas que se importan (sin repetidas)
         vp.secuencias[f.clave] = f.secuencia
-        if f.proceso not in vp.orden_procesos:
+        if not es_plan2 and f.proceso not in vp.orden_procesos:
             vp.orden_procesos.append(f.proceso)
-        f.conversion = convertir_regla(f.periodicidad, f.cuando)
+        f.conversion = convertir_regla(f.periodicidad, f.cuando, plan2=es_plan2)
         valores = _valores(f)
         if valores["requiere_revision"]:
             vp.requieren_revision.append((f, valores["motivo_revision"]))
@@ -348,19 +413,22 @@ def previsualizar(ruta, calendario: Calendario | None = None, incluir_dia_9: boo
         aviso = _chequear_fecha(f, calendario)
         if aviso:
             vp.inconsistencias_fecha.append((f, aviso))
-        if f.proceso not in procesos and f.proceso not in vp.procesos_nuevos:
+        if f.proceso not in procesos and f.proceso not in vp.procesos_nuevos and f.proceso not in vp.renombres_procesos.values():
             vp.procesos_nuevos.append(f.proceso)
         for nombre in (f.ejecuta, valores["cargo_revisa"], valores["cargo_cierre"], valores["cargo_revisa_cierre"]):
             if nombre and nombre not in cargos and nombre not in vp.cargos_nuevos:
                 vp.cargos_nuevos.append(nombre)
-        actual = existentes.get(f.clave)
+        actual = existentes.get(f.clave_existente or f.clave) if es_plan2 else existentes.get(f.clave)
         if actual is None:
             vp.altas.append(f)
         else:
             antes = _valores_actuales(actual)
+            antes["proceso_nombre"] = vp.renombres_procesos.get(antes["proceso_nombre"], antes["proceso_nombre"])  # un proceso renombrado no es un cambio de cada tarea
             diff = {k: (antes[k], v) for k, v in valores.items() if antes[k] != v}
             if diff:
                 vp.cambios.append((actual, f, diff))
+                if "proceso_nombre" in diff:
+                    vp.movidas.append((actual, f))
     vp.bajas = [t for clave, t in existentes.items() if clave not in vistas and t.activa]
     return vp
 
@@ -377,29 +445,40 @@ def _aplicar_valores(tarea: Tarea, valores: dict):
     tarea.cargo_cierre = _cargo(valores["cargo_cierre"]) if valores["cargo_cierre"] else None
     tarea.cargo_revisa_cierre = _cargo(valores["cargo_revisa_cierre"]) if valores["cargo_revisa_cierre"] else None
     for k, v in valores.items():
-        if k not in ("cargo_ejecuta", "cargo_revisa", "cargo_cierre", "cargo_revisa_cierre"):
+        if k not in ("cargo_ejecuta", "cargo_revisa", "cargo_cierre", "cargo_revisa_cierre", "proceso_nombre"):
             setattr(tarea, k, v)
 
 
-def _proceso(nombre: str) -> Proceso:
+def _proceso(nombre: str, sigla: str | None = None) -> Proceso:
     existente = Proceso.objects.filter(nombre=nombre).first()
     if existente:
         return existente
     ocupadas = set(Proceso.objects.values_list("sigla", flat=True))
-    sigla = siglas.SIGLAS_HACIENDA.get(nombre)
+    sigla = sigla or siglas.SIGLAS_HACIENDA.get(nombre)
     return Proceso.objects.create(nombre=nombre, sigla=sigla if sigla and sigla not in ocupadas else siglas.derivar(nombre, ocupadas))
 
 
 @transaction.atomic
 def aplicar(vp: VistaPrevia, usuario, detalle: dict | None = None) -> dict:
+    plan_2_0 = bool(vp.filas_plan)
+    hechos = {}
+    if plan_2_0:
+        from nucleo.servicios import plan2
+        hechos = plan2.preparar_procesos(vp, usuario)  # renombra y crea los procesos antes de tocar las tareas
     for f in vp.altas:
-        proceso = _proceso(f.proceso)  # un proceso nuevo queda al final, en el orden en que aparece en el Excel
+        proceso = hechos.get(f.proceso) or _proceso(f.proceso)  # un proceso nuevo queda al final, en el orden en que aparece en el Excel
         tarea = Tarea(clave_estable=f.clave, proceso=proceso, tarea_principal=f.tarea_principal, subtarea=f.subtarea)  # el código se genera solo
         _aplicar_valores(tarea, _valores(f))
         tarea.save()
     for tarea, f, diff in vp.cambios:
         _aplicar_valores(tarea, _valores(f))
+        if plan_2_0 and f.proceso in hechos:  # una tarea que cambia de proceso cambia de código (queda el anterior en el historial)
+            tarea.proceso, tarea.tarea_principal = hechos[f.proceso], f.tarea_principal
         tarea.save()
+    if plan_2_0:  # la clave estable pasa a ser la del plan (proceso renombrado o tarea movida), para que la próxima carga la reconozca
+        for f in vp.filas_plan:
+            if f.clave_existente and f.clave_existente != f.clave and not Tarea.objects.filter(clave_estable=f.clave).exists():
+                Tarea.objects.filter(clave_estable=f.clave_existente).update(clave_estable=f.clave)
     for tarea in vp.bajas:
         tarea.activa = False
         tarea.save(update_fields=["activa"])
@@ -409,8 +488,11 @@ def aplicar(vp: VistaPrevia, usuario, detalle: dict | None = None) -> dict:
     por_nombre = {p.nombre: p.pk for p in Proceso.objects.all()}
     en_archivo = [por_nombre[n] for n in vp.orden_procesos if n in por_nombre]
     resto = [p.pk for p in Proceso.objects.exclude(pk__in=en_archivo)]
-    estructura.reordenar_procesos(usuario, en_archivo + resto, motivo="Orden de la carga desde Excel", validar_permiso=False)  # cambia los códigos de forma controlada
+    estructura.reordenar_procesos(usuario, en_archivo + resto, motivo="Orden de la carga desde Excel", validar_permiso=False, desde=vp.orden_desde if plan_2_0 else None)  # cambia los códigos de forma controlada
     resumen = {"altas": len(vp.altas), "cambios": len(vp.cambios), "bajas": len(vp.bajas),
                "requieren_revision": len(vp.requieren_revision), "externas": len(vp.externas)}
+    if plan_2_0:
+        resumen["predecesoras"] = plan2.fijar_predecesoras(vp)
+        resumen["movidas"] = len(vp.movidas)
     auditoria.registrar("importacion.aplicada", usuario=usuario, entidad="Tarea", despues={**resumen, **(detalle or {})})
     return resumen

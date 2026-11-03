@@ -23,7 +23,7 @@ def entorno(monkeypatch, settings, tmp_path):
 
 @pytest.fixture
 def mundo():
-    ger, cont, asist = cargo("Gerente AyF"), cargo("Contador Senior"), cargo("Asistente Contable")
+    ger, cont, asist = cargo("Gerente AyF"), cargo("Contador Senior"), cargo("Analista Contable")
     p = {"ger": persona("Gerente", ger), "cont": persona("Contador", cont), "asist": persona("Asistente", asist)}
     u = {k: usuario_con_rol(k, r, p[k]) for k, r in (("ger", "GERENTE"), ("cont", "COLABORADOR"), ("asist", "COLABORADOR"))}
     u["lectura"] = usuario_con_rol("lectura", "LECTURA")

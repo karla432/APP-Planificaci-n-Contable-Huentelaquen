@@ -154,7 +154,7 @@ def _violaciones(orden_de: dict[int, int], deps: dict[int, set[int]]) -> list[tu
 
 
 @transaction.atomic
-def reordenar_procesos(usuario, ids_en_orden: list[int], motivo: str = "", validar_permiso: bool = True) -> list[Proceso]:
+def reordenar_procesos(usuario, ids_en_orden: list[int], motivo: str = "", validar_permiso: bool = True, desde: int | None = None) -> list[Proceso]:
     """Fija el orden de ejecución de todos los procesos (lista completa, sin repetidos). Actualiza los códigos de todo el árbol, sin duplicados.
     `validar_permiso=False` solo lo usan las cargas que ya validaron el permiso de quien las pidió."""
     if validar_permiso:
@@ -162,7 +162,9 @@ def reordenar_procesos(usuario, ids_en_orden: list[int], motivo: str = "", valid
     existentes = {p.pk: p for p in Proceso.objects.all()}
     if len(ids_en_orden) != len(set(ids_en_orden)) or set(ids_en_orden) != set(existentes):
         raise ErrorDeNegocio("El orden debe incluir todos los procesos, cada uno una sola vez.")
-    nuevo = {pk: i for i, pk in enumerate(ids_en_orden, start=1)}
+    if desde is None:  # si existe el proceso 00 («Control del cierre»), el primero de la lista es el 00
+        desde = 0 if any(p.orden == 0 for p in existentes.values()) else 1
+    nuevo = {pk: i for i, pk in enumerate(ids_en_orden, start=desde)}
     malas = _violaciones(nuevo, _dependencias())
     if malas:
         p, d = malas[0]

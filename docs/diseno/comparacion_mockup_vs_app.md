@@ -32,7 +32,7 @@ Criterio de Karla: **no replicar el mockup tal cual**; tomar las mejores piezas 
 1. **Meta del cierre.** El mockup usa «meta día hábil 8». La app usa lo que tú definiste: **D7 preliminar y D10 definitivo**, día calendario 7 y 10, corridos al siguiente día hábil. Propongo **mantener D7 y D10** y retirar el D8 del mockup.
 2. **Estados.** El mockup tiene Pendiente, En curso, Bloqueada, En revisión y Aprobada. La app tiene Pendiente, Hecha, Revisada, Devuelta y No aplica. Equivalencia: *En revisión* = Hecha; *Aprobada* = Revisada.
 3. **Áreas.** El mockup agrupa en 6 áreas (Tesorería, Tributario, Remuneraciones, Costos e inventarios, Activo fijo y agrícola, Reportes de gestión). El Excel tiene **34 procesos**. Hay que decidir a qué área pertenece cada proceso para poder filtrar y medir por área.
-4. **Personas y roles.** Los nombres del mockup son ficticios y su jerarquía difiere de la real: allí la «Jefatura» es la Jefa de Contabilidad y la «Gerencia» es solo lectura. En la app real: Gerente AyF, Jefa de Control y Gestión, Contador Senior y Asistente Contable. **Se usan los reales.**
+4. **Personas y roles.** Los nombres del mockup son ficticios y su jerarquía difiere de la real: allí la «Jefatura» es la Jefa de Contabilidad y la «Gerencia» es solo lectura. En la app real: Gerente AyF, Jefa de Control y Gestión, Contador Senior y Analista Contable. **Se usan los reales.**
 5. **Tareas.** El mockup trae 24 tareas de ejemplo. La fuente de verdad es el Excel (186 tareas); las del mockup solo ilustran.
 6. **Íconos.** El mockup usa Phosphor Icons desde internet. En la app irían copiados al servidor (la política de seguridad no permite cargar de internet).
 
@@ -64,4 +64,4 @@ Recomendación: **conservar la barra burdeos de Arqueo** (la pediste) y **traer 
 2. **Estados:** ¿agregamos «En curso» y «Bloqueada»? Recomiendo **solo «Bloqueada»**, con motivo: avisa un riesgo real; «En curso» agrega un clic sin valor de control.
 3. **Evidencia y checklist por tarea:** ¿ahora o después de salir a producción? Los archivos adjuntos exigen controles de seguridad (tipos permitidos, tamaño, dónde se guardan) y el checklist agrega un paso por tarea. Recomiendo **después**.
 4. **Áreas:** ¿me dejas proponerte a qué área va cada uno de los 34 procesos, para que lo corrijas?
-5. **Cargos:** se mantienen los nombres del Excel («Contador Senior», «Jefa de Control», «Asistente Contable»). ¿O prefieres «Contador Senior» y «Jefa de Control» como escribiste?
+5. **Cargos:** se mantienen los nombres del Excel («Contador Senior», «Jefa de Control», «Analista Contable»). ¿O prefieres «Contador Senior» y «Jefa de Control» como escribiste?

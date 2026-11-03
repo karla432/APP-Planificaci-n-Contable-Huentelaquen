@@ -2,8 +2,8 @@
 
 Reglas que pidió Karla:
 - Jornada: lunes a jueves 9 h y viernes 5 h. El Gerente AyF dedica como máximo 80 h al mes a Huentelauquén.
-- Los 4 cargos del equipo deben quedar equilibrados en la semana del cierre (del primer día hábil al día 8).
-- La Asistente Contable cubre en esa semana el ingreso de compras y los pagos (el Contador Senior solo revisa); la Jefa de Control, el Contador Senior y el
+- Los 4 cargos del equipo deben quedar equilibrados en la semana del cierre (DH01 a DH08, los reportes listos).
+- La Analista Contable cubre en esa semana el ingreso de compras y los pagos (el Contador Senior solo revisa); la Jefa de Control, el Contador Senior y el
   Gerente AyF se enfocan al 100 % en el cierre, así que sus otras tareas semanales se pausan.
 
 Todo es una PROPUESTA calculada con horas estimadas: no cambia nada hasta que Karla la revise y la cargue.
@@ -19,7 +19,7 @@ from nucleo.servicios.calendario import JORNADA_HORAS, ventana_del_cierre
 from nucleo.servicios.feriados import calendario_confirmado
 from nucleo.servicios.recurrencia import ReglaIncompleta, ReglaInvalida, fechas_limite
 
-CARGO_ANALISTA = "Asistente Contable"
+CARGO_ANALISTA = "Analista Contable"
 CARGO_REVISOR_DE_OPERACION = "Contador Senior"
 CARGOS_ENFOCADOS_AL_CIERRE = ("Gerente AyF", "Jefa de Control", "Contador Senior")
 PROCESOS_QUE_CUBRE_LA_ANALISTA = ("Compras", "Pagos Banco Estado", "Pagos Banco de Chile")  # «ingresar las compras y sacar pagos»
@@ -77,6 +77,11 @@ class Contexto:
         return float(JORNADA_HORAS[fecha.weekday()]) if self.cal.es_habil(fecha) else 0.0
 
 
+# Techo de planificación (Planificación 2.0): qué parte de la jornada se planifica en cada día del cierre; el resto es reserva para imprevistos.
+TECHO_POR_DH = {0: 0.90, 1: 0.90, 2: 0.90, 3: 0.90, 4: 0.90, 5: 0.90, 6: 0.90, 7: 0.80, 8: 0.75, 9: 0.85, 10: 0.95}
+TECHO_NORMAL = 0.90
+
+
 def contexto(anio: int, mes: int) -> Contexto:
     cal = calendario_confirmado()
     desde, hasta_pausa = ventana_del_cierre(cal, anio, mes)
@@ -94,6 +99,9 @@ def items_de(t: Tarea, plan: Plan, ctx: Contexto) -> list[Item]:
     regla = Regla(plan.regla_tipo, dia_semana=t.regla_dia_semana, n=plan.regla_n, dia=t.regla_dia, meses=tuple(int(m) for m in t.regla_meses.split(",") if m.strip()), ajuste=t.regla_ajuste)
     try:
         fechas = fechas_limite(regla, ctx.anio, ctx.mes, ctx.cal)
+        if plan.regla_tipo in ("DIARIA_HABIL", "SEMANAL"):  # el DH00 es el último hábil del mes anterior: ese día también corre la operación normal
+            anio_p, mes_p = (ctx.anio - 1, 12) if ctx.mes == 1 else (ctx.anio, ctx.mes - 1)
+            fechas = [f for f in fechas_limite(regla, anio_p, mes_p, ctx.cal) if f == ctx.dias[0]] + fechas
     except (ReglaIncompleta, ReglaInvalida, ValueError):
         return []
     minutos = plan.minutos if plan.minutos is not None else t.minutos_estimados
@@ -101,18 +109,35 @@ def items_de(t: Tarea, plan: Plan, ctx: Contexto) -> list[Item]:
     if minutos is None:
         ctx.sin_horas.add(t.pk)
     es_cierre = plan.regla_tipo in CIERRE
+    # Planificación 2.0: un cierre que dura varios días reparte sus horas por día hábil; una diaria puede rendir distinto cada día de la semana.
+    distribucion = None
+    if es_cierre and t.horas_dh and (plan.regla_tipo, plan.regla_n) == (t.regla_tipo, t.regla_n):
+        total = sum(t.horas_dh.values())
+        escala = horas / total if total else 1.0  # si la propuesta cambió las horas, se mantiene la forma de la distribución
+        try:
+            distribucion = [(ctx.cal.dia_habil_n(ctx.anio, ctx.mes, int(dh)), h * escala) for dh, h in t.horas_dh.items()]
+        except ValueError:
+            distribucion = None
+    revision = horas_de_revision(t, ctx.min_revision)
     items = []
     for f in fechas:
         ejecuta, revisa = plan.ejecuta_id, plan.revisa_id
-        if plan.modo_cierre != "igual" and ctx.desde <= f <= ctx.hasta_pausa:
+        if plan.modo_cierre not in ("igual", "fuera") and ctx.desde <= f <= ctx.hasta_pausa:
             if plan.modo_cierre == "pausar":
                 continue
             if plan.cargo_cierre_id:
                 ejecuta, revisa = plan.cargo_cierre_id, plan.revisa_cierre_id or plan.revisa_id
+        reparto = distribucion or [(f, horas)]
+        if t.horas_semana and plan.regla_tipo == "DIARIA_HABIL":
+            h_dia = t.horas_semana.get(str(f.weekday()))
+            if h_dia is None:
+                continue  # ese día de la semana no se hace
+            reparto = [(f, h_dia)]
         if ejecuta in ctx.internos:
-            items.append(Item(f, ejecuta, t.pk, t.codigo, t.subtarea, t.proceso.nombre, horas, "ejecución", es_cierre))
-        if revisa in ctx.internos and horas:
-            items.append(Item(f, revisa, t.pk, t.codigo, t.subtarea, t.proceso.nombre, horas_de_revision(t, ctx.min_revision), "revisión", es_cierre))
+            for fecha, h in reparto:
+                items.append(Item(fecha, ejecuta, t.pk, t.codigo, t.subtarea, t.proceso.nombre, h, "ejecución", es_cierre))
+        if revisa in ctx.internos and horas and revision:
+            items.append(Item(f, revisa, t.pk, t.codigo, t.subtarea, t.proceso.nombre, revision, "revisión", es_cierre))
     return items
 
 
@@ -168,6 +193,10 @@ class Matriz:
     @property
     def dias(self) -> list[date]:
         return self.ctx.dias
+
+    def techo(self, fecha: date) -> float:
+        """Fracción de la jornada que se puede planificar ese día (90 % salvo DH07 80 %, DH08 75 %, DH09 85 % y DH10 95 %)."""
+        return TECHO_POR_DH.get(self.ctx.dias.index(fecha), TECHO_NORMAL) if fecha in self.ctx.dias else TECHO_NORMAL
 
     def etiqueta(self, fecha: date) -> str:
         """«DH03», y a continuación qué pasa ese día si es una de las entregas (reportes listos, Gerente General, Directorio)."""
@@ -272,7 +301,7 @@ def _cargo_por_nombre(ctx: Contexto, nombre: str):
 
 
 def _aplicar_reglas_de_operacion(ctx: Contexto, planes: dict, cambios: list):
-    """La Asistente cubre compras y pagos en la semana del cierre (el Contador solo revisa); lo demás de operación de los tres cargos enfocados se pausa."""
+    """La Analista cubre compras y pagos en la semana del cierre (el Contador solo revisa); lo demás de operación de los tres cargos enfocados se pausa."""
     analista, revisor = _cargo_por_nombre(ctx, CARGO_ANALISTA), _cargo_por_nombre(ctx, CARGO_REVISOR_DE_OPERACION)
     enfocados = {pk for nombre in CARGOS_ENFOCADOS_AL_CIERRE if (pk := _cargo_por_nombre(ctx, nombre))}
     for t in ctx.tareas.values():
@@ -281,7 +310,7 @@ def _aplicar_reglas_de_operacion(ctx: Contexto, planes: dict, cambios: list):
             continue
         if t.proceso.nombre in PROCESOS_QUE_CUBRE_LA_ANALISTA and analista:
             planes[t.pk] = replace(p, modo_cierre="reasignar", cargo_cierre_id=analista, revisa_cierre_id=revisor if revisor != analista else p.revisa_id)
-            cambios.append(Cambio(t, "Semana del cierre", "Igual", f"Reasignar a {CARGO_ANALISTA} (revisa {CARGO_REVISOR_DE_OPERACION})", "La Asistente Contable cubre compras y pagos esa semana; los otros tres se enfocan en el cierre."))
+            cambios.append(Cambio(t, "Semana del cierre", "Igual", f"Reasignar a {CARGO_ANALISTA} (revisa {CARGO_REVISOR_DE_OPERACION})", "La Analista Contable cubre compras y pagos esa semana; los otros tres se enfocan en el cierre."))
         else:
             planes[t.pk] = replace(p, modo_cierre="pausar")
             cambios.append(Cambio(t, "Semana del cierre", "Igual", "Pausar", f"{_nombre(ctx, p.ejecuta_id)} se enfoca 100 % en el cierre: esta tarea se retoma después del día 8."))
@@ -293,7 +322,7 @@ PROCESO_PAQUETE = "Reportería día 7"
 PROCESO_ANALISIS = "Análisis de cuentas"
 PROCESO_COSTEO = "Costeo y producción"
 PREFIJOS_COSTO_EN_DESTINO = ("Costo en destino", "Informe de costos")  # lo último que se procesa antes del paquete
-CARGOS_DE_ANALISIS = ("Contador Senior", "Jefa de Control", "Asistente Contable")  # pueden repartirse el análisis de cuentas en paralelo
+CARGOS_DE_ANALISIS = ("Contador Senior", "Jefa de Control", "Analista Contable")  # pueden repartirse el análisis de cuentas en paralelo
 GERENTE = "Gerente AyF"
 
 
@@ -321,9 +350,9 @@ def proponer(anio: int, mes: int, ctx: Contexto | None = None, max_pasos: int = 
 
     1. Las tareas del cierre se hacen **de menor a mayor**, en el orden de los procesos, **ocupando los días desde el 1 en adelante**.
     2. **Lo último que se procesa es el costo en destino** (el último día de proceso, el «día 7») y **en paralelo** se hace el **análisis de cuentas**, que se reparte
-       entre el Contador Senior, la Jefa de Control y la Asistente Contable.
+       entre el Contador Senior, la Jefa de Control y la Analista Contable.
     3. El **día 8** solo se procesa: el Gerente AyF prepara el **paquete de reportes** (con la skill, **máximo 3 horas**).
-    4. La Asistente cubre compras y pagos y los otros tres se enfocan en el cierre (reglas de operación).
+    4. La Analista cubre compras y pagos y los otros tres se enfocan en el cierre (reglas de operación).
     «Día 7» es el último día hábil de proceso antes de la entrega del día 8; si el día 7 cae en inhábil pasa al hábil siguiente.
     Nada se ejecuta: es una propuesta calculada con horas estimadas."""
     ctx = ctx or contexto(anio, mes)
@@ -402,7 +431,7 @@ def proponer(anio: int, mes: int, ctx: Contexto | None = None, max_pasos: int = 
         dia = next((d for d in dias if cabe(t, c, d, h)), None) or peor_dia(t, c, h, dias)
         poner(t, c, dia)
         motivos[t.pk] = "Se ocupan los días desde el 1 en adelante, en el orden de los procesos (de menor a mayor): primer día con espacio para su responsable."
-    # 2) El análisis de cuentas: el último día de proceso, en paralelo entre el Contador Senior, la Jefa de Control y la Asistente Contable.
+    # 2) El análisis de cuentas: el último día de proceso, en paralelo entre el Contador Senior, la Jefa de Control y la Analista Contable.
     analistas = [pk for nombre in CARGOS_DE_ANALISIS if (pk := _cargo_por_nombre(ctx, nombre))]
     for t in sorted((t for t in ordenadas if grupo[t.pk] == "analisis"), key=lambda t: -horas_de(t)):
         h = horas_de(t)
@@ -416,7 +445,7 @@ def proponer(anio: int, mes: int, ctx: Contexto | None = None, max_pasos: int = 
         if elegido is None:  # no cabe en ningún día: se reparte entre los últimos días de proceso, donde haya más espacio
             elegido = max(((c, d) for d in dias[-3:] for c in elegible), key=lambda cd: (libre(*cd), indice[cd[1]]))
         poner(t, *elegido)
-        motivos[t.pk] = "El análisis de cuentas se hace el último día de proceso y en paralelo entre el Contador Senior, la Jefa de Control y la Asistente Contable."
+        motivos[t.pk] = "El análisis de cuentas se hace el último día de proceso y en paralelo entre el Contador Senior, la Jefa de Control y la Analista Contable."
     # 3) El costo en destino: lo último que se procesa; se llena hacia atrás desde el último día (el primero de la lista queda más temprano).
     for t in reversed([t for t in ordenadas if grupo[t.pk] == "costo_en_destino"]):
         c, h = planes[t.pk].ejecuta_id, horas_de(t)
@@ -526,7 +555,7 @@ def diagnostico(prop: Propuesta) -> list[str]:
     if analista is not None and analista.capacidad_semana_cierre:
         operacion = sum(it.horas for items in analista.items.values() for it in items if it.tipo == "ejecución" and not it.cierre and it.fecha <= d.ctx.hasta)
         dias = len([f for f in analista.capacidad if f <= d.ctx.hasta])
-        lineas.append(f"La Asistente Contable, al cubrir compras y pagos, tiene {operacion / dias:.1f} h al día solo de operación (caben 9 h de lunes a jueves y 5 h el viernes): "
+        lineas.append(f"La Analista Contable, al cubrir compras y pagos, tiene {operacion / dias:.1f} h al día solo de operación (caben 9 h de lunes a jueves y 5 h el viernes): "
                       + ("no le queda tiempo para tareas del cierre." if operacion >= analista.capacidad_semana_cierre else "le queda poco para tareas del cierre."))
     procesos = horas_por_proceso(d)[:4]
     if procesos:

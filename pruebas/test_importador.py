@@ -32,7 +32,7 @@ def test_normalizar_junta_espacios_y_saltos_de_linea():
         ("Semanal", "Viernes", Regla("SEMANAL", dia_semana=4)),
         ("Mensual (cierre)", "Día hábil 3", Regla("CIERRE_DIA_HABIL", n=3)),
         ("Mensual (cierre)", "Día hábil 7", Regla("CIERRE_DIA_HABIL", n=7)),
-        ("Mensual (cierre)", "Día hábil 8", Regla("CIERRE_HITO", n=8)),  # los días 8, 9 y 10 son días del mes
+        ("Mensual (cierre)", "Día hábil 8", Regla("CIERRE_HITO", n=8)),  # DH08, DH09 y DH10 son días hábiles
         ("Mensual (cierre)", "D10 · cierre contable", Regla("CIERRE_HITO", n=10)),
         ("Puntual", "Al dar de alta un activo nuevo", Regla("EVENTO")),
         ("Puntual", "Al recibir el subsidio", Regla("EVENTO")),
@@ -44,7 +44,7 @@ def test_convierte_las_formas_claras(periodicidad, cuando, esperada):
 
 
 def test_el_d7_pasa_al_dia_8_del_mes_con_reportes_listos_en_la_tarde():
-    """Karla (01-11-2026): reportes listos el día 8 (tarde), Gerente General el 9 y Directorio el 10; son días del mes, no días hábiles."""
+    """Reportes listos el día 8 (tarde), Gerente General el 9 y Directorio el 10; desde el 03-11-2026 son días hábiles (DH08, DH09, DH10)."""
     c = convertir_regla("Mensual (cierre)", "D7 · reporte a Gerencia")
     assert c.regla == Regla("CIERRE_HITO", n=8) and c.motivo_revision == ""
     assert "día 8" in c.nota
@@ -81,7 +81,7 @@ def test_meses_especificos_sin_dia_quedan_para_revision(cuando, meses):
         ("Semanal", None, "día"),
         ("Diaria", "Viernes", "contradic"),
         ("Mensual (cierre)", "Cuando se pueda", "reconoc"),
-        ("Mensual (cierre)", "Día hábil 11", "reconoc"),
+        ("Mensual (cierre)", "Día hábil 40", "reconoc"),
     ],
 )
 def test_lo_ambiguo_se_marca_para_revision_y_no_se_adivina(periodicidad, cuando, palabra):
@@ -121,7 +121,7 @@ def test_aplicar_crea_tareas_en_orden_con_codigos_horas_y_sin_personas():
     assert primeras == [("01-SEG.01.001", 1), ("01-SEG.02.001", 2)] and Tarea.objects.order_by("secuencia").last().secuencia == 195
     assert Colaborador.objects.count() == 0  # las personas las crea el administrador
     cuentas = Counter(Tarea.objects.values_list("cargo_ejecuta__nombre", flat=True))
-    assert (cuentas["Jefa de Control"], cuentas["Contador Senior"], cuentas["Asistente Contable"], cuentas["Gerente AyF"]) == (80, 54, 29, 20)
+    assert (cuentas["Jefa de Control"], cuentas["Contador Senior"], cuentas["Analista Contable"], cuentas["Gerente AyF"]) == (80, 54, 29, 20)
     assert not Cargo.objects.get(nombre="Contador Senior").es_externo
     for nombre in EXTERNOS:
         assert Cargo.objects.get(nombre=nombre).es_externo
@@ -132,7 +132,7 @@ def test_aplicar_crea_tareas_en_orden_con_codigos_horas_y_sin_personas():
 def test_los_cargos_quedan_en_el_orden_de_karla_y_despues_los_externos():
     importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
     nombres = list(Cargo.objects.values_list("nombre", flat=True))
-    assert nombres[:4] == ["Gerente AyF", "Jefa de Control", "Contador Senior", "Asistente Contable"]
+    assert nombres[:4] == ["Gerente AyF", "Jefa de Control", "Contador Senior", "Analista Contable"]
     assert set(nombres[4:]) == set(EXTERNOS)
 
 
@@ -190,7 +190,7 @@ def test_reimportar_un_excel_actualizado_muestra_altas_cambios_y_bajas(tmp_path)
     importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
     wb = openpyxl.load_workbook(EXCEL, data_only=True)  # solo valores: al guardar se pierden los resultados de las fórmulas
     ws = wb["Planificación"]
-    ws.cell(row=5, column=4).value = "Asistente Contable"  # cambia el responsable de la primera tarea (cambio)
+    ws.cell(row=5, column=4).value = "Analista Contable"  # cambia el responsable de la primera tarea (cambio)
     ws.delete_rows(6)  # sale una tarea (baja)
     ws.append(["Proceso nuevo", "Tarea nueva", "Subtarea nueva", "Contador Senior", None, "Diaria", "Todos los días hábiles", None, None, 0.5, 21])  # alta
     nuevo = tmp_path / "actualizado.xlsx"
@@ -201,7 +201,7 @@ def test_reimportar_un_excel_actualizado_muestra_altas_cambios_y_bajas(tmp_path)
     t_nueva = Tarea.objects.get(subtarea="Subtarea nueva")
     assert t_nueva.codigo.startswith("36-") and t_nueva.codigo.endswith(".01.001")  # proceso nuevo: sigue al último (35)
     assert Tarea.objects.filter(activa=False).count() == 1  # no se borra físicamente
-    assert Tarea.objects.get(secuencia=1).cargo_ejecuta.nombre == "Asistente Contable"
+    assert Tarea.objects.get(secuencia=1).cargo_ejecuta.nombre == "Analista Contable"
 
 
 @pytest.mark.django_db
@@ -245,3 +245,29 @@ def test_todos_los_codigos_tienen_la_forma_pro_tar_sub_y_son_unicos():
     assert all(re.fullmatch(r"\d{2}-[A-Z]{3}\.\d{2}\.\d{3}", c) for c in codigos) and len(set(codigos)) == len(codigos) == 195
     for t in Tarea.objects.select_related("proceso"):
         assert t.codigo.startswith(t.proceso.codigo + ".")
+
+
+# ---- Lo nuevo de la Planificación 2.0 (03-11-2026) ----------------------------------------------------------------
+
+
+@pytest.mark.parametrize("cuando,regla,inicio", [
+    ("Día hábil 13", Regla("CIERRE_DIA_HABIL", n=13), None),
+    ("Día hábil 4 a 5", Regla("CIERRE_DIA_HABIL", n=5), 4),
+    ("Día hábil 7 a 8", Regla("CIERRE_HITO", n=8), 7),
+    ("Día hábil 9", Regla("CIERRE_HITO", n=9), None),
+    ("Último día hábil del mes anterior", Regla("CIERRE_DIA_HABIL", n=0), None),
+])
+def test_el_cierre_acepta_rangos_dias_sobre_el_8_y_el_dh00(cuando, regla, inicio):
+    c = convertir_regla("Mensual (cierre)", cuando, plan2=True)
+    assert c.regla == regla and c.dh_inicio == inicio and not c.motivo_revision
+
+
+def test_un_rango_al_reves_se_marca_para_revision():
+    assert "al revés" in convertir_regla("Mensual (cierre)", "Día hábil 5 a 4").motivo_revision
+
+
+def test_diarias_de_lunes_a_jueves_y_diarias_de_un_solo_dia_en_la_planificacion_2_0():
+    assert convertir_regla("Diaria", "Lunes a jueves (el lunes registra también el viernes)", plan2=True).regla == Regla("DIARIA_HABIL")
+    assert convertir_regla("Diaria", "Lunes", plan2=True).regla == Regla("SEMANAL", dia_semana=0)
+    assert convertir_regla("Diaria", "Lunes").regla is None  # el Excel antiguo sigue marcándola como contradicción
+    assert convertir_regla("Puntual", "Según vencimiento", plan2=True).regla == Regla("EVENTO")

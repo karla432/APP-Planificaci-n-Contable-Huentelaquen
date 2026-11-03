@@ -128,11 +128,11 @@ def test_el_panel_lista_los_feriados_confirmados_del_mes_y_no_inventa_ninguno(mu
 
 
 def test_el_cumplimiento_lista_a_las_personas_en_el_orden_de_los_cargos(mundo):
-    """Gerente AyF, Jefa, Contador Senior, Asistente Contable: el orden que definió Karla, no el alfabético."""
+    """Gerente AyF, Jefa, Contador Senior, Analista Contable: el orden que definió Karla, no el alfabético."""
     from nucleo.models import Cargo
-    for nombre, orden in (("Gerente AyF", 1), ("Jefa de Control", 2), ("Contador Senior", 3), ("Asistente Contable", 4)):
+    for nombre, orden in (("Gerente AyF", 1), ("Jefa de Control", 2), ("Contador Senior", 3), ("Analista Contable", 4)):
         Cargo.objects.update_or_create(nombre=nombre, defaults={"orden": orden})
-    asistente = cargo("Asistente Contable")
+    asistente = cargo("Analista Contable")
     ger = persona("Aaa Gerente", cargo("Gerente AyF"))
     pa = persona("Zzz Asistente", asistente)
     tarea("TAR-0090", asistente, "CIERRE_DIA_HABIL", revisa=cargo("Jefa de Control"), n=1)

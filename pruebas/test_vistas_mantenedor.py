@@ -21,7 +21,7 @@ def reloj(monkeypatch):
 
 @pytest.fixture
 def mundo():
-    jefa, cont, ger, anal = cargo("Jefa de Control"), cargo("Contador Senior"), cargo("Gerente AyF"), cargo("Asistente Contable")
+    jefa, cont, ger, anal = cargo("Jefa de Control"), cargo("Contador Senior"), cargo("Gerente AyF"), cargo("Analista Contable")
     u = {"jefa": usuario_con_rol("jefa", "JEFATURA", persona("Jefa", jefa)), "ger": usuario_con_rol("ger", "GERENTE", persona("Gerente", ger)),
          "cont": usuario_con_rol("cont", "COLABORADOR", persona("Contadora", cont)), "admin": usuario_con_rol("admin", "ADMIN_SISTEMA"),
          "lectura": usuario_con_rol("lectura", "LECTURA")}
@@ -86,7 +86,7 @@ def test_crear_una_tarea_desde_el_formulario(mundo):
 
 def test_un_dato_invalido_vuelve_al_formulario_con_el_error_y_sin_guardar(mundo):
     r = cli(mundo["u"]["jefa"]).post(reverse("mant_tarea_nueva"), datos_post(mundo, tipo="CIERRE_HITO", n="7"))
-    assert r.status_code == 200 and "día 8, 9 o 10" in r.content.decode()
+    assert r.status_code == 200 and "día hábil 8, 9 o 10" in r.content.decode()
     assert not Tarea.objects.filter(subtarea="Cuadrar el libro de ventas").exists()
 
 
@@ -160,7 +160,7 @@ def test_editar_un_usuario_y_la_proteccion_del_propio_perfil(mundo):
 def test_el_formulario_de_tarea_pide_los_minutos_de_revision_y_los_guarda(mundo):
     c = cli(mundo["u"]["jefa"])
     html = c.get(reverse("mant_tarea_nueva")).content.decode()
-    assert 'name="minutos_revision"' in html and "15" in html  # explica el valor general
+    assert 'name="minutos_revision"' in html and "0 minutos extra" in html and 'name="dh_inicio"' in html  # explica el valor general
     assert c.post(reverse("mant_tarea_nueva"), datos_post(mundo, minutos_revision="45")).status_code == 302
     t = Tarea.objects.get(subtarea="Cuadrar el libro de ventas")
     assert t.minutos_revision == 45
