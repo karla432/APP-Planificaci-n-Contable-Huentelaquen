@@ -1,5 +1,7 @@
 # Cómo trabajamos con Karla (método de trabajo)
 
+> Si empiezas una sesión nueva en este proyecto, lee primero `docs/TRASPASO.md` (estado, pendientes y reglas vigentes).
+
 Estas reglas las pidió Karla Meneses el 30-10-2026 y valen para todo proyecto con ella.
 
 ## 1. Todo proyecto empieza en el computador local de Karla
