@@ -257,3 +257,14 @@ def test_las_tareas_que_el_archivo_trae_de_9_minutos_quedan_en_10(cargado):
     assert Tarea.objects.filter(activa=True, minutos_estimados=10).count() >= 10
     otra = Tarea.objects.get(subtarea__startswith="Cotejar el RCV contra Odoo", proceso__nombre="Cierre Compras")
     assert otra.minutos_estimados == 60  # lo demás no se toca
+
+
+def test_la_cuota_de_contribuciones_vence_el_15_de_abril_junio_septiembre_y_noviembre(cargado):
+    """Karla (03-11-2026, pregunta 6): día 15; si cae en día inhábil, el hábil siguiente (así noviembre no cae en el DH10 del Contador)."""
+    t = Tarea.objects.get(subtarea__startswith="Pagar la cuota de contribucion")
+    assert (t.regla_tipo, t.regla_dia, t.regla_meses, t.regla_ajuste, t.requiere_revision) == ("MESES", 15, "4,6,9,11", "siguiente", False)
+    from nucleo.servicios.calendario import Calendario
+    from nucleo.servicios.recurrencia import fechas_limite
+    assert fechas_limite(t.regla(), 2026, 11, Calendario([])) == [date(2026, 11, 16)]  # el 15-11-2026 es domingo: pasa al lunes, ya fuera de las semanas del cierre
+    assert fechas_limite(t.regla(), 2026, 12, Calendario([])) == []
+    assert not importador.previsualizar(PLAN2, incluir_dia_9=False).requieren_revision

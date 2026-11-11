@@ -15,7 +15,7 @@ Karla Meneses, Gerente de Administración y Finanzas de Hacienda Huentelauquén.
 - Decir con franqueza lo que no se pudo probar. **Nada se ha ejecutado en Windows ni se ha corrido `iniciar_local.bat` desde la sesión en la nube.**
 
 ## Cómo levantar la app en local
-`iniciar_local.bat` (doble clic) o `python levantar_local.py`. Carga datos de EJEMPLO con la Planificación 2.0 ya cargada (se simula el lunes 09-11-2026). Usuarios: gerente, jefa, contadora, asistente. Si hay un `db_local.sqlite3` anterior, borrarlo para que se arme de nuevo. Pruebas: `python -m pytest -q` (675 pasan; settings en PRODUCCION salvo `PLANIFICACION_ENTORNO=desarrollo`).
+`iniciar_local.bat` (doble clic) o `python levantar_local.py`. Carga datos de EJEMPLO con la Planificación 2.0 ya cargada (se simula el lunes 09-11-2026). Usuarios: gerente, jefa, contadora, asistente. Si hay un `db_local.sqlite3` anterior, borrarlo para que se arme de nuevo. Pruebas: `python -m pytest -q` (676 pasan; settings en PRODUCCION salvo `PLANIFICACION_ENTORNO=desarrollo`).
 
 ## Dónde está cada cosa
 - `docs/f1/00_decisiones_y_gates.md`: decisiones DEC-01…DEC-39, supuestos y puertas.
@@ -37,8 +37,7 @@ Hecho y con pruebas (674): Planificación 2.0 cargada (206 tareas activas, 224 p
 
 ## Confirmaciones de Karla sobre la Planificación 2.0 (DEC-40)
 Resueltas el 03-11-2026: (1) se desactivan las 8 tareas que el plan ya no trae; (2) la app asigna el código que corresponda; (3) «Cierre contable general» es proceso propio (36-CCG); (4) duraciones del archivo y las de 9 minutos pasan a 10; (5) el hito 00-CTL.03.001 es del DH04 (texto corregido).
-**Pendientes (pregúntalas UNA por una):**
-6. **Tarea 13-PBC.03.001** (cuota de contribuciones, abril/junio/septiembre/noviembre «semana 4») no trae el día del mes: queda «por revisar». ¿Qué día vence?
+Con esto quedaron resueltas las 6 confirmaciones; (6) la cuota de contribuciones 13-PBC.03.001 vence el día 15 (hábil siguiente si cae en día inhábil).
 
 También sigue pendiente confirmar los supuestos de `00_decisiones_y_gates.md` (por ejemplo, los feriados 2027–2028 de la librería, que ella debe revisar en «Abrir mes»).
 

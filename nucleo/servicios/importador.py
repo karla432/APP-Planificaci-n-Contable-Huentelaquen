@@ -375,6 +375,8 @@ def previsualizar(ruta, calendario: Calendario | None = None, incluir_dia_9: boo
         calendario = Calendario(Feriado.objects.filter(confirmado=True).values_list("fecha", flat=True))
     filas = leer_excel(ruta)
     es_plan2 = any(f.extra is not None for f in filas)
+    if es_plan2:
+        from nucleo.servicios import plan2
     if incluir_dia_9 and not es_plan2:  # la carga masiva desde la pantalla no la resucita si alguien la quitó a propósito
         filas = _con_tarea_del_dia_9(filas)
     vp = VistaPrevia(total_filas=len(filas))
@@ -384,7 +386,6 @@ def previsualizar(ruta, calendario: Calendario | None = None, incluir_dia_9: boo
     for f in filas:
         f.clave = _clave(f.proceso, f.tarea_principal, f.subtarea)
     if es_plan2:
-        from nucleo.servicios import plan2
         vp.procesos_plan = plan2.resolver_procesos(filas)
         vp.renombres_procesos = plan2.renombres_de_procesos(vp.procesos_plan)
         plan2.emparejar(filas, existentes, vp.renombres_procesos)
@@ -403,6 +404,8 @@ def previsualizar(ruta, calendario: Calendario | None = None, incluir_dia_9: boo
         if not es_plan2 and f.proceso not in vp.orden_procesos:
             vp.orden_procesos.append(f.proceso)
         f.conversion = convertir_regla(f.periodicidad, f.cuando, plan2=es_plan2)
+        if es_plan2:
+            f.conversion = plan2.completar_regla(f, f.conversion)
         valores = _valores(f)
         if valores["requiere_revision"]:
             vp.requieren_revision.append((f, valores["motivo_revision"]))

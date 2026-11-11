@@ -25,6 +25,8 @@ DIAS_DE_LA_SEMANA = (("Lun (h)", 0), ("Mar (h)", 1), ("Mié (h)", 2), ("Jue (h)"
 FUENTE_DE_HORAS = {"estimada": "estimada", "ajustada": "ajustada"}  # «Original» no cambia lo que ya hay
 # Karla (03-11-2026, pregunta 4): las tareas que el archivo trae de 9 minutos (0,15 h: cotejos y descargas con skills) quedan en 10 minutos.
 MINUTOS_AJUSTADOS = {9: 10}
+# Karla (03-11-2026, pregunta 6): la cuota de contribuciones vence el día 15 de abril, junio, septiembre y noviembre; si cae en día inhábil, se paga el hábil SIGUIENTE (el anterior, en noviembre de 2026, cae en el DH10 y pasa al Contador de su jornada de 5 h).
+DIA_DE_VENCIMIENTO = {"13-PBC.03.001": 15}
 
 
 def _sin_acentos(texto: str) -> str:
@@ -105,6 +107,16 @@ def leer(wb) -> list:
         filas.append(f)
     filas.sort(key=lambda f: tuple(PATRON_CODIGO.match(f.extra["codigo"]).group(1, 3, 4)) + (f.extra["codigo"],))
     return filas
+
+
+def completar_regla(f, conversion):
+    """Le pone el día del mes a las reglas por meses a las que el archivo no se lo dice, cuando Karla ya lo definió."""
+    from dataclasses import replace
+    dia = DIA_DE_VENCIMIENTO.get(f.extra["codigo"]) if f.extra else None
+    r = conversion.regla
+    if dia and r is not None and r.tipo == "MESES" and r.dia is None:
+        return imp.Conversion(replace(r, dia=dia, ajuste="siguiente"), franja=conversion.franja, estado="confirmado", nota=f"Día {dia} definido por Karla (03-11-2026).")
+    return conversion
 
 
 # ---- Procesos: qué número y sigla tiene cada uno -----------------------------------------------------------------------
