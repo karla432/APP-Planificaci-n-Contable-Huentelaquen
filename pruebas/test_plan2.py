@@ -10,7 +10,7 @@ from django.test import Client
 from django.urls import reverse
 
 from nucleo.models import Cargo, CambioDeCodigo, Proceso, Tarea
-from nucleo.servicios import importador, matriz
+from nucleo.servicios import importador, matriz, plan2
 from pruebas.ayudas import anio_abierto, cargo, persona, tarea, usuario_con_rol
 
 pytestmark = pytest.mark.django_db
@@ -119,7 +119,10 @@ def test_lo_ya_definido_por_la_gerente_no_se_pisa_con_horas_originales(base):
 # ---- La matriz reproduce la tabla de carga del archivo ----------------------------------------------------------------------
 
 
-def test_la_matriz_de_noviembre_2026_coincide_con_la_tabla_de_carga_del_archivo_dia_por_dia(cargado):
+def test_la_matriz_de_noviembre_2026_coincide_con_la_tabla_de_carga_del_archivo_dia_por_dia(base, monkeypatch):
+    """Sin el ajuste de 9 a 10 minutos (decisión posterior de Karla), la matriz es idéntica a la tabla de su archivo."""
+    monkeypatch.setattr(plan2, "MINUTOS_AJUSTADOS", {})
+    importador.aplicar(importador.previsualizar(PLAN2, incluir_dia_9=False), usuario=None)
     anio_abierto(feriados=())
     wb = openpyxl.load_workbook(PLAN2, data_only=True)
     suya = {}
@@ -244,3 +247,13 @@ def test_el_diagnostico_del_plan_de_karla_es_legible(cargado):
     anio_abierto(feriados=())
     lineas = matriz.diagnostico_del_plan(matriz.construir(2026, 11))
     assert any("Entre DH01 y DH08" in linea for linea in lineas) and any("Más exigido" in linea for linea in lineas) and any("predecesoras" in linea for linea in lineas)
+
+
+def test_las_tareas_que_el_archivo_trae_de_9_minutos_quedan_en_10(cargado):
+    """Karla (03-11-2026, pregunta 4): «las que decían 9 minutos» pasan a 10; el resto queda como en el archivo."""
+    t = Tarea.objects.get(codigo="19-CTR.01.001") if Tarea.objects.filter(codigo="19-CTR.01.001").exists() else Tarea.objects.get(subtarea__startswith="Obtener la cartola real de Transbank")
+    assert t.minutos_estimados == 10
+    assert not Tarea.objects.filter(activa=True, minutos_estimados=9).exists()
+    assert Tarea.objects.filter(activa=True, minutos_estimados=10).count() >= 10
+    otra = Tarea.objects.get(subtarea__startswith="Cotejar el RCV contra Odoo", proceso__nombre="Cierre Compras")
+    assert otra.minutos_estimados == 60  # lo demás no se toca

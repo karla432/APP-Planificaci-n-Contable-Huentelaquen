@@ -23,6 +23,8 @@ MODO_DE_CIERRE = {"pausa": "pausar", "mantiene": "igual", "fuera del equipo cont
 AL_TERMINAR = {"se pone al dia": "al_dia", "se retoma": "retoma"}
 DIAS_DE_LA_SEMANA = (("Lun (h)", 0), ("Mar (h)", 1), ("Mié (h)", 2), ("Jue (h)", 3), ("Vie (h)", 4))
 FUENTE_DE_HORAS = {"estimada": "estimada", "ajustada": "ajustada"}  # «Original» no cambia lo que ya hay
+# Karla (03-11-2026, pregunta 4): las tareas que el archivo trae de 9 minutos (0,15 h: cotejos y descargas con skills) quedan en 10 minutos.
+MINUTOS_AJUSTADOS = {9: 10}
 
 
 def _sin_acentos(texto: str) -> str:
@@ -79,6 +81,8 @@ def leer(wb) -> list:
         codigo = imp.normalizar(x["Código"])
         periodicidad, cuando = imp.normalizar(x.get("Periodicidad")), imp.normalizar(x.get("Cuándo"))
         horas = _numero(x.get("Horas por ejecución"))
+        if horas is not None and round(horas * 60) in MINUTOS_AJUSTADOS:
+            horas = MINUTOS_AJUSTADOS[round(horas * 60)] / 60
         extra = {"codigo": codigo, "hoja": hoja, "predecesoras": [c.strip() for c in re.split(r"[,;]", imp.normalizar(x.get("Predecesoras"))) if c.strip()],
                  "tipo_control": imp.normalizar(x.get("Tipo de control")), "cambio_plan": imp.normalizar(x.get("Cambio")),
                  "justificacion": imp.normalizar(x.get("Justificación del cambio"))}

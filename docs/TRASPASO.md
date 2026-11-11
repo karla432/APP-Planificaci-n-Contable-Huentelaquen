@@ -15,7 +15,7 @@ Karla Meneses, Gerente de Administración y Finanzas de Hacienda Huentelauquén.
 - Decir con franqueza lo que no se pudo probar. **Nada se ha ejecutado en Windows ni se ha corrido `iniciar_local.bat` desde la sesión en la nube.**
 
 ## Cómo levantar la app en local
-`iniciar_local.bat` (doble clic) o `python levantar_local.py`. Carga datos de EJEMPLO con la Planificación 2.0 ya cargada (se simula el lunes 09-11-2026). Usuarios: gerente, jefa, contadora, asistente. Si hay un `db_local.sqlite3` anterior, borrarlo para que se arme de nuevo. Pruebas: `python -m pytest -q` (674 pasan; settings en PRODUCCION salvo `PLANIFICACION_ENTORNO=desarrollo`).
+`iniciar_local.bat` (doble clic) o `python levantar_local.py`. Carga datos de EJEMPLO con la Planificación 2.0 ya cargada (se simula el lunes 09-11-2026). Usuarios: gerente, jefa, contadora, asistente. Si hay un `db_local.sqlite3` anterior, borrarlo para que se arme de nuevo. Pruebas: `python -m pytest -q` (675 pasan; settings en PRODUCCION salvo `PLANIFICACION_ENTORNO=desarrollo`).
 
 ## Dónde está cada cosa
 - `docs/f1/00_decisiones_y_gates.md`: decisiones DEC-01…DEC-39, supuestos y puertas.
@@ -35,13 +35,11 @@ Karla Meneses, Gerente de Administración y Finanzas de Hacienda Huentelauquén.
 ## Estado al 03-11-2026
 Hecho y con pruebas (674): Planificación 2.0 cargada (206 tareas activas, 224 predecesoras), matriz con hitos/dependencias/techo, horas reales por usuario, carga masiva Excel de tareas y procesos, estructura de 3 niveles (`OO-PPP.TT.SSS`), adjuntos en comentarios, calendario 2027–2028, QA de Karla aplicado. Rama de trabajo: `claude/peaceful-ride-ysf0iw` (último commit `acfd98b`).
 
-## Pendiente: 6 confirmaciones de Karla sobre la Planificación 2.0 (pregúntalas UNA por una)
-1. **Tareas desactivadas.** El plan ya no trae 8 tareas: las 4 que ella confirmó (21-REM.04.003, 30-CYP.02.006, 31-ACU.03.001, 35-CDF.01.006, esta última ya estaba en el plan con otro código) más 21-REM.04.002, 27-CON.02.001, 35-CDF.01.001, .002 y .003, que el plan reemplazó por tareas distintas con el mismo código. Se desactivan (no se borran). ¿Confirma?
-2. **Códigos repetidos.** Algunas tareas nuevas reciben en la app un código distinto al del archivo porque el archivo reutilizó códigos que ya tenían otra tarea. Las predecesoras no se pierden.
-3. **Proceso «Cierre contable general».** Se creó como proceso nuevo 36-CCG (el archivo ponía código 27-CON con ese nombre de proceso). ¿Va como proceso propio o dentro de «Contabilidad»?
-4. **Duraciones.** 77 tareas cambian de duración respecto de lo que tenía la app (por ejemplo cotejos de 90 min a 9 min). Es lo que dice el archivo.
-5. **Hito DH04.** En el archivo dice «Revisión de avance (DH05)» pero está en DH04: ¿error de texto?
-6. **Tarea 13-PBC.03.001** (cuota de contribuciones, abril/junio/septiembre/noviembre «semana 4») no trae el día del mes: queda «por revisar».
+## Confirmaciones de Karla sobre la Planificación 2.0 (DEC-40)
+Resueltas el 03-11-2026: (1) se desactivan las 8 tareas que el plan ya no trae; (2) la app asigna el código que corresponda; (3) «Cierre contable general» es proceso propio (36-CCG); (4) duraciones del archivo y las de 9 minutos pasan a 10.
+**Pendientes (pregúntalas UNA por una):**
+5. **Hito DH04.** En el archivo dice «Revisión de avance (DH05)» pero está en DH04: ¿error de texto? (la tarea es 00-CTL.03.001).
+6. **Tarea 13-PBC.03.001** (cuota de contribuciones, abril/junio/septiembre/noviembre «semana 4») no trae el día del mes: queda «por revisar». ¿Qué día vence?
 
 También sigue pendiente confirmar los supuestos de `00_decisiones_y_gates.md` (por ejemplo, los feriados 2027–2028 de la librería, que ella debe revisar en «Abrir mes»).
 
