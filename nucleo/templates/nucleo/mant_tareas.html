@@ -2,7 +2,7 @@
 {% block titulo %}Mantenedor de tareas{% endblock %}
 {% block contenido %}
 <div class="encabezado"><div><p class="kick">Mantenedor</p><h1>Tareas</h1></div>
-  <div class="acciones"><a class="btn btn-2" href="{% url 'mant_tareas_exportar' %}">Descargar Excel</a><a class="btn btn-2" href="{% url 'mant_tareas_cargar' %}">Cargar Excel</a>
+  <div class="acciones"><a class="btn btn-2" href="{% url 'mant_plan_vigente_exportar' %}">Descargar planificación vigente</a><a class="btn btn-2" href="{% url 'mant_tareas_exportar' %}">Descargar Excel</a><a class="btn btn-2" href="{% url 'mant_tareas_cargar' %}">Cargar Excel</a>
   <a class="btn" href="{% url 'mant_tarea_nueva' %}">+ Nueva tarea</a></div></div>
 <form method="get" class="card filtros">
   <div><label for="f-proceso">Proceso</label><select id="f-proceso" name="proceso"><option value="">Todos</option>{% for p in procesos %}<option value="{{ p.pk }}" {% if f.proceso == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.nombre }}</option>{% endfor %}</select></div>
@@ -12,12 +12,12 @@
   <div><button class="btn" type="submit">Filtrar</button></div>
 </form>
 <section class="card"><p class="meta">{{ tareas|length }} tarea{{ tareas|length|pluralize }}. Un cambio rige desde el próximo mes que se abra; lo ya generado no se modifica.</p>
-  <div class="tabla-scroll"><table class="tbl">
+  <div class="tabla-scroll"><table class="tbl tareas">
     <thead><tr><th>Código</th><th>Proceso</th><th>Tarea principal</th><th>Subtarea</th><th>Responsable</th><th>Revisa</th><th>Periodicidad</th><th class="n">Horas est.</th><th>Estado</th><th></th></tr></thead>
     <tbody>
     {% for t in tareas %}
-      <tr><td>{{ t.codigo }}</td><td>{{ t.proceso.nombre }}</td><td>{{ t.tarea_principal }}</td><td>{{ t.subtarea }}</td><td>{{ t.cargo_ejecuta.nombre }}</td><td>{{ t.cargo_revisa.nombre|default:"Sin revisor" }}</td><td>{{ t.periodicidad }}</td><td class="n">{% if t.minutos_estimados is not None %}{{ t.horas_estimadas }} h{% else %}—{% endif %}</td>
-        <td>{% if not t.activa %}<span class="pill p-grey">Inactiva</span>{% elif t.requiere_revision %}<span class="pill p-warn" title="{{ t.motivo_revision }}">Requiere revisión</span>{% else %}<span class="pill p-ok">Activa</span>{% endif %}</td>
+      <tr><td class="cod-celda">{{ t.codigo }}</td><td>{{ t.proceso.nombre }}</td><td>{{ t.tarea_principal }}</td><td>{{ t.subtarea }}</td><td>{{ t.cargo_ejecuta.nombre }}</td><td>{{ t.cargo_revisa.nombre|default:"Sin revisor" }}</td><td>{{ t.periodicidad }}</td><td class="n">{% if t.minutos_estimados is not None %}{{ t.horas_estimadas }} h{% else %}—{% endif %}</td>
+        <td>{% if not t.activa %}<span class="pill p-grey">Inactiva</span>{% elif t.requiere_revision %}<span class="pill p-warn" title="{{ t.motivo_revision }}">Requiere revisión</span>{% else %}<span class="meta">Activa</span>{% endif %}</td>
         <td><a class="btn btn-2 btn-sm" href="{% url 'mant_tarea_editar' t.pk %}">Editar</a></td></tr>
     {% empty %}<tr><td colspan="10" class="vacio">No hay tareas con esos filtros.</td></tr>{% endfor %}
     </tbody>

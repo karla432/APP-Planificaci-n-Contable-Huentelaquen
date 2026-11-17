@@ -1,16 +1,16 @@
-<li class="fila">
+<li class="fila{% if o.atraso or o.estado == "devuelta" or o.estado == "bloqueada" %} fila-atrasada{% elif o.fecha_limite == hoy %} fila-hoy{% endif %}">
   <div class="fila-texto">
     <span class="codigo">{{ o.tarea.codigo }}</span> <span class="proceso">{{ o.tarea.proceso.nombre }}</span>
     <p class="titulo"><a href="{% url 'detalle_ocurrencia' o.pk %}">{{ o.tarea.subtarea }}</a></p>
     <p class="meta">Vence el {{ o.fecha_limite|date:"d-m-Y" }}
-      {% if o.atraso %}· <strong class="etiqueta etiqueta-rojo">Atrasada {{ o.atraso }} día{{ o.atraso|pluralize }}</strong>
-      {% elif o.fecha_limite == hoy %}· <strong class="etiqueta etiqueta-ambar">Vence hoy</strong>{% endif %}
-      {% if o.estado == "devuelta" %}· <strong class="etiqueta etiqueta-rojo">Devuelta</strong>{% endif %}
-      {% if o.estado == "bloqueada" %}· <strong class="etiqueta etiqueta-rojo">Bloqueada</strong>{% endif %}
+      {% if o.atraso %}· <strong class="etiqueta etiqueta-rojo">⚠ Atrasada {{ o.atraso }} día{{ o.atraso|pluralize }}</strong>
+      {% elif o.fecha_limite == hoy %}· <strong class="etiqueta etiqueta-ambar">● Vence hoy</strong>{% endif %}
+      {% if o.estado == "devuelta" %}· <strong class="etiqueta etiqueta-rojo">↩ Devuelta</strong>{% endif %}
+      {% if o.estado == "bloqueada" %}· <strong class="etiqueta etiqueta-rojo">⛔ Bloqueada</strong>{% endif %}
       {% if o.por_excepcion %}· <strong class="etiqueta etiqueta-ambar">Marcada por excepción</strong>{% endif %}
     </p>
     {% if o.estado == "bloqueada" and o.motivo_bloqueo %}<p class="comentario">Bloqueada: {{ o.motivo_bloqueo }}</p>{% endif %}
-    {% if o.tarea.minutos_estimados or o.minutos_reales %}<p class="meta">{% if o.tarea.minutos_estimados %}Estimado: {{ o.tarea.horas_estimadas }} h{% endif %}{% if o.minutos_reales %} · Real: {{ o.horas_reales }} h{% endif %}</p>{% endif %}
+    {% if o.tarea.minutos_estimados or o.minutos_reales %}<p class="meta duracion">{% if o.tarea.minutos_estimados %}⏱ Estimado: {% if o.tarea.minutos_estimados < 60 %}{{ o.tarea.minutos_estimados }} min{% else %}{{ o.tarea.horas_estimadas }} h{% endif %}{% endif %}{% if o.minutos_reales %} · Real: {{ o.horas_reales }} h{% endif %}</p>{% endif %}
     {% if o.estado == "devuelta" and o.comentario_devolucion %}<p class="comentario">Comentario de la revisora: {{ o.comentario_devolucion }}</p>{% endif %}
     {% if o.tarea.referencia_normativa %}<details><summary>Referencia</summary><p>{{ o.tarea.referencia_normativa }}</p></details>{% endif %}
   </div>

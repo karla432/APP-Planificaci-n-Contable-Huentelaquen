@@ -22,6 +22,7 @@ urlpatterns = [
     path("cierre/abrir/", views_apertura.abrir_mes, name="abrir_mes"),
     path("mantenedor/tareas/", views_mantenedor.tareas, name="mant_tareas"),
     path("mantenedor/tareas/exportar/", views_mantenedor.tareas_exportar, name="mant_tareas_exportar"),
+    path("mantenedor/tareas/plan-vigente/", views_mantenedor.plan_vigente_exportar, name="mant_plan_vigente_exportar"),
     path("mantenedor/tareas/cargar/", views_mantenedor.tareas_cargar, name="mant_tareas_cargar"),
     path("mantenedor/tareas/nueva/", views_mantenedor.tarea_nueva, name="mant_tarea_nueva"),
     path("mantenedor/tareas/<int:pk>/", views_mantenedor.tarea_editar, name="mant_tarea_editar"),

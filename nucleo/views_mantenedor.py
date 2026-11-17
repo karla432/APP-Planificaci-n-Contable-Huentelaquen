@@ -285,6 +285,16 @@ def tareas_exportar(request):
 
 
 @con_roles(*EDITA_TAREAS)
+def plan_vigente_exportar(request):
+    """La planificación vigente completa (con predecesoras, horas por día y la carga del mes) para revisarla y, si se corrige, volver a cargarla."""
+    from nucleo.servicios import plan_vigente
+    hoy = reloj.hoy()
+    contenido = plan_vigente.exportar(hoy.year, hoy.month)
+    auditoria.registrar("plan_vigente.descargado", usuario=request.user, entidad="Tarea", despues={"filas": Tarea.objects.filter(activa=True).count()})
+    return _descarga(contenido, "planificacion_vigente")
+
+
+@con_roles(*EDITA_TAREAS)
 def procesos_exportar(request):
     return _descarga(excel_masivo.exportar_procesos(), "procesos")
 

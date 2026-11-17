@@ -161,3 +161,20 @@ a.kpi, a.hito { text-decoration: none; color: inherit; } a.kpi:hover b, a.kpi:ho
 .ayuda { margin: 4px 0 10px; font-size: 13px; color: var(--hu-gray); } .plan-opcional { margin: 14px 0; padding: 10px 14px; border: 1px solid var(--hu-card-line); background: #fff; } .plan-opcional > summary { cursor: pointer; }
 .adjunto { margin: 4px 0 0 0; font-size: 14px; }
 .diagnostico { margin: 6px 0 0; padding-left: 20px; } .diagnostico li { margin: 6px 0; }
+
+/* Visibilidad de las tareas (revisión visual del 17-11-2026): el título se lee en tinta, el rojo queda para el estado y las acciones, y cada fila marca su urgencia. */
+.titulo a, .item-compacto a, .tbl.tareas td a:not(.btn) { color: var(--hu-ink); }
+.titulo a:hover, .item-compacto a:hover, .tbl.tareas td a:not(.btn):hover { color: var(--hu-red); text-decoration: underline; }
+.fila { border-left: 4px solid transparent; padding-left: 12px; }
+.fila-atrasada { border-left-color: var(--hu-risk); background: #FFF6F7; }
+.fila-hoy { border-left-color: var(--hu-warn); background: #FFFBF3; }
+.tbl td.cod-celda, .tbl td.fecha-celda { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tbl td.cod-celda { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; }
+.tbl tr.fila-hecha td { color: var(--hu-gray); background: #F7F7F7; }
+.tbl tr.tarea-atrasada td { background: #FFF1F3; }
+.pill, .etiqueta { font-size: 13px; }
+.p-warn, .etiqueta-ambar { color: #8A5200; }
+details.dia-grupo { margin: 0; border-top: 1px solid var(--hu-card-line); }
+details.dia-grupo > summary { cursor: pointer; font-weight: 700; color: var(--hu-ink); padding: 10px 0; }
+.contador { margin-left: 6px; vertical-align: middle; }
+.duracion { white-space: nowrap; font-variant-numeric: tabular-nums; }

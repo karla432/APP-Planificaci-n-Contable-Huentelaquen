@@ -335,3 +335,20 @@ def test_se_corrige_el_excel_vigente_y_la_app_toma_los_cambios_y_las_tareas_nuev
     assert fechas_limite(trimestral.regla(), 2027, 1, Calendario([date(2027, 1, 1)])) == [date(2027, 1, 4)]
     assert fechas_limite(trimestral.regla(), 2026, 12, Calendario([])) == []
     assert Tarea.objects.filter(activa=True).count() == 209
+
+
+def test_el_boton_descarga_la_planificacion_vigente_solo_para_gerente_y_jefatura(cargado):
+    import io
+    import openpyxl
+    anio_abierto(feriados=())
+    jefa = usuario_con_rol("jefa", "JEFATURA", persona("Jefa", Cargo.objects.get(nombre="Jefa de Control")))
+    c = Client()
+    c.force_login(jefa)
+    assert "Descargar planificación vigente" in c.get(reverse("mant_tareas")).content.decode()
+    r = c.get(reverse("mant_plan_vigente_exportar"))
+    assert r.status_code == 200 and "spreadsheetml" in r["Content-Type"] and "planificacion_vigente" in r["Content-Disposition"]
+    wb = openpyxl.load_workbook(io.BytesIO(r.content))
+    assert wb.sheetnames == ["Cómo leer", "Plan vigente", "Carga por persona y día", "Procesos", "Desactivadas"] and wb["Plan vigente"].max_row == 207
+    colab = Client()
+    colab.force_login(usuario_con_rol("cont", "COLABORADOR", persona("Cont", Cargo.objects.get(nombre="Contador Senior"))))
+    assert colab.get(reverse("mant_plan_vigente_exportar")).status_code == 403

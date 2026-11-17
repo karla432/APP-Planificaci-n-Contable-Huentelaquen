@@ -3,25 +3,32 @@
 {% block nombre_vista %}día{% endblock %}
 {% block vista %}
 {% if agenda %}
-<section class="card"><h2>Atrasadas</h2>
+<section class="card"><h2>Atrasadas <span class="pill p-red contador">{{ agenda.atrasadas|length }}</span></h2>
   <ul class="lista">{% for o in agenda.atrasadas %}{% include "nucleo/_fila.html" with modo=es_mia|yesno:"mia,lectura" %}{% empty %}<li class="vacio">Nada atrasado.</li>{% endfor %}</ul>
 </section>
-<section class="card"><h2>Vencen hoy</h2>
+<section class="card"><h2>Vencen hoy <span class="pill p-warn contador">{{ agenda.hoy|length }}</span></h2>
   <ul class="lista">{% for o in agenda.hoy %}{% include "nucleo/_fila.html" with modo=es_mia|yesno:"mia,lectura" %}{% empty %}<li class="vacio">Nada vence hoy.</li>{% endfor %}</ul>
-</section>
-<section class="card"><h2>Próximas</h2>
-  <ul class="lista">{% for o in agenda.proximas %}{% include "nucleo/_fila.html" with modo=es_mia|yesno:"mia,lectura" %}{% empty %}<li class="vacio">Nada en los próximos 7 días.</li>{% endfor %}</ul>
 </section>
 {% endif %}
 {% if por_revisar %}
-<section class="card"><h2>Por revisar</h2>
+<section class="card"><h2>Por revisar <span class="pill p-grey contador">{{ por_revisar|length }}</span></h2>
   <ul class="lista">{% for o in por_revisar %}{% include "nucleo/_fila.html" with modo="revisar" %}{% endfor %}</ul>
 </section>
 {% endif %}
 {% if por_recibir %}
-<section class="card"><h2>Por recibir</h2>
+<section class="card"><h2>Por recibir <span class="pill p-grey contador">{{ por_recibir|length }}</span></h2>
   <p class="meta">Insumos de responsables externos: tú confirmas que llegaron.</p>
   <ul class="lista">{% for o in por_recibir %}{% include "nucleo/_fila.html" with modo="recibir" %}{% endfor %}</ul>
+</section>
+{% endif %}
+{% if agenda %}
+<section class="card"><h2>Próximas <span class="pill p-grey contador">{{ agenda.proximas|length }}</span></h2>
+  {% regroup agenda.proximas by fecha_limite as dias %}
+  {% for d in dias %}
+  <details class="dia-grupo"{% if forloop.first %} open{% endif %}><summary>{{ d.grouper|date:"l d-m" }} · {{ d.list|length }} tarea{{ d.list|length|pluralize }}</summary>
+    <ul class="lista">{% for o in d.list %}{% include "nucleo/_fila.html" with modo=es_mia|yesno:"mia,lectura" %}{% endfor %}</ul>
+  </details>
+  {% empty %}<p class="vacio">Nada en los próximos 7 días.</p>{% endfor %}
 </section>
 {% endif %}
 {% endblock %}
