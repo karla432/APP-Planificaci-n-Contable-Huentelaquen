@@ -76,6 +76,79 @@ def _horas_semana(x: dict, periodicidad: str, horas: float | None) -> dict | Non
     return d
 
 
+def es_plan_vigente(wb) -> bool:
+    """El Excel «Planificación vigente» que descarga la app (hoja «Plan vigente»): el mismo contenido que la Planificación 2.0, con los códigos de la app."""
+    if "Plan vigente" not in wb.sheetnames:
+        return False
+    encabezado = [imp.normalizar(c.value) for c in wb["Plan vigente"][1]]
+    return "Código" in encabezado and "Subtarea" in encabezado and "Predecesoras (códigos)" in encabezado
+
+
+def _decimal(v):
+    if v is None or imp.normalizar(v) == "":
+        return None
+    try:
+        return float(str(v).replace(",", "."))
+    except ValueError:
+        return None
+
+
+def _horas_por_dh(texto) -> dict | None:
+    """«DH01 0,8 · DH02 1,2» → {"1": 0.8, "2": 1.2}."""
+    d = {}
+    for m in re.finditer(r"DH(\d+)\s+([\d.,]+)", imp.normalizar(texto)):
+        d[str(int(m.group(1)))] = _decimal(m.group(2))
+    return d or None
+
+
+def _horas_por_dia_de_la_semana(texto) -> dict | None:
+    """«Lun 2 · Mar 1» → {"0": 2.0, "1": 1.0}."""
+    nombres = {"lun": 0, "mar": 1, "mie": 2, "jue": 3, "vie": 4}
+    d = {}
+    for m in re.finditer(r"([A-Za-zé]{3})\s+([\d.,]+)", imp.normalizar(texto)):
+        clave = _sin_acentos(m.group(1).casefold())
+        if clave in nombres:
+            d[str(nombres[clave])] = _decimal(m.group(2))
+    return d or None
+
+
+def leer_plan_vigente(wb) -> list:
+    """Las tareas del Excel «Planificación vigente» como `FilaImport`. Sus códigos son los de la app: sirven para reconocer cada tarea."""
+    hoja = wb["Plan vigente"]
+    filas_hoja = hoja.iter_rows(values_only=True)
+    encabezado = [imp.normalizar(c) for c in next(filas_hoja)]
+    filas = []
+    for n, r in enumerate(filas_hoja, start=2):
+        x = dict(zip(encabezado, r))
+        codigo = imp.normalizar(x.get("Código"))
+        if not PATRON_CODIGO.match(codigo):
+            continue
+        proceso = imp.normalizar(x.get("Proceso"))
+        proceso = proceso.split("·", 1)[1].strip() if "·" in proceso else proceso
+        periodicidad, cuando = imp.normalizar(x.get("Periodicidad")), imp.normalizar(x.get("Cuándo"))
+        empieza = re.search(r"\d+", imp.normalizar(x.get("Empieza (día hábil)")))
+        modo = _sin_acentos(imp.normalizar(x.get("En las semanas del cierre")).casefold())
+        al_terminar = _sin_acentos(imp.normalizar(x.get("Al terminar el cierre")).casefold())
+        extra = {"codigo": codigo, "hoja": "Plan vigente", "codigo_de_la_app": True, "dh_inicio": int(empieza.group()) if empieza else None,
+                 "predecesoras": [c.strip() for c in re.split(r"[,;]", imp.normalizar(x.get("Predecesoras (códigos)"))) if c.strip()],
+                 "tipo_control": imp.normalizar(x.get("Tipo de control")), "cambio_plan": imp.normalizar(x.get("Cambio respecto del plan anterior")),
+                 "justificacion": imp.normalizar(x.get("Justificación")), "horas_dh": _horas_por_dh(x.get("Horas por día hábil (cierre)")),
+                 "horas_semana": _horas_por_dia_de_la_semana(x.get("Horas por día de la semana")),
+                 "al_terminar_cierre": next((v for k, v in AL_TERMINAR.items() if al_terminar.startswith(k)), "")}
+        ejecuta, revisa = _cargo(x.get("Responsable (ejecuta)")), _cargo(x.get("Revisa"))
+        if ejecuta in imp.CARGOS_EXTERNOS and revisa == imp.CARGO_JEFA:
+            revisa = ""  # quien «recibe» lo de un externo es un supuesto de la app, no algo que dijo el archivo
+        extra["sin_observacion"] = "Observación (referencia normativa)" not in encabezado
+        filas.append(imp.FilaImport(
+            fila=n, secuencia=0, proceso=proceso, tarea_principal=imp.normalizar(x.get("Tarea principal")), subtarea=imp.normalizar(x.get("Subtarea")),
+            ejecuta=ejecuta, revisa_excel=revisa, periodicidad=periodicidad, cuando=cuando, fecha_1ra=None,
+            observacion=imp.normalizar(x.get("Observación (referencia normativa)")), dia_cierre=None, horas=_decimal(x.get("Horas por ejecución")), ejecuciones=None, fuente_horas=None,
+            modo_cierre=MODO_DE_CIERRE.get(modo, "igual"), extra=extra,
+        ))
+    filas.sort(key=lambda f: tuple(PATRON_CODIGO.match(f.extra["codigo"]).group(1, 3, 4)) + (f.extra["codigo"],))
+    return filas
+
+
 def leer(wb) -> list:
     """Las tareas del plan como `FilaImport` (con `extra` para lo propio de la Planificación 2.0), ordenadas por su código."""
     filas = []
@@ -115,6 +188,8 @@ def completar_regla(f, conversion):
     dia = DIA_DE_VENCIMIENTO.get(f.extra["codigo"]) if f.extra else None
     r = conversion.regla
     if dia and r is not None and r.tipo == "MESES" and r.dia is None:
+        meses = ", ".join(imp.NOMBRES_DE_MES[m - 1] for m in r.meses)
+        f.cuando = f"Día {dia} de {meses}"  # así lo escribe la app al exportar: la próxima carga no ve un cambio
         return imp.Conversion(replace(r, dia=dia, ajuste="siguiente"), franja=conversion.franja, estado="confirmado", nota=f"Día {dia} definido por Karla (03-11-2026).")
     return conversion
 
@@ -175,9 +250,12 @@ def emparejar(filas: list, existentes: dict, renombres: dict) -> None:
     nombre_efectivo = lambda t: renombres.get(t.proceso.nombre, t.proceso.nombre)  # noqa: E731
     efectivas = {imp._clave(nombre_efectivo(t), t.tarea_principal, t.subtarea): t for t in existentes.values()}
     usadas = set()
+    por_codigo_exacto = {t.codigo: t for t in existentes.values()}
     for f in filas:
         f.clave_existente = ""
         t = existentes.get(f.clave) or efectivas.get(f.clave)
+        if t is None and f.extra.get("codigo_de_la_app"):  # el Excel que descargó la app trae los códigos de la app: la tarea es esa aunque se haya corregido el texto
+            t = por_codigo_exacto.get(f.extra["codigo"])
         if t is not None and t.clave_estable not in usadas:
             f.clave_existente = t.clave_estable
             usadas.add(t.clave_estable)

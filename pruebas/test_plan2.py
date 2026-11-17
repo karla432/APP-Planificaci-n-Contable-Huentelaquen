@@ -268,3 +268,70 @@ def test_la_cuota_de_contribuciones_vence_el_15_de_abril_junio_septiembre_y_novi
     assert fechas_limite(t.regla(), 2026, 11, Calendario([])) == [date(2026, 11, 16)]  # el 15-11-2026 es domingo: pasa al lunes, ya fuera de las semanas del cierre
     assert fechas_limite(t.regla(), 2026, 12, Calendario([])) == []
     assert not importador.previsualizar(PLAN2, incluir_dia_9=False).requieren_revision
+
+
+# ---- Excel «Planificación vigente»: ida y vuelta ------------------------------------------------------------------------------------
+
+
+def _con_cambios(contenido: bytes, cambios):
+    import io
+    import openpyxl
+    wb = openpyxl.load_workbook(io.BytesIO(contenido))
+    cambios(wb["Plan vigente"])
+    s = io.BytesIO()
+    wb.save(s)
+    return s.getvalue()
+
+
+def test_lo_que_descarga_la_app_vuelve_a_cargarse_sin_cambios(cargado):
+    from nucleo.servicios import plan_vigente
+    anio_abierto(feriados=())
+    contenido = plan_vigente.exportar(2026, 11)
+    import io
+    vp = importador.previsualizar(io.BytesIO(contenido), incluir_dia_9=False)
+    assert vp.total_filas == 206 and not vp.altas and not vp.cambios and not vp.bajas and not vp.movidas
+
+
+def test_se_corrige_el_excel_vigente_y_la_app_toma_los_cambios_y_las_tareas_nuevas(cargado):
+    import io
+    from nucleo.servicios import plan_vigente
+    anio_abierto(feriados=())
+    contenido = plan_vigente.exportar(2026, 11)
+
+    def cambios(hoja):
+        encabezado = [c.value for c in hoja[1]]
+        col = {n: i + 1 for i, n in enumerate(encabezado)}
+        t = Tarea.objects.get(subtarea__startswith="Arqueo de Caja y excepciones")
+        fila = next(r for r in range(2, hoja.max_row + 1) if hoja.cell(row=r, column=1).value == t.codigo)
+        hoja.cell(row=fila, column=col["Revisa"], value="Jefa de Control")
+        hoja.cell(row=fila, column=col["Subtarea"], value="Arqueo de Caja y excepciones del día (corregido)")
+        n = hoja.max_row + 1
+        nueva = {"Código": "08-COM.09.001", "Proceso": "08-COM · Compras", "Tarea principal": "Orden por fecha de vencimiento", "Subtarea": "Ordenar y revisar los DTE de compras",
+                 "Responsable (ejecuta)": "Analista Contable", "Revisa": "Contador Senior", "Periodicidad": "Diaria", "Cuándo": "Todos los días hábiles", "Horas por ejecución": 2}
+        for k, v in nueva.items():
+            hoja.cell(row=n, column=col[k], value=v)
+        n += 1
+        for k, v in {"Código": "28-PEI.09.001", "Proceso": "28-PEI · Producción e inventario", "Tarea principal": "Inventario", "Subtarea": "Inventario trimestral interno", "Responsable (ejecuta)": "Jefa de Control",
+                     "Periodicidad": "Trimestralmente", "Cuándo": "Dia Habil 1"}.items():
+            hoja.cell(row=n, column=col[k], value=v)
+        n += 1
+        for k, v in {"Código": "24-IVS.09.001", "Proceso": "24-IVS · Inversiones", "Tarea principal": "Solicitud de Informacion al Banco", "Subtarea": "Saldo del swap", "Responsable (ejecuta)": "Jefa de Control",
+                     "Periodicidad": "Anual", "Cuándo": "Dia habil 1", "Horas por ejecución": 0.25}.items():
+            hoja.cell(row=n, column=col[k], value=v)
+
+    vp = importador.previsualizar(io.BytesIO(_con_cambios(contenido, cambios)), incluir_dia_9=False)
+    assert len(vp.altas) == 3 and len(vp.cambios) == 1 and not vp.bajas
+    resumen = importador.aplicar(vp, usuario=None)
+    assert resumen["altas"] == 3
+    t = Tarea.objects.get(codigo=Tarea.objects.get(subtarea="Arqueo de Caja y excepciones del día (corregido)").codigo)
+    assert t.cargo_revisa.nombre == "Jefa de Control"
+    trimestral = Tarea.objects.get(subtarea="Inventario trimestral interno")
+    assert (trimestral.regla_tipo, trimestral.regla_meses, trimestral.regla_n, trimestral.requiere_revision) == ("MESES", "1,4,7,10", 1, False)
+    anual = Tarea.objects.get(subtarea="Saldo del swap")
+    assert anual.requiere_revision and "mes" in anual.motivo_revision  # falta el mes del año: queda por revisar
+    from nucleo.servicios.calendario import Calendario
+    from nucleo.servicios.recurrencia import fechas_limite
+    # el 1 de enero es feriado: el DH01 de enero de 2027 es el lunes 4
+    assert fechas_limite(trimestral.regla(), 2027, 1, Calendario([date(2027, 1, 1)])) == [date(2027, 1, 4)]
+    assert fechas_limite(trimestral.regla(), 2026, 12, Calendario([])) == []
+    assert Tarea.objects.filter(activa=True).count() == 209

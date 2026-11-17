@@ -110,7 +110,7 @@ def en_construccion(request, titulo):
     return render(request, "nucleo/en_construccion.html", {"titulo": titulo})
 
 
-ACCIONES = {"hecha", "recibida", "revisar", "devolver", "bloquear", "retomar", "comentar", "horas"}
+ACCIONES = {"hecha", "recibida", "revisar", "devolver", "bloquear", "retomar", "comentar", "horas", "reasignar", "tomar"}
 
 
 @login_required
@@ -120,10 +120,17 @@ def detalle(request, pk):
     o = get_object_or_404(Ocurrencia.objects.select_related("tarea__proceso", "cargo_ejecuta", "cargo_revisa", "colaborador", "periodo"), pk=pk)
     return render(request, "nucleo/detalle.html", {
         "o": o, "hoy": reloj.hoy(), "acciones": ejecucion.acciones_disponibles(o, request.user), "historial": ejecucion.historial_de(o),
-        "puede_horas": ejecucion.puede_registrar_horas(o, request.user), "ve_adjuntos": evidencias.puede_ver(request.user, o), "texto_adjuntos": evidencias.TEXTO, "puede_comentar": permisos.rol_de(request.user) in permisos.QUE_MARCAN and o.periodo.estado != "cerrado",
+        "puede_horas": ejecucion.puede_registrar_horas(o, request.user), "puede_reasignar": ejecucion.puede_reasignar(o, request.user), "candidatos": ejecucion.candidatos_a_ejecutar(o) if ejecucion.puede_reasignar(o, request.user) else [], "yo_colaborador": permisos.colaborador_de(request.user), "ve_adjuntos": evidencias.puede_ver(request.user, o), "texto_adjuntos": evidencias.TEXTO, "puede_comentar": permisos.rol_de(request.user) in permisos.QUE_MARCAN and o.periodo.estado != "cerrado",
         "periodicidad": reglas_texto.describir(o.tarea.regla(), o.tarea.regla_franja), "atrasada": o.estado in ("pendiente", "devuelta", "bloqueada") and o.fecha_limite < reloj.hoy(),
         "dia_del_cierre": o.regla_copia.get("n") if o.regla_copia.get("tipo") == "CIERRE_DIA_HABIL" else None,
     })
+
+
+def _entero_o_none(valor):
+    try:
+        return int(valor)
+    except (TypeError, ValueError):
+        return None
 
 
 @login_required
@@ -145,6 +152,10 @@ def ocurrencia_accion(request, pk, accion):
             ejecucion.marcar_bloqueada(o, request.user, request.POST.get("comentario", ""))
         elif accion == "retomar":
             ejecucion.retomar(o, request.user)
+        elif accion in ("reasignar", "tomar"):
+            yo = permisos.colaborador_de(request.user)
+            para = yo.pk if accion == "tomar" and yo else _entero_o_none(request.POST.get("para"))
+            ejecucion.reasignar(o, request.user, para, request.POST.get("motivo", ""))
         elif accion == "revisar":
             ejecucion.revisar(o, request.user)
         else:

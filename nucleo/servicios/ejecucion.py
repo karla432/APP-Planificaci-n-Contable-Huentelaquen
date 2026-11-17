@@ -11,7 +11,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from nucleo import permisos
-from nucleo.models import EventoAuditoria, Ocurrencia, SolicitudNoAplica
+from nucleo.models import Asignacion, Colaborador, EventoAuditoria, Ocurrencia, SolicitudNoAplica
 from nucleo.servicios import auditoria, evidencias
 from nucleo.servicios.errores import ErrorDeNegocio, PermisoDenegado
 
@@ -253,6 +253,61 @@ def registrar_horas(o: Ocurrencia, usuario, minutos: int | None):
     auditoria.registrar("ocurrencia.horas_reales", usuario=usuario, entidad="Ocurrencia", entidad_id=o.pk, antes=antes, despues={"minutos_reales": minutos}, motivo=f"{minutos / 60:.2f} h".replace(".", ","))
 
 
+ESTADOS_REASIGNABLES = (Ocurrencia.PENDIENTE, Ocurrencia.DEVUELTA, Ocurrencia.BLOQUEADA)
+
+
+def _cargos_internos_vigentes(colaborador: Colaborador, fecha=None) -> list:
+    """Los cargos del equipo (no externos) que esa persona ejerce hoy, el principal primero."""
+    fecha = fecha or timezone.localdate()
+    asignaciones = (Asignacion.objects.filter(colaborador=colaborador, desde__lte=fecha, cargo__es_externo=False, cargo__activo=True).exclude(hasta__lt=fecha)
+                    .select_related("cargo").order_by("cargo__orden", "cargo__nombre"))
+    return [a.cargo for a in asignaciones]
+
+
+def puede_reasignar(o: Ocurrencia, usuario) -> bool:
+    """Cualquier persona del equipo puede cambiar quién hace una tarea que aún no está hecha (la reestructuración exige flexibilidad)."""
+    rol = permisos.rol_de(usuario)
+    return (rol in permisos.QUE_MARCAN and permisos.colaborador_de(usuario) is not None and o.tipo_marca == "HECHA"
+            and o.estado in ESTADOS_REASIGNABLES and o.periodo.estado != "cerrado")
+
+
+def candidatos_a_ejecutar(o: Ocurrencia) -> list[Colaborador]:
+    """Quiénes pueden hacerla: personas activas con un cargo del equipo, que no sean quien ya la hace ni quien la revisa."""
+    candidatos = []
+    for c in Colaborador.objects.filter(activo=True).order_by("nombre"):
+        cargos = _cargos_internos_vigentes(c)
+        if cargos and c.pk != o.colaborador_id and not (o.cargo_revisa_id and any(x.pk == o.cargo_revisa_id for x in cargos)):
+            candidatos.append(c)
+    return candidatos
+
+
+@transaction.atomic
+def reasignar(o: Ocurrencia, usuario, colaborador_id, motivo: str = ""):
+    """Cambia quién ejecuta ESTA vez la tarea. Queda en la bitácora con quién la tenía y quién la toma; quien la revisa nunca puede ser quien la hace."""
+    _exigir_rol(usuario)
+    if o.tipo_marca == "RECIBIDA":
+        raise ErrorDeNegocio("Las tareas de responsables externos no se reasignan: las registra quien recibe.")
+    if not puede_reasignar(o, usuario):
+        if o.estado not in ESTADOS_REASIGNABLES:
+            raise ErrorDeNegocio(f"Una tarea {o.get_estado_display().lower()} ya no se puede reasignar.")
+        raise PermisoDenegado("Tu perfil no puede cambiar quién hace esta tarea.")
+    nuevo = Colaborador.objects.filter(pk=colaborador_id, activo=True).first() if colaborador_id else None
+    if nuevo is None:
+        raise ErrorDeNegocio("Elige a la persona que la va a hacer.")
+    if nuevo.pk == o.colaborador_id:
+        raise ErrorDeNegocio("Esa persona ya es quien la hace.")
+    cargos = _cargos_internos_vigentes(nuevo)
+    if not cargos:
+        raise ErrorDeNegocio(f"{nuevo.nombre} no tiene un cargo vigente en el equipo.")
+    if o.cargo_revisa_id and any(c.pk == o.cargo_revisa_id for c in cargos):
+        raise PermisoDenegado("Quien revisa la tarea no puede ser quien la hace: elige a otra persona.")
+    antes = {"colaborador": o.colaborador.nombre if o.colaborador_id else None, "cargo_ejecuta": o.cargo_ejecuta.nombre}
+    o.colaborador, o.cargo_ejecuta = nuevo, cargos[0]
+    o.save(update_fields=["colaborador", "cargo_ejecuta"])
+    auditoria.registrar("ocurrencia.reasignada", usuario=usuario, entidad="Ocurrencia", entidad_id=o.pk, antes=antes,
+                        despues={"colaborador": nuevo.nombre, "cargo_ejecuta": cargos[0].nombre}, motivo=(motivo or "").strip())
+
+
 def acciones_disponibles(o: Ocurrencia, usuario) -> list[str]:
     """Las acciones que esta persona puede ejecutar ahora sobre la tarea (la pantalla solo ofrece estas; el servidor igual las valida)."""
     rol = permisos.rol_de(usuario)
@@ -298,7 +353,7 @@ def comentar(o: Ocurrencia, usuario, texto: str, archivo=None):
 TEXTOS_DEL_HISTORIAL = {
     "ocurrencia.hecha": "Marcó hecha", "ocurrencia.hecha_por_excepcion": "Marcó hecha por excepción", "ocurrencia.recibida": "Marcó recibido",
     "ocurrencia.revisada": "Revisó", "ocurrencia.devuelta": "Devolvió", "ocurrencia.bloqueada": "Marcó bloqueada", "ocurrencia.retomada": "Retomó la tarea",
-    "ocurrencia.comentario": "Comentó", "ocurrencia.horas_reales": "Anotó horas reales", "no_aplica.solicitada": "Pidió «no aplica»", "no_aplica.aprobada": "Aprobó «no aplica»", "no_aplica.rechazada": "Rechazó «no aplica»",
+    "ocurrencia.comentario": "Comentó", "ocurrencia.reasignada": "Cambió quién la hace", "ocurrencia.horas_reales": "Anotó horas reales", "no_aplica.solicitada": "Pidió «no aplica»", "no_aplica.aprobada": "Aprobó «no aplica»", "no_aplica.rechazada": "Rechazó «no aplica»",
 }
 
 

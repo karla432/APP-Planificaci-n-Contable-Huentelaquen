@@ -84,6 +84,8 @@ def fechas_limite(
     elif regla.tipo == "MESES":
         if mes not in regla.meses:
             fechas = []
+        elif regla.n is not None:  # el día hábil N de esos meses (inventario trimestral, tareas anuales)
+            fechas = [cal.dia_habil_n(anio, mes, regla.n)]
         elif regla.dia is None:
             raise ReglaIncompleta("Faltan el día del mes en que vence.")
         else:

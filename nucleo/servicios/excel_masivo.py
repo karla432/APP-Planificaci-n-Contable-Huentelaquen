@@ -63,7 +63,7 @@ def texto_de_periodicidad(t: Tarea) -> tuple[str, str]:
     """(Periodicidad, Cuándo) tal como los entiende la carga. Si la tarea conserva el texto original del Excel y éste sigue diciendo lo mismo
     que su regla, se devuelve el original; si alguien cambió la regla en el Mantenedor, se escribe de nuevo desde la regla."""
     if t.periodicidad_excel and t.cuando_excel:
-        c = importador.convertir_regla(t.periodicidad_excel, t.cuando_excel)
+        c = importador.convertir_regla(t.periodicidad_excel, t.cuando_excel, plan2=True)
         if c.regla is not None and c.regla == t.regla():
             return t.periodicidad_excel, t.cuando_excel
     r = t.regla()
@@ -84,6 +84,8 @@ def texto_de_periodicidad(t: Tarea) -> tuple[str, str]:
         return "Mensual", "Último día del mes"
     if r.tipo == "MESES":
         meses = ", ".join(MESES[m - 1] for m in r.meses)
+        if r.n is not None and r.dia is None:
+            return "Puntual", f"Día hábil {r.n} de {meses}"
         return "Puntual", (f"Día {r.dia} de {meses}" if r.dia else meses.capitalize())
     return "Puntual", "Al ocurrir el evento"
 

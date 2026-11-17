@@ -90,6 +90,8 @@ def _validar(d: DatosTarea) -> str:
             raise ErrorDeNegocio("Elige al menos un mes.")
         if d.dia is not None and d.dia not in range(1, 32):
             raise ErrorDeNegocio("El día del mes debe estar entre 1 y 31.")
+        if d.dia is None and d.n is not None and 0 <= d.n <= 31:
+            return ""  # el día hábil N de esos meses
         if d.dia is None:
             return "Falta el día del mes en que vence."
     return ""

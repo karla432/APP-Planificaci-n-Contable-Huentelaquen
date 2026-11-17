@@ -32,6 +32,17 @@
     <label for="rh">Registrar horas reales</label><input id="rh" name="horas" inputmode="decimal" size="6" placeholder="1,5" value="{{ o.horas_reales }}" required autocomplete="off">
     <button class="btn btn-2" type="submit">Guardar horas</button></form><p class="meta">Escribe las horas con coma (1,5) o como horas y minutos (1:30). Puedes corregirlas mientras el mes esté abierto.</p>{% endif %}
 </section>
+{% if puede_reasignar %}<section class="card" id="reasignar"><h2>Quién la hace</h2>
+  <p class="meta">Hoy la hace <strong>{% if o.colaborador %}{{ o.colaborador.nombre }}{% else %}nadie asignado{% endif %}</strong> ({{ o.cargo_ejecuta.nombre }}). Mientras el equipo se reestructura, cualquiera puede cambiar quién la hace mientras no esté hecha. Queda anotado en el historial.</p>
+  <div class="acciones">
+    {% if yo_colaborador and yo_colaborador != o.colaborador %}{% if yo_colaborador in candidatos %}<form method="post" action="{% url 'ocurrencia_accion' o.pk 'tomar' %}">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}"><button class="btn" type="submit">Hacerla yo</button></form>{% endif %}{% endif %}
+    {% if candidatos %}<form method="post" action="{% url 'ocurrencia_accion' o.pk 'reasignar' %}" class="devolver">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}">
+      <label for="para">Pasarla a otra persona</label>
+      <select id="para" name="para" required><option value="">Elige a quién…</option>{% for c in candidatos %}<option value="{{ c.pk }}">{{ c.nombre }}</option>{% endfor %}</select>
+      <label for="motivo-reasignar">Motivo (opcional)</label><input id="motivo-reasignar" name="motivo" maxlength="200" placeholder="Por ejemplo: está de vacaciones" autocomplete="off">
+      <button class="btn btn-2" type="submit">Cambiar quién la hace</button></form>{% else %}<p class="meta">No hay otra persona del equipo que pueda hacerla (quien la revisa no puede ser quien la hace).</p>{% endif %}
+  </div>
+</section>{% endif %}
 <section class="card"><h2>Historial y comentarios</h2>
   <ul class="historial">{% for h in historial %}<li><strong>{{ h.quien }}</strong> · {{ h.texto }}{% if h.comentario %}: {{ h.comentario }}{% endif %}<small>{{ h.momento|date:"d-m-Y H:i" }}</small>
     {% for ev in h.adjuntos %}<div class="adjunto">{% if ve_adjuntos %}📎 <a href="{% url 'evidencia' ev.pk %}" target="_blank" rel="noopener">{{ ev.nombre_original }}</a> <span class="meta">({{ ev.tamano|filesizeformat }}) · <a href="{% url 'evidencia' ev.pk %}?descargar=1">Descargar</a></span>{% else %}📎 <span class="meta">Adjunto restringido a quien ejecuta o revisa la tarea.</span>{% endif %}</div>{% endfor %}</li>{% empty %}<li class="vacio">Aún sin movimientos.</li>{% endfor %}</ul>

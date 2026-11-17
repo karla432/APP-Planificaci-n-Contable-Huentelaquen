@@ -43,6 +43,7 @@ ORDEN_EXTERNOS = 50
 DEDICACION_HORAS_MES = {"Gerente AyF": 80}  # Karla (01-11-2026): el Gerente AyF dedica como máximo 80 h al mes a Huentelauquén
 RELLENO_GERENTE = "FFE2EFDA"  # verde: horas definidas por la Gerente AyF (el resto es estimación base)
 
+NOMBRES_DE_MES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
 DIAS = {"lunes": 0, "martes": 1, "miércoles": 2, "miercoles": 2, "jueves": 3, "viernes": 4}
 MESES = {
     "enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6,
@@ -94,6 +95,8 @@ def convertir_regla(periodicidad, cuando, plan2: bool = False) -> Conversion:
                 return Conversion(Regla("SEMANAL", dia_semana=DIAS[dia_semana.group(1).replace("miercoles", "miércoles")]), nota=f"Diaria con un solo día: se toma como semanal ({cua}).")
             return _revision(f"Contradicción: periodicidad «{per}» pero «Cuándo» dice «{cua}».")
     elif per_l == "semanal":
+        if plan2 and cua_l == "todos los dias habiles":  # «puede ser diario o durante la semana»: se toma como diaria
+            return Conversion(Regla("DIARIA_HABIL"), nota="Semanal con «todos los días hábiles»: se toma como diaria.")
         if not cua:
             return _revision("Periodicidad semanal sin día de la semana.")
         if dia_semana:
@@ -120,9 +123,19 @@ def convertir_regla(periodicidad, cuando, plan2: bool = False) -> Conversion:
             return Conversion(Regla("DIA_FIJO", dia=int(m.group(1)), ajuste="anterior"), estado="pendiente_confirmar")
         if cua_l == "ultimo dia del mes":
             return Conversion(Regla("FIN_DE_MES", ajuste="anterior"), estado="pendiente_confirmar")
-    elif per_l == "puntual":
+    elif per_l in ("trimestral", "trimestralmente", "anual", "anualmente") and re.fullmatch(r"dia habil (\d+)", cua_l):
+        n = int(re.fullmatch(r"dia habil (\d+)", cua_l).group(1))
+        if per_l.startswith("trimestral"):  # supuesto de Legión: el primer mes de cada trimestre (enero, abril, julio y octubre)
+            return Conversion(Regla("MESES", meses=(1, 4, 7, 10), n=n), estado="pendiente_confirmar", nota="Trimestral: se asumen enero, abril, julio y octubre.")
+        return _revision("Falta el mes del año en que se hace (la tarea es anual).", Regla("MESES", meses=(), n=n))
+    elif per_l in ("puntual", "anual"):
         if cua_l.startswith("al ") or cua_l == "segun vencimiento":
             return Conversion(Regla("EVENTO"))
+        con_dh = re.match(r"dia habil (\d+) de (.+)", cua_l)
+        if con_dh and 0 <= int(con_dh.group(1)) <= 31:
+            meses_dh = tuple(sorted({n for nombre, n in MESES.items() if re.search(rf"\b{nombre}\b", con_dh.group(2))}))
+            if meses_dh:
+                return Conversion(Regla("MESES", meses=meses_dh, n=int(con_dh.group(1))))
         con_dia = re.match(r"dia (\d{1,2}) de (.+)", cua_l)
         if con_dia and 1 <= int(con_dia.group(1)) <= 31:
             meses = tuple(sorted({n for nombre, n in MESES.items() if re.search(rf"\b{nombre}\b", con_dia.group(2))}))
@@ -247,6 +260,8 @@ def leer_excel(ruta) -> list[FilaImport]:
     from nucleo.servicios import plan2
     if plan2.es_plan2(wb):  # el Excel de tres hojas (Maestro, Diario-Semanal y Mensual)
         return plan2.leer(wb)
+    if plan2.es_plan_vigente(wb):  # el Excel «Planificación vigente» que descarga la app
+        return plan2.leer_plan_vigente(wb)
     hoja = wb["Planificación"] if "Planificación" in wb.sheetnames else wb["Tareas"] if "Tareas" in wb.sheetnames else wb.worksheets[0]
     filas = list(hoja.iter_rows(values_only=True))
     inicio = next(i for i, r in enumerate(filas) if r and "Proceso" in r)
@@ -294,6 +309,8 @@ def _valores(fila: FilaImport) -> dict:
     v = _valores_base(fila)
     if fila.extra is not None:
         v.pop("dia_cierre", None)
+        if fila.extra.get("sin_observacion"):
+            v.pop("referencia_normativa", None)  # el archivo no trae esa columna: no se toca lo que ya hay
         if fila.fuente_horas is None:
             v.pop("fuente_horas", None)
     return v
@@ -327,7 +344,7 @@ def _valores_plan2(fila: FilaImport) -> dict:
     from nucleo.servicios.mantenedor import ejecuciones_por_mes
     r = fila.conversion.regla
     e = fila.extra
-    v = {"ejecuciones_mes": ejecuciones_por_mes(r.tipo, r.meses) if r else None, "dh_inicio": fila.conversion.dh_inicio, "horas_dh": e.get("horas_dh"),
+    v = {"ejecuciones_mes": ejecuciones_por_mes(r.tipo, r.meses) if r else None, "dh_inicio": e.get("dh_inicio", fila.conversion.dh_inicio) if e.get("codigo_de_la_app") else fila.conversion.dh_inicio, "horas_dh": e.get("horas_dh"),
          "horas_semana": e.get("horas_semana"), "al_terminar_cierre": e.get("al_terminar_cierre", ""), "tipo_control": e["tipo_control"],
          "cambio_plan": e["cambio_plan"], "justificacion": e["justificacion"], "proceso_nombre": fila.proceso, "tarea_principal": fila.tarea_principal,
          "subtarea": fila.subtarea}
