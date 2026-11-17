@@ -1,0 +1,33 @@
+@page { size: A4; margin: 20mm 17mm 20mm 17mm; }
+:root { --granate: #8c0026; --rojo: #e4002b; --gris: #555; }
+html { font-family: "Lato", "Carlito", "Calibri", "Helvetica Neue", Arial, sans-serif; font-size: 11pt; color: #222; line-height: 1.5; }
+body { max-width: 100%; margin: 0; padding: 0; }
+header#title-block-header { border-bottom: 4px solid var(--granate); padding-bottom: 10mm; margin-bottom: 8mm; page-break-after: always; min-height: 180mm; display: flex; flex-direction: column; justify-content: center; }
+h1.title { font-family: Georgia, "Times New Roman", serif; color: var(--granate); font-size: 30pt; margin: 0 0 6mm; line-height: 1.15; }
+p.subtitle { font-size: 16pt; color: var(--gris); margin: 0 0 12mm; }
+p.author { font-size: 11pt; color: var(--gris); margin: 0; }
+nav#TOC { page-break-after: always; }
+nav#TOC::before { content: "Contenido"; display: block; font-family: Georgia, serif; font-size: 20pt; color: var(--granate); margin-bottom: 6mm; }
+nav#TOC ul { list-style: none; padding-left: 5mm; margin: 1mm 0; }
+nav#TOC > ul { padding-left: 0; }
+nav#TOC a { color: #222; text-decoration: none; }
+h1, h2, h3, h4 { font-family: Georgia, "Times New Roman", serif; color: var(--granate); page-break-after: avoid; }
+h1 { font-size: 20pt; border-bottom: 2px solid var(--rojo); padding-bottom: 2mm; margin-top: 12mm; page-break-before: always; }
+h1:first-of-type { page-break-before: auto; }
+h2 { font-size: 15pt; margin-top: 9mm; }
+h3 { font-size: 12.5pt; margin-top: 6mm; }
+p, li { orphans: 3; widows: 3; }
+img { max-width: 100%; border: 1px solid #c9c9c9; border-radius: 3px; box-shadow: 0 1px 4px rgba(0,0,0,.18); display: block; margin: 3mm auto; }
+figure { margin: 4mm 0; page-break-inside: avoid; text-align: center; }
+figcaption { font-size: 9.5pt; color: var(--gris); font-style: italic; margin-top: 1.5mm; }
+table { border-collapse: collapse; width: 100%; margin: 4mm 0; font-size: 9.5pt; page-break-inside: auto; }
+tr { page-break-inside: avoid; }
+th { background: var(--granate); color: #fff; text-align: left; padding: 2mm 2.5mm; font-weight: 700; }
+td { border-bottom: 1px solid #ddd; padding: 1.8mm 2.5mm; vertical-align: top; }
+tbody tr:nth-child(even) td { background: #faf3f5; }
+blockquote { border-left: 4px solid var(--rojo); background: #fdf1f4; margin: 4mm 0; padding: 2mm 4mm; color: #333; page-break-inside: avoid; }
+blockquote p { margin: 1mm 0; }
+code { font-family: "DejaVu Sans Mono", Consolas, monospace; font-size: 9pt; background: #f2f2f2; padding: 0 1.2mm; border-radius: 2px; }
+pre { background: #1f2430; color: #eee; padding: 3mm 4mm; border-radius: 4px; font-size: 8.8pt; overflow-wrap: anywhere; white-space: pre-wrap; page-break-inside: avoid; }
+pre code { background: none; color: inherit; padding: 0; }
+a { color: var(--granate); }
