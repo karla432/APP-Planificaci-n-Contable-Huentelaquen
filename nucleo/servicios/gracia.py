@@ -1,8 +1,7 @@
-"""Gracia de arranque (Karla, 17-11-2026): la medición empieza el 01-11, pero el equipo recién empieza a registrar lo que hizo y, **durante 3 semanas**, lo anterior
-al inicio de uso no se considera atrasado.
+"""Gracia de arranque (Karla, 17-11-2026): la medición empieza el 01-11 y el equipo registra lo que ya hizo; **durante 3 semanas (01-11 al 22-11) nada se considera atrasado**.
 
-- `inicio_operacion` (AAAAMMDD) es el primer día en que el equipo usa la app; `dias_de_gracia` (por defecto 21) cuánto dura la gracia. 0 en `inicio_operacion` = sin gracia.
-- Las tareas con fecha límite anterior al inicio de uso **conservan su fecha del plan**, pero solo cuentan como atrasadas desde el fin de la gracia (`vence_el`).
+- `inicio_operacion` (AAAAMMDD) es el día desde el que se cuenta la gracia (01-11-2026); `dias_de_gracia` (por defecto 21) cuánto dura: la gracia termina el 22-11-2026. 0 en `inicio_operacion` = sin gracia.
+- Las tareas con fecha anterior al fin de la gracia **conservan su fecha del plan**, pero solo cuentan como atrasadas desde el fin de la gracia (`vence_el`).
   Si se registran dentro de la gracia, cuentan como hechas a tiempo. Pasada la gracia, las que sigan pendientes se ven atrasadas como cualquier otra.
 """
 from datetime import date, timedelta
@@ -25,8 +24,8 @@ def gracia_hasta() -> date | None:
 
 def vence_el_para(fecha_limite: date) -> date:
     """Desde cuándo cuenta como atrasada una tarea con esa fecha límite."""
-    inicio, hasta = inicio_de_operacion(), gracia_hasta()
-    return hasta if inicio and fecha_limite < inicio else fecha_limite
+    hasta = gracia_hasta()
+    return hasta if hasta and fecha_limite < hasta else fecha_limite
 
 
 def en_gracia(hoy: date) -> bool:
@@ -43,6 +42,6 @@ def configurar(inicio: date | None, dias: int = 21, usuario=None) -> int:
     Ocurrencia.objects.exclude(vence_el=F("fecha_limite")).update(vence_el=F("fecha_limite"))
     cuantas = 0
     if inicio:
-        cuantas = Ocurrencia.objects.filter(fecha_limite__lt=inicio).update(vence_el=gracia_hasta())
+        cuantas = Ocurrencia.objects.filter(fecha_limite__lt=gracia_hasta()).update(vence_el=gracia_hasta())
     auditoria.registrar("gracia.configurada", usuario=usuario, entidad="Parametro", despues={"inicio_operacion": str(inicio) if inicio else None, "dias_de_gracia": dias, "tareas": cuantas})
     return cuantas

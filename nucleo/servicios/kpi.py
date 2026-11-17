@@ -241,7 +241,7 @@ def resumen(periodo, hoy: date) -> Resumen:
         r.total += 1
         r.hechas += o.estado in HECHAS
         r.atrasadas += o.estado in SIN_HACER and o.exigible < hoy
-        r.vencen_hoy += o.estado in SIN_HACER and o.exigible == hoy
+        r.vencen_hoy += o.estado in SIN_HACER and o.fecha_limite == hoy
         r.vencen_a_la_fecha += o.exigible <= hoy
         r.revisadas += o.estado == Ocurrencia.REVISADA
         r.por_revisar += o.estado == Ocurrencia.HECHA and o.tipo_marca == "HECHA" and o.cargo_revisa_id is not None

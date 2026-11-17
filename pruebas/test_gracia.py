@@ -1,4 +1,4 @@
-"""Gracia de arranque (Karla, 17-11-2026): lo anterior al inicio de uso no cuenta como atrasado durante 3 semanas; se puede registrar igual."""
+"""Gracia de arranque (Karla, 17-11-2026): durante 3 semanas desde el inicio nada cuenta como atrasado; se puede registrar igual."""
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
@@ -12,7 +12,7 @@ from nucleo.servicios import agenda, ejecucion, gracia, kpi, periodos
 from pruebas.ayudas import anio_abierto, cargo, persona, tarea, usuario_con_rol
 
 pytestmark = pytest.mark.django_db
-INICIO = date(2026, 12, 2)  # primer día de uso; la gracia dura hasta el 23-12-2026
+INICIO = date(2026, 12, 2)  # día desde el que corre la gracia; dura 21 días, hasta el 23-12-2026
 
 
 @pytest.fixture
@@ -38,14 +38,17 @@ def test_sin_gracia_lo_anterior_esta_atrasado_como_siempre(mundo):
     assert o in agenda.agenda_de(mundo["p"], date(2026, 12, 4))["atrasadas"]
 
 
-def test_con_gracia_lo_anterior_al_inicio_no_es_atrasado_pero_se_puede_registrar(mundo):
+def test_con_gracia_nada_es_atrasado_hasta_que_termina_pero_se_puede_registrar(mundo):
     o = abrir(mundo)
     assert o.fecha_limite == date(2026, 12, 1) and o.vence_el == date(2026, 12, 23)  # conserva su fecha del plan
     a = agenda.agenda_de(mundo["p"], date(2026, 12, 4))
-    assert o not in a["atrasadas"] and o in a["por_registrar"] and a["gracia_hasta"] == date(2026, 12, 23) and a["inicio_de_uso"] == INICIO
-    assert all(x.fecha_limite >= INICIO for x in a["hoy"] + a["proximas"])  # lo de antes no se cuela en «hoy» ni «próximas»
-    despues = Ocurrencia.objects.get(fecha_limite=date(2026, 12, 2))
-    assert despues.vence_el == despues.fecha_limite  # desde el inicio de uso rige lo normal
+    assert a["atrasadas"] == [] and a["gracia_hasta"] == date(2026, 12, 23)
+    assert [x.fecha_limite for x in a["por_registrar"]] == [date(2026, 12, 1), date(2026, 12, 2), date(2026, 12, 3)]
+    assert [x.fecha_limite for x in a["hoy"]] == [date(2026, 12, 4)] and all(x.fecha_limite > date(2026, 12, 4) for x in a["proximas"])
+    # también lo que vence DENTRO de la gracia (antes del 23) queda protegido; lo del 23 en adelante rige lo normal
+    assert Ocurrencia.objects.get(fecha_limite=date(2026, 12, 22)).vence_el == date(2026, 12, 23)
+    normal = Ocurrencia.objects.get(fecha_limite=date(2026, 12, 23))
+    assert normal.vence_el == normal.fecha_limite
 
 
 def _kpi(mundo, periodo, hoy):
@@ -57,7 +60,7 @@ def test_el_cumplimiento_no_cuenta_lo_anterior_mientras_dura_la_gracia(mundo):
     assert _kpi(mundo, o.periodo, date(2026, 12, 4)).vencidas == 3  # sin gracia: el 01, el 02 y el 03 ya vencieron y están sin hacer
     gracia.configurar(INICIO, 21)
     k = _kpi(mundo, o.periodo, date(2026, 12, 4))
-    assert k.vencidas == 2 and k.pendientes_vencidas == 2  # con gracia, el 01-12 (anterior al inicio de uso) no cuenta todavía
+    assert k.vencidas == 0 and k.pendientes_vencidas == 0  # con gracia, nada cuenta todavía
 
 
 def test_lo_registrado_en_la_gracia_cuenta_a_tiempo_y_lo_pendiente_se_atrasa_al_terminar(mundo, monkeypatch):
@@ -93,7 +96,7 @@ def test_mi_dia_explica_la_gracia_y_deja_registrar(mundo, monkeypatch):
     c = Client()
     c.force_login(mundo["u"])
     html = c.get(reverse("hoy")).content.decode()
-    assert "Por registrar" in html and "antes del 02-12-2026" in html and "No cuentan como atrasadas hasta el 23-12-2026" in html
+    assert "Por registrar" in html and "No cuentan como atrasadas hasta el 23-12-2026" in html
     assert "Atrasada" not in html.split("Por registrar")[1].split("</section>")[0]
 
 

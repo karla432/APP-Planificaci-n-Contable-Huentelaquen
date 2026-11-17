@@ -38,8 +38,8 @@ Rama de trabajo: `claude/peaceful-ride-ysf0iw`.
 
 **Producción: NO está aprobada ni hecha.** Karla pidió (17-11-2026) dejar todo listo para que Eugenio despliegue ese mismo día, con fecha de comienzo 01-11-2026. Falta: la aprobación escrita de Karla (G3) y la de Eugenio, y la lista de aceptación de la sección 7 de la guía, que solo se comprueba en el servidor real. Nada del kit de despliegue se ha probado en un servidor.
 
-**Respuestas del 17-11-2026 (DEC-43):** cargo «Contador» para la persona nueva; tareas anuales en enero; inventario trimestral desde marzo; medición desde el 01-11 con 3 semanas de gracia (inicio de uso supuesto: 18-11-2026, gracia hasta el 09-12-2026; confirmar).
-**Pendiente:** que Karla confirme el inicio de uso (18-11); la aprobación G3 de Karla y de Eugenio; y la prueba del kit en el servidor.
+**Respuestas del 17-11-2026 (DEC-43):** cargo «Contador» para la persona nueva; tareas anuales en enero; inventario trimestral desde marzo; medición desde el 01-11 con 3 semanas de gracia (01-11 al 22-11-2026, confirmado por Karla; nada cuenta como atrasado en ese período).
+**Pendiente:** la aprobación G3 de Karla y de Eugenio; y la prueba del kit en el servidor.
 
 ## Confirmaciones de Karla sobre la Planificación 2.0 (DEC-40)
 Resueltas el 03-11-2026: (1) se desactivan las 8 tareas que el plan ya no trae; (2) la app asigna el código que corresponda; (3) «Cierre contable general» es proceso propio (36-CCG); (4) duraciones del archivo y las de 9 minutos pasan a 10; (5) el hito 00-CTL.03.001 es del DH04 (texto corregido).

@@ -29,14 +29,13 @@ def agenda_de(colaborador, hoy: date | None = None) -> dict:
     atrasadas = list(mias.filter(vence_el__lt=hoy))
     for o in atrasadas:
         o.atraso = atraso_en_dias_habiles(o, hoy)
-    inicio = gracia.inicio_de_operacion()
-    por_registrar = list(mias.filter(fecha_limite__lt=inicio, vence_el__gte=hoy).order_by("fecha_limite", "tarea__codigo")) if inicio else []
-    proximas = mias.filter(vence_el__gt=hoy, vence_el__lte=hoy + timedelta(days=DIAS_PROXIMOS))
+    # En la gracia de arranque, lo que ya pasó de su fecha del plan pero aún no cuenta como atrasado va en «por registrar».
+    por_registrar = list(mias.filter(fecha_limite__lt=hoy, vence_el__gte=hoy).order_by("fecha_limite", "tarea__codigo"))
     return {
         "atrasadas": atrasadas,
-        "hoy": list(mias.filter(vence_el=hoy, fecha_limite__gte=inicio) if inicio else mias.filter(vence_el=hoy)),
-        "proximas": list(proximas.filter(fecha_limite__gte=inicio) if inicio else proximas),
-        "por_registrar": por_registrar, "gracia_hasta": gracia.gracia_hasta() if por_registrar else None, "inicio_de_uso": inicio if por_registrar else None,
+        "hoy": list(mias.filter(fecha_limite=hoy, vence_el__gte=hoy)),
+        "proximas": list(mias.filter(fecha_limite__gt=hoy, fecha_limite__lte=hoy + timedelta(days=DIAS_PROXIMOS))),
+        "por_registrar": por_registrar, "gracia_hasta": gracia.gracia_hasta() if por_registrar else None,
     }
 
 

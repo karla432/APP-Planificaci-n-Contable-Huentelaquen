@@ -12,7 +12,7 @@
 {% endif %}
 {% if agenda.por_registrar %}
 <section class="card"><h2>Por registrar <span class="pill p-grey contador">{{ agenda.por_registrar|length }}</span></h2>
-  <p class="meta">Son tareas de <strong>antes del {{ agenda.inicio_de_uso|date:"d-m-Y" }}</strong> (el inicio de uso de la app). Si ya las hiciste, márcalas como hechas. <strong>No cuentan como atrasadas hasta el {{ agenda.gracia_hasta|date:"d-m-Y" }}.</strong> Lo que quede sin hacer después de esa fecha se verá atrasado.</p>
+  <p class="meta">Son tareas cuya fecha ya pasó, durante el período de arranque de la app. Si ya las hiciste, márcalas como hechas. <strong>No cuentan como atrasadas hasta el {{ agenda.gracia_hasta|date:"d-m-Y" }}.</strong> Lo que quede sin hacer después de esa fecha se verá atrasado.</p>
   <ul class="lista">{% for o in agenda.por_registrar %}{% include "nucleo/_fila.html" with modo=es_mia|yesno:"mia,lectura" %}{% endfor %}</ul>
 </section>
 {% endif %}

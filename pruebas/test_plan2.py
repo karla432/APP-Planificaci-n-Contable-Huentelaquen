@@ -422,6 +422,6 @@ def test_el_comando_carga_el_plan_con_la_traduccion_de_cargos_y_fija_la_gracia(c
          "Responsable (ejecuta)": "Persona Ejemplo", "Revisa": "Contador Senior", "Periodicidad": "Diaria", "Cuándo": "Todos los días hábiles", "Horas por ejecución": 2}]))
     with pytest.raises(Exception, match="cargos que no existen"):
         call_command("cargar_plan", str(ruta))
-    call_command("cargar_plan", str(ruta), "--aplicar", "--cargo", "Persona Ejemplo=Contador", "--inicio-uso", "2026-11-18", "--dias-de-gracia", "21")
+    call_command("cargar_plan", str(ruta), "--aplicar", "--cargo", "Persona Ejemplo=Contador", "--inicio-uso", "2026-11-01", "--dias-de-gracia", "21")
     assert Tarea.objects.get(subtarea="Ordenar y revisar los DTE de compras").cargo_ejecuta.nombre == "Contador"
-    assert gracia.inicio_de_operacion() == date(2026, 11, 18) and gracia.gracia_hasta() == date(2026, 12, 9)
+    assert gracia.inicio_de_operacion() == date(2026, 11, 1) and gracia.gracia_hasta() == date(2026, 11, 22)
