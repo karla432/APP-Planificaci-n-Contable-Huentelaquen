@@ -8,6 +8,7 @@ from nucleo.models import Feriado, Ocurrencia, Periodo
 from nucleo.servicios import reloj
 from nucleo.servicios import kpi
 from nucleo.servicios.calendario import JORNADA_HORAS
+from nucleo.servicios import gracia
 from nucleo.servicios.feriados import calendario_confirmado
 
 PENDIENTES = (Ocurrencia.PENDIENTE, Ocurrencia.DEVUELTA, Ocurrencia.BLOQUEADA)
@@ -19,19 +20,23 @@ def _abiertas():
 
 
 def atraso_en_dias_habiles(o: Ocurrencia, hoy: date) -> int:
-    return calendario_confirmado().dias_habiles_entre(o.fecha_limite, hoy) if o.fecha_limite < hoy else 0
+    return calendario_confirmado().dias_habiles_entre(o.fecha_limite, hoy) if o.exigible < hoy else 0
 
 
 def agenda_de(colaborador, hoy: date | None = None) -> dict:
     hoy = hoy or reloj.hoy()
     mias = _abiertas().filter(colaborador=colaborador, estado__in=PENDIENTES)
-    atrasadas = list(mias.filter(fecha_limite__lt=hoy))
+    atrasadas = list(mias.filter(vence_el__lt=hoy))
     for o in atrasadas:
         o.atraso = atraso_en_dias_habiles(o, hoy)
+    inicio = gracia.inicio_de_operacion()
+    por_registrar = list(mias.filter(fecha_limite__lt=inicio, vence_el__gte=hoy).order_by("fecha_limite", "tarea__codigo")) if inicio else []
+    proximas = mias.filter(vence_el__gt=hoy, vence_el__lte=hoy + timedelta(days=DIAS_PROXIMOS))
     return {
         "atrasadas": atrasadas,
-        "hoy": list(mias.filter(fecha_limite=hoy)),
-        "proximas": list(mias.filter(fecha_limite__gt=hoy, fecha_limite__lte=hoy + timedelta(days=DIAS_PROXIMOS))),
+        "hoy": list(mias.filter(vence_el=hoy, fecha_limite__gte=inicio) if inicio else mias.filter(vence_el=hoy)),
+        "proximas": list(proximas.filter(fecha_limite__gte=inicio) if inicio else proximas),
+        "por_registrar": por_registrar, "gracia_hasta": gracia.gracia_hasta() if por_registrar else None, "inicio_de_uso": inicio if por_registrar else None,
     }
 
 
@@ -43,7 +48,7 @@ def por_revisar(usuario, hoy: date | None = None) -> list[Ocurrencia]:
 def por_recibir(usuario, hoy: date | None = None) -> list[Ocurrencia]:
     hoy = hoy or reloj.hoy()
     cargos = permisos.cargos_vigentes_de(usuario)
-    return list(_abiertas().filter(cargo_revisa_id__in=cargos, estado__in=PENDIENTES, tipo_marca="RECIBIDA", fecha_limite__lte=hoy + timedelta(days=DIAS_PROXIMOS)))
+    return list(_abiertas().filter(cargo_revisa_id__in=cargos, estado__in=PENDIENTES, tipo_marca="RECIBIDA", vence_el__lte=hoy + timedelta(days=DIAS_PROXIMOS)))
 
 
 def _de_la_persona(colaborador):
@@ -52,7 +57,7 @@ def _de_la_persona(colaborador):
 
 def _marcar_atraso(o: Ocurrencia, hoy: date):
     o.pendiente = o.estado in PENDIENTES
-    o.atrasada = o.pendiente and o.fecha_limite < hoy
+    o.atrasada = o.pendiente and o.exigible < hoy
     return o
 
 
@@ -133,11 +138,11 @@ def atencion_por_responsable(usuario, periodo, hoy: date, por_responsable: int =
     for o in base:
         if o.estado == Ocurrencia.HECHA and o.tipo_marca == "HECHA" and o.cargo_revisa_id is not None:
             items.append((o.cargo_revisa, o, "Por revisar"))
-        elif o.estado in PENDIENTES and o.tipo_marca == "RECIBIDA" and o.fecha_limite <= hoy and o.cargo_revisa_id is not None:
+        elif o.estado in PENDIENTES and o.tipo_marca == "RECIBIDA" and o.exigible <= hoy and o.cargo_revisa_id is not None:
             items.append((o.cargo_revisa, o, "Por recibir"))
         elif o.estado == Ocurrencia.BLOQUEADA:
             items.append((o.cargo_ejecuta, o, "Bloqueada"))
-        elif o.estado in PENDIENTES and o.fecha_limite < hoy:
+        elif o.estado in PENDIENTES and o.exigible < hoy:
             items.append((o.cargo_ejecuta, o, "Atrasada"))
     if propio:
         mios = permisos.cargos_vigentes_de(usuario)
@@ -159,7 +164,7 @@ def atencion(usuario, periodo, hoy: date, limite: int = 8) -> tuple[str, list]:
     if permisos.rol_de(usuario) == permisos.COLABORADOR:
         c = permisos.colaborador_de(usuario)
         propias = base.filter(colaborador=c, estado__in=PENDIENTES).order_by("fecha_limite", "tarea__secuencia")[:limite] if c else []
-        return "Mis tareas abiertas", [(o, "Atrasada" if o.fecha_limite < hoy else ("Bloqueada" if o.estado == Ocurrencia.BLOQUEADA else "Abierta")) for o in propias]
+        return "Mis tareas abiertas", [(o, "Atrasada" if o.exigible < hoy else ("Bloqueada" if o.estado == Ocurrencia.BLOQUEADA else "Abierta")) for o in propias]
     cargos = permisos.cargos_vigentes_de(usuario)
     lista, vistos = [], set()
 
@@ -170,7 +175,7 @@ def atencion(usuario, periodo, hoy: date, limite: int = 8) -> tuple[str, list]:
                 lista.append((o, etiqueta))
 
     agregar(base.filter(cargo_revisa_id__in=cargos, estado=Ocurrencia.HECHA, tipo_marca="HECHA").exclude(hecha_por=usuario).order_by("fecha_limite"), "Por revisar")
-    agregar(base.filter(cargo_revisa_id__in=cargos, estado__in=PENDIENTES, tipo_marca="RECIBIDA", fecha_limite__lte=hoy).order_by("fecha_limite"), "Por recibir")
+    agregar(base.filter(cargo_revisa_id__in=cargos, estado__in=PENDIENTES, tipo_marca="RECIBIDA", vence_el__lte=hoy).order_by("fecha_limite"), "Por recibir")
     agregar(base.filter(estado=Ocurrencia.BLOQUEADA).order_by("fecha_limite"), "Bloqueada")
-    agregar(base.filter(estado__in=PENDIENTES, fecha_limite__lt=hoy).order_by("fecha_limite", "tarea__secuencia"), "Atrasada")
+    agregar(base.filter(estado__in=PENDIENTES, vence_el__lt=hoy).order_by("fecha_limite", "tarea__secuencia"), "Atrasada")
     return "Requiere tu atención", lista

@@ -48,7 +48,7 @@ def test_la_jornada_es_9_horas_de_lunes_a_jueves_y_5_el_viernes_y_el_feriado_no_
     j = fila(m, "Jefa de Control")
     assert j.capacidad[MAR] == 9 and j.capacidad[JUE] == 9 and j.capacidad[VIE] == 5 and j.capacidad[date(2026, 12, 11)] == 5
     assert date(2026, 12, 8) not in j.capacidad  # el feriado no es un día de la matriz
-    assert [f.cargo.nombre for f in m.filas] == ["Gerente AyF", "Jefa de Control", "Contador Senior", "Analista Contable"]  # en el orden de los cargos
+    assert [f.cargo.nombre for f in m.filas] == ["Gerente AyF", "Jefa de Control", "Contador Senior", "Analista Contable", "Contador"]  # en el orden de los cargos
 
 
 def test_la_matriz_suma_las_horas_de_cada_persona_por_dia_y_la_revision_en_minutos(equipo):

@@ -27,6 +27,9 @@ FUENTE_DE_HORAS = {"estimada": "estimada", "ajustada": "ajustada"}  # «Original
 MINUTOS_AJUSTADOS = {9: 10}
 # Karla (03-11-2026, pregunta 6): la cuota de contribuciones vence el día 15 de abril, junio, septiembre y noviembre; si cae en día inhábil, se paga el hábil SIGUIENTE (el anterior, en noviembre de 2026, cae en el DH10 y pasa al Contador de su jornada de 5 h).
 DIA_DE_VENCIMIENTO = {"13-PBC.03.001": 15}
+# Karla (17-11-2026, pregunta 2): las dos tareas anuales se hacen en enero. El inventario anual dice «día hábil 30», que no existe (un mes tiene como máximo 23 hábiles): se toma como el día 30 del mes.
+MES_DE_LAS_TAREAS_ANUALES = {"24-IVS.01.003": 1, "28-PEI.06.002": 1}
+MAXIMO_DIAS_HABILES_DE_UN_MES = 23
 
 
 def _sin_acentos(texto: str) -> str:
@@ -187,6 +190,13 @@ def completar_regla(f, conversion):
     from dataclasses import replace
     dia = DIA_DE_VENCIMIENTO.get(f.extra["codigo"]) if f.extra else None
     r = conversion.regla
+    mes_anual = MES_DE_LAS_TAREAS_ANUALES.get(f.extra["codigo"]) if f.extra else None
+    if mes_anual and r is not None and r.tipo == "MESES" and not r.meses:
+        if r.n is not None and r.n > MAXIMO_DIAS_HABILES_DE_UN_MES:  # «día hábil 30» no existe: es el día 30 del mes (si es inhábil, el hábil anterior)
+            f.periodicidad, f.cuando = "Puntual", f"Día {r.n} de {imp.NOMBRES_DE_MES[mes_anual - 1]} (hábil anterior)"  # así lo escribe la app al exportar
+            return imp.Conversion(replace(r, meses=(mes_anual,), n=None, dia=r.n, ajuste="anterior"), nota=f"«Día hábil {r.n}» se toma como el día {r.n} del mes (Karla, 17-11-2026).")
+        f.periodicidad, f.cuando = "Puntual", f"Día hábil {r.n} de {imp.NOMBRES_DE_MES[mes_anual - 1]}"
+        return imp.Conversion(replace(r, meses=(mes_anual,)), nota="Anual en enero (Karla, 17-11-2026).")
     if dia and r is not None and r.tipo == "MESES" and r.dia is None:
         meses = ", ".join(imp.NOMBRES_DE_MES[m - 1] for m in r.meses)
         f.cuando = f"Día {dia} de {meses}"  # así lo escribe la app al exportar: la próxima carga no ve un cambio

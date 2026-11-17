@@ -133,7 +133,8 @@ def test_los_cargos_quedan_en_el_orden_de_karla_y_despues_los_externos():
     importador.aplicar(importador.previsualizar(EXCEL), usuario=None)
     nombres = list(Cargo.objects.values_list("nombre", flat=True))
     assert nombres[:4] == ["Gerente AyF", "Jefa de Control", "Contador Senior", "Analista Contable"]
-    assert set(nombres[4:]) == set(EXTERNOS)
+    assert nombres[4] == "Contador"  # cargo nuevo del equipo (Karla, 17-11-2026)
+    assert set(nombres[5:]) == set(EXTERNOS)
 
 
 @pytest.mark.django_db

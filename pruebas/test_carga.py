@@ -69,7 +69,7 @@ def test_los_externos_no_tienen_capacidad_y_las_tareas_sin_horas_se_avisan(mundo
 
 
 def test_se_listan_en_el_orden_de_los_cargos(mundo):
-    assert [f.cargo.nombre for f in carga.por_cargo()] == ["Gerente AyF", "Jefa de Control", "Contador Senior"]
+    assert [f.cargo.nombre for f in carga.por_cargo()] == ["Gerente AyF", "Jefa de Control", "Contador Senior", "Contador"]  # el «Contador» (cargo nuevo) va al final del equipo
 
 
 def test_carga_del_cierre_por_dia_habil_con_la_capacidad_que_deja_la_operacion(mundo):

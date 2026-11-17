@@ -12,6 +12,8 @@ INICIALES = {
     "horas_disponibles_mes": ("160", "pendiente_confirmar", "Horas al mes que una persona dedica a Huentelauquén (valor por defecto de la planificación)."),
     "dias_habiles_mes": ("21", "pendiente_confirmar", "Días hábiles de un mes típico, para repartir la carga por día."),
     "minutos_revision": ("0", "confirmado", "Minutos EXTRA que carga quien revisa cada ejecución. 0 = la revisión va dentro de las horas de quien ejecuta (Karla, 03-11-2026); una tarea puede tener su propio tiempo de revisión."),
+    "inicio_operacion": ("0", "pendiente_confirmar", "Primer día en que el equipo usa la app (AAAAMMDD). 0 = sin gracia de arranque. Lo anterior no cuenta como atrasado durante «dias_de_gracia»."),
+    "dias_de_gracia": ("21", "confirmado", "Días de gracia de arranque en que lo anterior al inicio de uso no se considera atrasado (Karla, 17-11-2026: 3 semanas)."),
     "carga_ambar": ("90", "pendiente_confirmar", "Desde este % de la capacidad la carga pasa a ámbar."),
     "carga_rojo": ("110", "pendiente_confirmar", "Sobre este % de la capacidad la carga pasa a rojo."),
     "tiempo_obligatorio": ("0", "confirmado", "1 = exigir minutos al marcar «hecha». Apagado en v1 (DEC-09)."),

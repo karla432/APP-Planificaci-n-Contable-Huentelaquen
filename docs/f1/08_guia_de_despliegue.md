@@ -61,8 +61,11 @@ Karla te entrega el Excel «Planificación vigente» (contiene datos reales de l
 ```bash
 sudo deploy/manage.sh cargar_plan /ruta/Planificacion_vigente.xlsx                 # solo muestra qué haría
 sudo deploy/manage.sh cargar_plan /ruta/Planificacion_vigente.xlsx --aplicar --confirmo-desactivar
-sudo deploy/manage.sh cargar_plan /ruta/Planificacion_vigente.xlsx --aplicar --confirmo-desactivar --abrir-mes 2026-11 --desde 2026-11-01
+sudo deploy/manage.sh cargar_plan /ruta/Planificacion_vigente.xlsx --aplicar --confirmo-desactivar --abrir-mes 2026-11 --desde 2026-11-01 \
+     --inicio-uso 2026-11-18 --dias-de-gracia 21
 ```
+`--desde` es el comienzo de la medición (01-11-2026). `--inicio-uso` es el primer día en que el equipo usa la app: lo **anterior** a esa fecha no cuenta como atrasado durante `--dias-de-gracia` (21 días: hasta el 09-12-2026) y aparece en «Mi día» como «Por registrar». Se puede cambiar después con `deploy/manage.sh configurar_gracia --inicio AAAA-MM-DD --dias 21` (o `--quitar`).
+Si el Excel trae otro texto donde va un cargo, `--cargo "TEXTO=CARGO"` lo traduce sin tocar el archivo (el cargo «Contador» ya existe).
 Antes de abrir el mes, Karla confirma los feriados del año y abre el año en la pantalla «Abrir mes» (2027 y 2028 ya vienen cargados; el 2026 lo confirma ella). **Fecha de comienzo: 01-11-2026.** Ten presente que, al abrir desde el 01-11, las tareas de noviembre cuya fecha ya pasó quedan generadas como pendientes y aparecen **atrasadas**: Karla debe decidir si las marca o si empieza la medición en una fecha posterior (`--desde`).
 Después, el equipo puede cambiar quién ejecuta cada tarea (en el detalle de la tarea) y Karla/Jefa pueden descargar, corregir y volver a cargar el plan desde Mantenedor → Tareas.
 

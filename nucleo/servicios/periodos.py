@@ -13,7 +13,7 @@ from datetime import date
 from django.db import transaction
 
 from nucleo.models import Anio, Asignacion, Ocurrencia, Periodo, Tarea
-from nucleo.servicios import auditoria
+from nucleo.servicios import auditoria, gracia
 from nucleo.servicios.errores import ErrorDeNegocio
 from nucleo.servicios.calendario import ventana_del_cierre
 from nucleo.servicios.feriados import calendario_confirmado
@@ -136,7 +136,7 @@ def abrir_mes(anio: int, mes: int, usuario, inicio_medicion: date | None = None)
     periodo, _ = Periodo.objects.get_or_create(anio=anio, mes=mes, defaults={"inicio_medicion": vp.inicio_medicion})
     Ocurrencia.objects.bulk_create([
         Ocurrencia(
-            tarea=i.tarea, periodo=periodo, fecha_limite=i.fecha, cargo_ejecuta=i.cargo_ejecuta or i.tarea.cargo_ejecuta, colaborador=i.colaborador,
+            tarea=i.tarea, periodo=periodo, fecha_limite=i.fecha, vence_el=gracia.vence_el_para(i.fecha), cargo_ejecuta=i.cargo_ejecuta or i.tarea.cargo_ejecuta, colaborador=i.colaborador,
             cargo_revisa=i.cargo_revisa if i.cargo_ejecuta else i.tarea.cargo_revisa, regla_copia=_regla_a_dict(i.tarea.regla()), minutos_estimados=i.tarea.minutos_estimados,
             tipo_marca="RECIBIDA" if (i.cargo_ejecuta or i.tarea.cargo_ejecuta).es_externo else "HECHA",
         )

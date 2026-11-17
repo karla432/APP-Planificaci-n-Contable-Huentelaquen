@@ -295,6 +295,7 @@ class Ocurrencia(models.Model):
     tarea = models.ForeignKey(Tarea, on_delete=models.PROTECT, related_name="ocurrencias")
     periodo = models.ForeignKey(Periodo, on_delete=models.PROTECT, related_name="ocurrencias")
     fecha_limite = models.DateField()
+    vence_el = models.DateField(null=True, blank=True, db_index=True, help_text="Desde cuándo se considera atrasada. Es la fecha límite, salvo en las tareas de antes del inicio de uso (3 semanas de gracia).")
     # Copias vigentes al generarse: cambios posteriores no reescriben el pasado.
     cargo_ejecuta = models.ForeignKey(Cargo, on_delete=models.PROTECT, related_name="+")
     colaborador = models.ForeignKey(Colaborador, null=True, blank=True, on_delete=models.PROTECT, related_name="ocurrencias")
@@ -319,6 +320,18 @@ class Ocurrencia(models.Model):
     class Meta:
         constraints = [models.UniqueConstraint(fields=["tarea", "periodo", "fecha_limite"], name="ocurrencia_unica")]
         ordering = ["fecha_limite", "tarea__codigo"]
+
+    def save(self, *args, **kwargs):
+        if self.vence_el is None:
+            self.vence_el = self.fecha_limite
+            if kwargs.get("update_fields") is not None:
+                kwargs["update_fields"] = {*kwargs["update_fields"], "vence_el"}
+        super().save(*args, **kwargs)
+
+    @property
+    def exigible(self):
+        """La fecha desde la cual la tarea cuenta como atrasada (la fecha límite, salvo la gracia de arranque)."""
+        return self.vence_el or self.fecha_limite
 
     @property
     def horas_reales(self) -> str:

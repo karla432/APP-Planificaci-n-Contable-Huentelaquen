@@ -121,7 +121,7 @@ def detalle(request, pk):
     return render(request, "nucleo/detalle.html", {
         "o": o, "hoy": reloj.hoy(), "acciones": ejecucion.acciones_disponibles(o, request.user), "historial": ejecucion.historial_de(o),
         "puede_horas": ejecucion.puede_registrar_horas(o, request.user), "puede_reasignar": ejecucion.puede_reasignar(o, request.user), "candidatos": ejecucion.candidatos_a_ejecutar(o) if ejecucion.puede_reasignar(o, request.user) else [], "yo_colaborador": permisos.colaborador_de(request.user), "ve_adjuntos": evidencias.puede_ver(request.user, o), "texto_adjuntos": evidencias.TEXTO, "puede_comentar": permisos.rol_de(request.user) in permisos.QUE_MARCAN and o.periodo.estado != "cerrado",
-        "periodicidad": reglas_texto.describir(o.tarea.regla(), o.tarea.regla_franja), "atrasada": o.estado in ("pendiente", "devuelta", "bloqueada") and o.fecha_limite < reloj.hoy(),
+        "periodicidad": reglas_texto.describir(o.tarea.regla(), o.tarea.regla_franja), "atrasada": o.estado in ("pendiente", "devuelta", "bloqueada") and o.exigible < reloj.hoy(),
         "dia_del_cierre": o.regla_copia.get("n") if o.regla_copia.get("tipo") == "CIERRE_DIA_HABIL" else None,
     })
 

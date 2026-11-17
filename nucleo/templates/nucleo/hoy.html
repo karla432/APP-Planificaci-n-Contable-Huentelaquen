@@ -10,6 +10,12 @@
   <ul class="lista">{% for o in agenda.hoy %}{% include "nucleo/_fila.html" with modo=es_mia|yesno:"mia,lectura" %}{% empty %}<li class="vacio">Nada vence hoy.</li>{% endfor %}</ul>
 </section>
 {% endif %}
+{% if agenda.por_registrar %}
+<section class="card"><h2>Por registrar <span class="pill p-grey contador">{{ agenda.por_registrar|length }}</span></h2>
+  <p class="meta">Son tareas de <strong>antes del {{ agenda.inicio_de_uso|date:"d-m-Y" }}</strong> (el inicio de uso de la app). Si ya las hiciste, márcalas como hechas. <strong>No cuentan como atrasadas hasta el {{ agenda.gracia_hasta|date:"d-m-Y" }}.</strong> Lo que quede sin hacer después de esa fecha se verá atrasado.</p>
+  <ul class="lista">{% for o in agenda.por_registrar %}{% include "nucleo/_fila.html" with modo=es_mia|yesno:"mia,lectura" %}{% endfor %}</ul>
+</section>
+{% endif %}
 {% if por_revisar %}
 <section class="card"><h2>Por revisar <span class="pill p-grey contador">{{ por_revisar|length }}</span></h2>
   <ul class="lista">{% for o in por_revisar %}{% include "nucleo/_fila.html" with modo="revisar" %}{% endfor %}</ul>

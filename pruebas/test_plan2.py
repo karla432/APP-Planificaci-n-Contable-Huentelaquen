@@ -326,14 +326,14 @@ def test_se_corrige_el_excel_vigente_y_la_app_toma_los_cambios_y_las_tareas_nuev
     t = Tarea.objects.get(codigo=Tarea.objects.get(subtarea="Arqueo de Caja y excepciones del día (corregido)").codigo)
     assert t.cargo_revisa.nombre == "Jefa de Control"
     trimestral = Tarea.objects.get(subtarea="Inventario trimestral interno")
-    assert (trimestral.regla_tipo, trimestral.regla_meses, trimestral.regla_n, trimestral.requiere_revision) == ("MESES", "1,4,7,10", 1, False)
+    assert (trimestral.regla_tipo, trimestral.regla_meses, trimestral.regla_n, trimestral.requiere_revision) == ("MESES", "3,6,9,12", 1, False)
     anual = Tarea.objects.get(subtarea="Saldo del swap")
     assert anual.requiere_revision and "mes" in anual.motivo_revision  # falta el mes del año: queda por revisar
     from nucleo.servicios.calendario import Calendario
     from nucleo.servicios.recurrencia import fechas_limite
-    # el 1 de enero es feriado: el DH01 de enero de 2027 es el lunes 4
-    assert fechas_limite(trimestral.regla(), 2027, 1, Calendario([date(2027, 1, 1)])) == [date(2027, 1, 4)]
-    assert fechas_limite(trimestral.regla(), 2026, 12, Calendario([])) == []
+    # Karla (17-11-2026): el inventario trimestral empieza en marzo (marzo, junio, septiembre y diciembre), el día hábil 1
+    assert fechas_limite(trimestral.regla(), 2027, 3, Calendario([])) == [date(2027, 3, 1)] and fechas_limite(trimestral.regla(), 2026, 12, Calendario([date(2026, 12, 8)])) == [date(2026, 12, 1)]
+    assert fechas_limite(trimestral.regla(), 2027, 1, Calendario([])) == [] and fechas_limite(trimestral.regla(), 2027, 4, Calendario([])) == []
     assert Tarea.objects.filter(activa=True).count() == 209
 
 
@@ -352,3 +352,76 @@ def test_el_boton_descarga_la_planificacion_vigente_solo_para_gerente_y_jefatura
     colab = Client()
     colab.force_login(usuario_con_rol("cont", "COLABORADOR", persona("Cont", Cargo.objects.get(nombre="Contador Senior"))))
     assert colab.get(reverse("mant_plan_vigente_exportar")).status_code == 403
+
+
+# ---- Respuestas de Karla del 17-11-2026 ---------------------------------------------------------------------------------------------------
+
+
+def _con_filas_nuevas(contenido, filas):
+    import io
+    import openpyxl
+    wb = openpyxl.load_workbook(io.BytesIO(contenido))
+    hoja = wb["Plan vigente"]
+    col = {c.value: i + 1 for i, c in enumerate(hoja[1])}
+    for fila in filas:
+        n = hoja.max_row + 1
+        for k, v in fila.items():
+            hoja.cell(row=n, column=col[k], value=v)
+    s = io.BytesIO()
+    wb.save(s)
+    return s.getvalue()
+
+
+def test_las_dos_tareas_anuales_son_de_enero_y_el_dia_habil_30_se_toma_como_el_dia_30(cargado):
+    import io
+    from nucleo.servicios import plan_vigente
+    from nucleo.servicios.calendario import Calendario
+    from nucleo.servicios.recurrencia import fechas_limite
+    anio_abierto(feriados=())
+    contenido = _con_filas_nuevas(plan_vigente.exportar(2026, 11), [
+        {"Código": "24-IVS.01.003", "Proceso": "24-IVS · Inversiones", "Tarea principal": "Solicitud de Informacion al Banco", "Subtarea": "Saldo de el swap", "Responsable (ejecuta)": "Jefa de Control",
+         "Revisa": "Gerente AyF", "Periodicidad": "Anual", "Cuándo": "Dia habil 1", "Horas por ejecución": 0.25},
+        {"Código": "28-PEI.06.002", "Proceso": "28-PEI · Producción e inventario", "Tarea principal": "Inventario", "Subtarea": "Inventario anual con agente externo", "Responsable (ejecuta)": "Jefa de Control",
+         "Periodicidad": "Anual", "Cuándo": "Dia habil 30"}])
+    importador.aplicar(importador.previsualizar(io.BytesIO(contenido), incluir_dia_9=False), usuario=None)
+    swap = Tarea.objects.get(subtarea="Saldo de el swap")
+    inventario = Tarea.objects.get(subtarea="Inventario anual con agente externo")
+    assert not swap.requiere_revision and not inventario.requiere_revision
+    assert (swap.regla_meses, swap.regla_n) == ("1", 1) and (inventario.regla_meses, inventario.regla_dia, inventario.regla_n) == ("1", 30, None)
+    cal = Calendario([date(2027, 1, 1)])
+    assert fechas_limite(swap.regla(), 2027, 1, cal) == [date(2027, 1, 4)] and fechas_limite(swap.regla(), 2027, 2, cal) == []
+    assert fechas_limite(inventario.regla(), 2027, 1, cal) == [date(2027, 1, 29)]  # el 30-01-2027 es sábado: el hábil anterior
+
+
+def test_el_responsable_que_trae_un_nombre_de_persona_se_traduce_al_cargo_contador(base):
+    import io
+    from nucleo.models import Cargo
+    from nucleo.servicios import plan_vigente
+    anio_abierto(feriados=())
+    importador.aplicar(importador.previsualizar(PLAN2, incluir_dia_9=False), usuario=None)
+    contenido = _con_filas_nuevas(plan_vigente.exportar(2026, 11), [
+        {"Código": "08-COM.09.009", "Proceso": "08-COM · Compras", "Tarea principal": "Orden por fecha de vencimiento", "Subtarea": "Ordenar y revisar los DTE de compras",
+         "Responsable (ejecuta)": "Persona Ejemplo", "Revisa": "Contador Senior", "Periodicidad": "Diaria", "Cuándo": "Todos los días hábiles", "Horas por ejecución": 2}])
+    sin = importador.previsualizar(io.BytesIO(contenido), incluir_dia_9=False)
+    assert sin.cargos_nuevos == ["Persona Ejemplo"]  # no inventa cargos: se detiene
+    vp = importador.previsualizar(io.BytesIO(contenido), incluir_dia_9=False, renombrar_cargos={"Persona Ejemplo": "Contador"})
+    assert vp.cargos_nuevos == [] and len(vp.altas) == 1
+    importador.aplicar(vp, usuario=None)
+    t = Tarea.objects.get(subtarea="Ordenar y revisar los DTE de compras")
+    assert t.cargo_ejecuta.nombre == "Contador" and t.cargo_revisa.nombre == "Contador Senior" and not t.cargo_ejecuta.es_externo
+    assert Cargo.objects.get(nombre="Contador").orden == 5
+
+
+def test_el_comando_carga_el_plan_con_la_traduccion_de_cargos_y_fija_la_gracia(cargado, tmp_path):
+    from django.core.management import call_command
+    from nucleo.servicios import gracia, plan_vigente
+    anio_abierto(feriados=())
+    ruta = tmp_path / "plan.xlsx"
+    ruta.write_bytes(_con_filas_nuevas(plan_vigente.exportar(2026, 11), [
+        {"Código": "08-COM.09.009", "Proceso": "08-COM · Compras", "Tarea principal": "Orden por fecha de vencimiento", "Subtarea": "Ordenar y revisar los DTE de compras",
+         "Responsable (ejecuta)": "Persona Ejemplo", "Revisa": "Contador Senior", "Periodicidad": "Diaria", "Cuándo": "Todos los días hábiles", "Horas por ejecución": 2}]))
+    with pytest.raises(Exception, match="cargos que no existen"):
+        call_command("cargar_plan", str(ruta))
+    call_command("cargar_plan", str(ruta), "--aplicar", "--cargo", "Persona Ejemplo=Contador", "--inicio-uso", "2026-11-18", "--dias-de-gracia", "21")
+    assert Tarea.objects.get(subtarea="Ordenar y revisar los DTE de compras").cargo_ejecuta.nombre == "Contador"
+    assert gracia.inicio_de_operacion() == date(2026, 11, 18) and gracia.gracia_hasta() == date(2026, 12, 9)

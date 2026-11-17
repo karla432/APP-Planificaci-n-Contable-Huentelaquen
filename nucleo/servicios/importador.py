@@ -38,7 +38,7 @@ NOMBRES_DE_CARGO = {"Contadora Senior": "Contador Senior", "Jefa Gestión y Cont
 CARGO_GERENTE = "Gerente AyF"
 CARGOS_EXTERNOS = {"Vendedor Stgo", "RR.HH.", "Jefe Bodega", "Gerencia", "Gerencia / Directorio", "Bodega", "Jefaturas de área", "Jefatura Lechería", "Rafael"}
 # Orden de los cargos en las listas (Karla, 31-10-2026): Gerente AyF, Jefa de Control, Contador Senior, Analista Contable; después los externos.
-ORDEN_CARGOS = {"Gerente AyF": 1, "Jefa de Control": 2, "Contador Senior": 3, "Analista Contable": 4}
+ORDEN_CARGOS = {"Gerente AyF": 1, "Jefa de Control": 2, "Contador Senior": 3, "Analista Contable": 4, "Contador": 5}
 ORDEN_EXTERNOS = 50
 DEDICACION_HORAS_MES = {"Gerente AyF": 80}  # Karla (01-11-2026): el Gerente AyF dedica como máximo 80 h al mes a Huentelauquén
 RELLENO_GERENTE = "FFE2EFDA"  # verde: horas definidas por la Gerente AyF (el resto es estimación base)
@@ -125,8 +125,8 @@ def convertir_regla(periodicidad, cuando, plan2: bool = False) -> Conversion:
             return Conversion(Regla("FIN_DE_MES", ajuste="anterior"), estado="pendiente_confirmar")
     elif per_l in ("trimestral", "trimestralmente", "anual", "anualmente") and re.fullmatch(r"dia habil (\d+)", cua_l):
         n = int(re.fullmatch(r"dia habil (\d+)", cua_l).group(1))
-        if per_l.startswith("trimestral"):  # supuesto de Legión: el primer mes de cada trimestre (enero, abril, julio y octubre)
-            return Conversion(Regla("MESES", meses=(1, 4, 7, 10), n=n), estado="pendiente_confirmar", nota="Trimestral: se asumen enero, abril, julio y octubre.")
+        if per_l.startswith("trimestral"):  # Karla (17-11-2026): empieza en marzo → marzo, junio, septiembre y diciembre
+            return Conversion(Regla("MESES", meses=(3, 6, 9, 12), n=n), nota="Trimestral desde marzo: marzo, junio, septiembre y diciembre.")
         return _revision("Falta el mes del año en que se hace (la tarea es anual).", Regla("MESES", meses=(), n=n))
     elif per_l in ("puntual", "anual"):
         if cua_l.startswith("al ") or cua_l == "segun vencimiento":
@@ -140,7 +140,7 @@ def convertir_regla(periodicidad, cuando, plan2: bool = False) -> Conversion:
         if con_dia and 1 <= int(con_dia.group(1)) <= 31:
             meses = tuple(sorted({n for nombre, n in MESES.items() if re.search(rf"\b{nombre}\b", con_dia.group(2))}))
             if meses:
-                return Conversion(Regla("MESES", meses=meses, dia=int(con_dia.group(1)), ajuste="siguiente"))
+                return Conversion(Regla("MESES", meses=meses, dia=int(con_dia.group(1)), ajuste="anterior" if "anterior" in con_dia.group(2) else "siguiente"))
         meses = tuple(sorted({n for nombre, n in MESES.items() if re.search(rf"\b{nombre}\b", cua_l)}))
         if meses:
             return _revision("Faltan el día del mes en que vence (el Excel solo indica los meses).", Regla("MESES", meses=meses))
@@ -386,11 +386,15 @@ def _chequear_fecha(fila: FilaImport, cal: Calendario) -> str | None:
     return None
 
 
-def previsualizar(ruta, calendario: Calendario | None = None, incluir_dia_9: bool = True) -> VistaPrevia:
+def previsualizar(ruta, calendario: Calendario | None = None, incluir_dia_9: bool = True, renombrar_cargos: dict | None = None) -> VistaPrevia:
     if calendario is None:
         from nucleo.models import Feriado
         calendario = Calendario(Feriado.objects.filter(confirmado=True).values_list("fecha", flat=True))
     filas = leer_excel(ruta)
+    if renombrar_cargos:  # «lo que dice el Excel» → cargo de la app (por ejemplo, si trae el nombre de una persona donde debe ir su cargo)
+        for f in filas:
+            f.ejecuta, f.revisa_excel = renombrar_cargos.get(f.ejecuta, f.ejecuta), renombrar_cargos.get(f.revisa_excel, f.revisa_excel)
+            f.cargo_cierre, f.revisa_cierre = renombrar_cargos.get(f.cargo_cierre, f.cargo_cierre), renombrar_cargos.get(f.revisa_cierre, f.revisa_cierre)
     es_plan2 = any(f.extra is not None for f in filas)
     if es_plan2:
         from nucleo.servicios import plan2

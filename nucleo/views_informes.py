@@ -71,7 +71,7 @@ def panel(request):
             "faltan_cierre": None if hoy > entregas[8] else presentacion.dias_habiles_texto(cal.dias_habiles_entre(hoy, entregas[8])),
             "faltan_directorio": None if hoy > entregas[10] else presentacion.dias_habiles_texto(cal.dias_habiles_entre(hoy, entregas[10])),
             "entregas": entregas,
-            "atrasadas": list(Ocurrencia.objects.filter(periodo=periodo, estado=Ocurrencia.PENDIENTE, fecha_limite__lt=hoy, tarea__regla_tipo__in=kpi.TIPOS_DE_CIERRE)
+            "atrasadas": list(Ocurrencia.objects.filter(periodo=periodo, estado=Ocurrencia.PENDIENTE, vence_el__lt=hoy, tarea__regla_tipo__in=kpi.TIPOS_DE_CIERRE)
                               .select_related("tarea__proceso", "colaborador", "cargo_ejecuta").order_by("fecha_limite", "tarea__codigo")[:8]),
         })
     return render(request, "nucleo/informe_panel.html", c)
@@ -146,7 +146,7 @@ def tablero(request):
             qs = qs.filter(colaborador=propia)
         columnas = {k: [] for k, _ in TITULOS_DEL_TABLERO}
         for o in qs.order_by("fecha_limite", "tarea__secuencia", "tarea__codigo"):
-            o.atrasada = o.estado in kpi.SIN_HACER + (Ocurrencia.DEVUELTA,) and o.fecha_limite < hoy
+            o.atrasada = o.estado in kpi.SIN_HACER + (Ocurrencia.DEVUELTA,) and o.exigible < hoy
             o.dia_cierre = o.regla_copia.get("n")
             columnas[columna_del_tablero(o)].append(o)
         abiertas = sum(len(columnas[k]) for k in ("pendiente", "bloqueada", "devuelta"))
@@ -160,11 +160,11 @@ DIAS_CORTOS = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"]
 
 
 def _clase_de_celda(ocs, hoy: date) -> str:
-    if any(o.estado in kpi.SIN_HACER + (Ocurrencia.DEVUELTA,) and o.fecha_limite < hoy for o in ocs):
+    if any(o.estado in kpi.SIN_HACER + (Ocurrencia.DEVUELTA,) and o.exigible < hoy for o in ocs):
         return "rd"
     if all(o.estado in kpi.HECHAS or o.estado == "recibida" for o in ocs):
         return "ok"
-    return "wr" if ocs[0].fecha_limite <= hoy else "gr"
+    return "wr" if ocs[0].exigible <= hoy else "gr"
 
 
 @login_required

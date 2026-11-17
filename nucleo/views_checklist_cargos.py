@@ -29,7 +29,7 @@ def cargos(request):
         filas.append({
             "cargo": cargo, "responsables": ", ".join(responsables.get(cargo.pk, [])) or "—", "total": len(ocs),
             "hechas": sum(o.estado in kpi.HECHAS for o in ocs),
-            "atrasadas": sum(o.estado in ("pendiente", "devuelta") and o.fecha_limite < hoy for o in ocs),
+            "atrasadas": sum(o.estado in ("pendiente", "devuelta") and o.exigible < hoy for o in ocs),
         })
     c["filas"] = filas
 
@@ -39,6 +39,6 @@ def cargos(request):
         for o in ocs:
             o.periodicidad = reglas_texto.describir(o.tarea.regla(), o.tarea.regla_franja)
             o.pendiente = o.estado in ("pendiente", "devuelta")
-            o.atrasada = o.pendiente and o.fecha_limite < hoy
+            o.atrasada = o.pendiente and o.exigible < hoy
         c.update({"detalle_cargo": cargo, "detalle": list(ocs), "detalle_responsables": responsables.get(cargo.pk, [])})
     return render(request, "nucleo/checklist_cargos.html", c)

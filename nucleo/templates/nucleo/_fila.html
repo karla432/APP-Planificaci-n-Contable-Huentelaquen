@@ -1,10 +1,10 @@
-<li class="fila{% if o.atraso or o.estado == "devuelta" or o.estado == "bloqueada" %} fila-atrasada{% elif o.fecha_limite == hoy %} fila-hoy{% endif %}">
+<li class="fila{% if o.atraso or o.estado == "devuelta" or o.estado == "bloqueada" %} fila-atrasada{% elif o.exigible == hoy %} fila-hoy{% endif %}">
   <div class="fila-texto">
     <span class="codigo">{{ o.tarea.codigo }}</span> <span class="proceso">{{ o.tarea.proceso.nombre }}</span>
     <p class="titulo"><a href="{% url 'detalle_ocurrencia' o.pk %}">{{ o.tarea.subtarea }}</a></p>
     <p class="meta">Vence el {{ o.fecha_limite|date:"d-m-Y" }}
       {% if o.atraso %}· <strong class="etiqueta etiqueta-rojo">⚠ Atrasada {{ o.atraso }} día{{ o.atraso|pluralize }}</strong>
-      {% elif o.fecha_limite == hoy %}· <strong class="etiqueta etiqueta-ambar">● Vence hoy</strong>{% endif %}
+      {% elif o.exigible == hoy %}· <strong class="etiqueta etiqueta-ambar">● Vence hoy</strong>{% endif %}
       {% if o.estado == "devuelta" %}· <strong class="etiqueta etiqueta-rojo">↩ Devuelta</strong>{% endif %}
       {% if o.estado == "bloqueada" %}· <strong class="etiqueta etiqueta-rojo">⛔ Bloqueada</strong>{% endif %}
       {% if o.por_excepcion %}· <strong class="etiqueta etiqueta-ambar">Marcada por excepción</strong>{% endif %}

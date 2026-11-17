@@ -4,7 +4,7 @@ from datetime import datetime
 
 from django.core.management.base import BaseCommand, CommandError
 
-from nucleo.servicios import importador, periodos
+from nucleo.servicios import gracia, importador, periodos
 from nucleo.servicios.errores import ErrorDeNegocio
 
 
@@ -17,10 +17,19 @@ class Command(BaseCommand):
         parser.add_argument("--confirmo-desactivar", action="store_true", help="Acepta desactivar las tareas que el archivo ya no trae.")
         parser.add_argument("--abrir-mes", help="Mes a abrir después de cargar, AAAA-MM (por ejemplo 2026-11).")
         parser.add_argument("--desde", help="Fecha de comienzo de la medición, AAAA-MM-DD (por ejemplo 2026-11-01).")
+        parser.add_argument("--inicio-uso", help="Primer día en que el equipo usa la app, AAAA-MM-DD. Lo anterior no cuenta como atrasado durante la gracia.")
+        parser.add_argument("--dias-de-gracia", type=int, default=21)
+        parser.add_argument("--cargo", action="append", default=[], metavar="TEXTO=CARGO", help="Si el Excel trae otro texto donde va un cargo (por ejemplo el nombre de una persona), dice a qué cargo corresponde. Se puede repetir.")
 
-    def handle(self, *args, archivo, aplicar, confirmo_desactivar, abrir_mes, desde, **opciones):
+    def handle(self, *args, archivo, aplicar, confirmo_desactivar, abrir_mes, desde, inicio_uso, dias_de_gracia, cargo, **opciones):
+        equivalencias = {}
+        for par in cargo:
+            if "=" not in par:
+                raise CommandError(f"--cargo debe ser «TEXTO=CARGO» (recibí «{par}»).")
+            texto, destino = par.split("=", 1)
+            equivalencias[texto.strip()] = destino.strip()
         try:
-            vp = importador.previsualizar(archivo, incluir_dia_9=False)
+            vp = importador.previsualizar(archivo, incluir_dia_9=False, renombrar_cargos=equivalencias)
         except Exception as e:  # el archivo no es un Excel del plan
             raise CommandError(f"No pude leer el archivo: {e}") from e
         self.stdout.write(f"Filas: {vp.total_filas} · nuevas: {len(vp.altas)} · modificadas: {len(vp.cambios)} · a desactivar: {len(vp.bajas)} · por revisar: {len(vp.requieren_revision)}")
@@ -37,6 +46,12 @@ class Command(BaseCommand):
             raise CommandError("El archivo desactivaría tareas: revisa la lista y repite con --confirmo-desactivar.")
         resumen = importador.aplicar(vp, usuario=None, detalle={"archivo": str(archivo)[-80:], "por": "consola"})
         self.stdout.write(self.style.SUCCESS(f"Plan cargado: {resumen}"))
+        if inicio_uso:
+            try:
+                cuantas = gracia.configurar(datetime.strptime(inicio_uso, "%Y-%m-%d").date(), dias_de_gracia)
+            except ValueError as e:
+                raise CommandError(f"Inicio de uso inválido: {e}") from e
+            self.stdout.write(self.style.SUCCESS(f"Gracia: lo anterior al {inicio_uso} no cuenta como atrasado hasta el {gracia.gracia_hasta():%d-%m-%Y} ({cuantas} tareas ya generadas)."))
         if abrir_mes:
             try:
                 anio, mes = (int(x) for x in abrir_mes.split("-"))

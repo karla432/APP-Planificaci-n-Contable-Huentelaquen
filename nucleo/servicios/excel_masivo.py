@@ -86,7 +86,7 @@ def texto_de_periodicidad(t: Tarea) -> tuple[str, str]:
         meses = ", ".join(MESES[m - 1] for m in r.meses)
         if r.n is not None and r.dia is None:
             return "Puntual", f"Día hábil {r.n} de {meses}"
-        return "Puntual", (f"Día {r.dia} de {meses}" if r.dia else meses.capitalize())
+        return "Puntual", (f"Día {r.dia} de {meses}" + (" (hábil anterior)" if r.ajuste == "anterior" else "") if r.dia else meses.capitalize())
     return "Puntual", "Al ocurrir el evento"
 
 

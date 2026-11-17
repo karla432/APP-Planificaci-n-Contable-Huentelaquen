@@ -76,7 +76,7 @@ class KpiPersona:
 
 
 def _a_tiempo(o: Ocurrencia) -> bool:
-    return o.primera_hecha_en is not None and _dia_local(o.primera_hecha_en) <= o.fecha_limite
+    return o.primera_hecha_en is not None and _dia_local(o.primera_hecha_en) <= o.exigible
 
 
 def por_colaborador(periodo, hoy: date) -> list[KpiPersona]:
@@ -87,7 +87,7 @@ def por_colaborador(periodo, hoy: date) -> list[KpiPersona]:
             k.con_primera_hecha += 1
             if o.veces_devuelta > 0:
                 k.devueltas += 1
-        if o.fecha_limite >= hoy:
+        if o.exigible >= hoy:
             continue
         k.vencidas_con_no_aplica += 1
         if o.estado == Ocurrencia.NO_APLICA:
@@ -114,7 +114,7 @@ class InsumoCargo:
 def insumos_por_cargo_externo(periodo, hoy: date) -> list[InsumoCargo]:
     """«Cumplimiento de insumos por área»: lo que recibe la Jefa de los responsables externos. No entra al KPI de nadie."""
     filas: dict[int, InsumoCargo] = {}
-    for o in Ocurrencia.objects.filter(periodo=periodo, cargo_ejecuta__es_externo=True, fecha_limite__lt=hoy).exclude(estado=Ocurrencia.NO_APLICA).select_related("cargo_ejecuta"):
+    for o in Ocurrencia.objects.filter(periodo=periodo, cargo_ejecuta__es_externo=True, vence_el__lt=hoy).exclude(estado=Ocurrencia.NO_APLICA).select_related("cargo_ejecuta"):
         i = filas.setdefault(o.cargo_ejecuta_id, InsumoCargo(o.cargo_ejecuta))
         i.vencidas += 1
         i.a_tiempo += _a_tiempo(o)
@@ -197,7 +197,7 @@ def ruta_del_cierre(periodo, hoy: date) -> list[RutaDia]:
             continue
         r.total += 1
         r.hechas += o.estado in HECHAS
-        r.atrasadas += o.estado in SIN_HACER and o.fecha_limite < hoy
+        r.atrasadas += o.estado in SIN_HACER and o.exigible < hoy
     return [ruta[f] for _, f in dias]
 
 
@@ -240,9 +240,9 @@ def resumen(periodo, hoy: date) -> Resumen:
     for o in _cierre(periodo):
         r.total += 1
         r.hechas += o.estado in HECHAS
-        r.atrasadas += o.estado in SIN_HACER and o.fecha_limite < hoy
-        r.vencen_hoy += o.estado in SIN_HACER and o.fecha_limite == hoy
-        r.vencen_a_la_fecha += o.fecha_limite <= hoy
+        r.atrasadas += o.estado in SIN_HACER and o.exigible < hoy
+        r.vencen_hoy += o.estado in SIN_HACER and o.exigible == hoy
+        r.vencen_a_la_fecha += o.exigible <= hoy
         r.revisadas += o.estado == Ocurrencia.REVISADA
         r.por_revisar += o.estado == Ocurrencia.HECHA and o.tipo_marca == "HECHA" and o.cargo_revisa_id is not None
         r.pendientes += o.estado in (Ocurrencia.PENDIENTE, Ocurrencia.DEVUELTA)
@@ -271,7 +271,7 @@ def avance_por_proceso(periodo, hoy: date) -> list[AvanceProceso]:
         a.total += 1
         a.hechas += o.estado in HECHAS
         if o.estado in SIN_HACER:
-            if o.fecha_limite < hoy:
+            if o.exigible < hoy:
                 a.estado = "atrasado"
             elif a.estado != "atrasado":
                 a.estado = "por_vencer"
@@ -292,7 +292,7 @@ def tareas_del_cierre(periodo, hoy: date, ver: str = "", fecha: date | None = No
     if fecha is not None:
         qs = qs.filter(fecha_limite=fecha)
     filtros = {
-        "atrasadas": lambda o: o.estado in SIN_HACER and o.fecha_limite < hoy,
+        "atrasadas": lambda o: o.estado in SIN_HACER and o.exigible < hoy,
         "pendientes": lambda o: o.estado in (Ocurrencia.PENDIENTE, Ocurrencia.DEVUELTA),
         "por_revisar": lambda o: o.estado == Ocurrencia.HECHA and o.tipo_marca == "HECHA" and o.cargo_revisa_id is not None,
         "bloqueadas": lambda o: o.estado == Ocurrencia.BLOQUEADA,
@@ -300,7 +300,7 @@ def tareas_del_cierre(periodo, hoy: date, ver: str = "", fecha: date | None = No
     }
     lista = [o for o in qs if ver not in filtros or filtros[ver](o)]
     for o in lista:
-        o.atrasada = o.estado in SIN_HACER + (Ocurrencia.DEVUELTA,) and o.fecha_limite < hoy
+        o.atrasada = o.estado in SIN_HACER + (Ocurrencia.DEVUELTA,) and o.exigible < hoy
     return sorted(lista, key=lambda o: (o.tarea.proceso.orden, o.fecha_limite, o.tarea.codigo))
 
 
