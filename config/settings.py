@@ -19,6 +19,7 @@ if ENTORNO not in ("desarrollo", "produccion"):
     raise ImproperlyConfigured("PLANIFICACION_ENTORNO debe ser «desarrollo» o «produccion».")
 PRODUCCION = ENTORNO == "produccion"
 ACCESO_RAPIDO = acceso_rapido_permitido(os.environ.get("PLANIFICACION_SIN_CLAVE"), PRODUCCION)  # solo desarrollo local
+EXIGE_2FA = PRODUCCION or os.environ.get("PLANIFICACION_2FA") == "1"  # en producción el segundo factor no se puede apagar (Gerente AyF y administrador)
 
 
 def _lista_de_entorno(nombre: str) -> list[str]:
@@ -82,6 +83,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "nucleo.segundo_factor_middleware.SegundoFactorMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]

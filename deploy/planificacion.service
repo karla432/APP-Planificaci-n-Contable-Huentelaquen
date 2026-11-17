@@ -1,0 +1,25 @@
+# /etc/systemd/system/planificacion.service
+# Planificación Contable Huentelauquén · servicio de la aplicación (gunicorn detrás de nginx).
+# Eugenio: ajusta las rutas si instala en otro lugar. Ver docs/f1/08_guia_de_despliegue.md.
+[Unit]
+Description=Planificación Contable Huentelauquén
+After=network.target
+
+[Service]
+User=planificacion
+Group=planificacion
+WorkingDirectory=/opt/planificacion/app
+EnvironmentFile=/etc/planificacion/planificacion.env
+# Dos procesos bastan: la base es SQLite con WAL y el uso es de un equipo pequeño.
+ExecStart=/opt/planificacion/venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8010 --workers 2 --timeout 60 --access-logfile - --error-logfile -
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/planificacion /var/backups/planificacion /var/log/planificacion
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

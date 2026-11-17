@@ -32,8 +32,13 @@ Karla Meneses, Gerente de Administración y Finanzas de Hacienda Huentelauquén.
 - Techo de planificación por día: 90 % (DH00–DH06), 80 % DH07, 75 % DH08, 85 % DH09, 95 % DH10.
 - La pantalla «Matriz del cierre» muestra el plan vigente; la propuesta de equilibrio es opcional (`?ver=propuesta`).
 
-## Estado al 03-11-2026
-Hecho y con pruebas (674): Planificación 2.0 cargada (206 tareas activas, 224 predecesoras), matriz con hitos/dependencias/techo, horas reales por usuario, carga masiva Excel de tareas y procesos, estructura de 3 niveles (`OO-PPP.TT.SSS`), adjuntos en comentarios, calendario 2027–2028, QA de Karla aplicado. Rama de trabajo: `claude/peaceful-ride-ysf0iw` (último commit `acfd98b`).
+## Estado al 17-11-2026
+Hecho y con pruebas (713): Planificación 2.0 cargada, matriz con hitos/dependencias/techo, **Excel «Planificación vigente» descargable y recargable**, tareas trimestrales y anuales, **cualquier persona del equipo puede cambiar quién ejecuta una tarea** (DEC-41), mejoras de visibilidad de las listas de tareas, **segundo factor (TOTP) para Gerente y administrador** (DEC-42), **cambiar mi clave**, y los comandos de operación `crear_usuario`, `recuperar_acceso`, `verificar_bitacora`, `respaldar`, `verificar_respaldo` y `cargar_plan`. Kit de despliegue en `deploy/` y guía en `docs/f1/08_guia_de_despliegue.md` (para Eugenio).
+Rama de trabajo: `claude/peaceful-ride-ysf0iw`.
+
+**Producción: NO está aprobada ni hecha.** Karla pidió (17-11-2026) dejar todo listo para que Eugenio despliegue ese mismo día, con fecha de comienzo 01-11-2026. Falta: la aprobación escrita de Karla (G3) y la de Eugenio, y la lista de aceptación de la sección 7 de la guía, que solo se comprueba en el servidor real. Nada del kit de despliegue se ha probado en un servidor.
+
+**Preguntas pendientes para Karla (de a una):** (1) la tarea 08-COM.03.002 trae el nombre de una persona como responsable: debe ser un CARGO; (2) en qué mes del año se hacen las dos tareas anuales (saldo del swap 24-IVS.01.003 e inventario anual con agente externo 28-PEI.06.002, que dice «día hábil 30»); (3) confirmar que el inventario trimestral va en enero, abril, julio y octubre; (4) qué hacer con las tareas de noviembre ya vencidas al abrir el mes desde el 01-11 (quedan atrasadas).
 
 ## Confirmaciones de Karla sobre la Planificación 2.0 (DEC-40)
 Resueltas el 03-11-2026: (1) se desactivan las 8 tareas que el plan ya no trae; (2) la app asigna el código que corresponda; (3) «Cierre contable general» es proceso propio (36-CCG); (4) duraciones del archivo y las de 9 minutos pasan a 10; (5) el hito 00-CTL.03.001 es del DH04 (texto corregido).

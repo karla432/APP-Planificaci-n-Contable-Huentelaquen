@@ -1,7 +1,7 @@
 from django.contrib.auth import views as auth_views
 from django.urls import path
 
-from nucleo import views, views_apertura, views_checklist_cargos, views_informes, views_mantenedor, views_planificacion
+from nucleo import views, views_apertura, views_checklist_cargos, views_cuenta, views_informes, views_mantenedor, views_planificacion
 from nucleo.autenticacion import FormularioDeIngreso
 
 urlpatterns = [
@@ -39,4 +39,7 @@ urlpatterns = [
     path("ocurrencias/<int:pk>/<str:accion>/", views.ocurrencia_accion, name="ocurrencia_accion"),
     path("ingresar/", auth_views.LoginView.as_view(template_name="nucleo/login.html", authentication_form=FormularioDeIngreso, redirect_authenticated_user=True), name="login"),
     path("salir/", auth_views.LogoutView.as_view(next_page="login"), name="logout"),
+    path("cuenta/segundo-factor/", views_cuenta.segundo_factor_vista, name="segundo_factor"),
+    path("cuenta/clave/", auth_views.PasswordChangeView.as_view(template_name="nucleo/cambiar_clave.html", success_url="/cuenta/clave/lista/"), name="cambiar_clave"),
+    path("cuenta/clave/lista/", views_cuenta.clave_cambiada, name="clave_cambiada"),
 ]

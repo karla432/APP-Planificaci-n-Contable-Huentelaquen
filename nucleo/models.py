@@ -385,3 +385,17 @@ class IntentoFallido(models.Model):
     nombre = models.CharField(max_length=150, db_index=True)
     momento = models.DateTimeField(default=timezone.now, db_index=True)
     origen = models.CharField(max_length=100, blank=True)
+
+
+class SegundoFactor(models.Model):
+    """Segundo factor de ingreso (TOTP, RFC 6238) de una cuenta. Es obligatorio para el Gerente AyF y el administrador del sistema.
+
+    El secreto vive en la base de datos (que debe estar protegida y respaldada cifrada): quien lea la base puede generar los códigos.
+    `ultimo_paso` impide usar dos veces el mismo código."""
+
+    usuario = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="segundo_factor")
+    secreto = models.CharField(max_length=64)
+    confirmado = models.BooleanField(default=False, help_text="Ya se verificó un código con la aplicación de la persona.")
+    visible_en_pantalla = models.BooleanField(default=False, help_text="La clave se muestra en la pantalla de alta mientras no se confirme (alta hecha por la propia persona).")
+    ultimo_paso = models.BigIntegerField(default=0)
+    creado_en = models.DateTimeField(auto_now_add=True)

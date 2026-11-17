@@ -9,7 +9,7 @@
 <body>
 {% if modo_prueba %}<p class="franja-prueba">MODO DE PRUEBA SIN CLAVE · solo en tu computador · datos de ejemplo</p>{% endif %}
 <div class="layout">
-  {% if user.is_authenticated %}<nav class="sidebar" aria-label="Menú principal">
+  {% if user.is_authenticated and not solo_2fa %}<nav class="sidebar" aria-label="Menú principal">
     <div class="marca">Hacienda<br>Huentelauquén<small>Planificación contable</small></div>
 
     <div class="nav-sec">Informes</div>
@@ -45,6 +45,7 @@
 
     <div class="sidebar-pie">
       <div>{{ user.get_username }} · {{ rol|default:"sin perfil" }}</div>
+      <a class="nav-i" href="{% url 'cambiar_clave' %}" style="padding-left:0">Cambiar mi clave</a>
       <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="btn btn-2 btn-sm" type="submit">Salir</button></form>
     </div>
   </nav>{% endif %}

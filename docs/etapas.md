@@ -5,7 +5,7 @@
 | 1 | Diseño técnico (`docs/f1/`) | Papel | Documentos | Karla (G1) | Hecho |
 | 2 | **Construcción y prueba local, sin claves** | Tu computador, con datos de EJEMPLO | La web real, para probar y corregir | Karla, en cada pantalla | **Aquí estamos** |
 | 3 | Prueba de aceptación con el equipo | Tu computador | Todo el flujo, sin datos reales | Karla (G2) | Pendiente |
-| 4 | **Seguridad e ingreso con claves** (últimas etapas) | Tu computador | Ingreso con clave de 12+ caracteres, bloqueo, 2FA, respaldo restaurado | Karla | Pendiente |
+| 4 | **Seguridad e ingreso con claves** (últimas etapas) | Tu computador | Ingreso con clave de 12+ caracteres, bloqueo, 2FA, respaldo restaurado | Karla | **Construido y probado en desarrollo (17-11-2026); falta probarlo en el servidor** |
 | 5 | Despliegue en el servidor OpenCloud | Servidor propio, con HTTPS | La app definitiva | Karla (G3, por escrito) y Eugenio, que despliega | Pendiente |
 | 6 | Puesta en marcha y estabilización | Servidor | Primer cierre real | Karla | Pendiente |
 

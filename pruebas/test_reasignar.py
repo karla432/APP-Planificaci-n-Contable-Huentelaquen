@@ -1,11 +1,11 @@
 """Cambiar quién ejecuta una tarea (Karla, 17-11-2026): en la reestructuración cualquiera del equipo puede pasarla a otra persona o tomarla."""
-from datetime import date
+
 
 import pytest
 from django.test import Client
 from django.urls import reverse
 
-from nucleo.models import Asignacion, Colaborador, EventoAuditoria, Ocurrencia
+from nucleo.models import Colaborador, EventoAuditoria, Ocurrencia
 from nucleo.servicios import ejecucion, periodos
 from nucleo.servicios.errores import ErrorDeNegocio, PermisoDenegado
 from pruebas.ayudas import anio_abierto, cargo, persona, tarea, usuario_con_rol

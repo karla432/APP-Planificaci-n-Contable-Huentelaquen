@@ -1,0 +1,20 @@
+{% extends "nucleo/base.html" %}
+{% block titulo %}Código de seguridad{% endblock %}
+{% block contenido %}
+<section class="tarjeta tarjeta-angosta">
+  <h1>Código de seguridad</h1>
+  {% if mostrar_clave %}
+  <p>Tu cuenta necesita un segundo paso de seguridad. <strong>Primera vez:</strong> agrega esta cuenta en una aplicación de códigos en tu teléfono (Google Authenticator o Microsoft Authenticator).</p>
+  {% if qr %}<div class="qr" aria-label="Código QR para la aplicación">{{ qr|safe }}</div><p class="meta">Escanea el código con la aplicación, o escribe la clave a mano:</p>
+  {% else %}<p class="meta">En la aplicación elige «Agregar cuenta» → «Ingresar una clave de configuración» y escribe esta clave:</p>{% endif %}
+  <p><strong style="font-size:1.25rem;letter-spacing:2px;word-break:break-all">{{ clave }}</strong></p>
+  <p class="meta">Tipo de clave: basada en tiempo. Después escribe aquí el código de 6 números que muestra la aplicación.</p>
+  {% else %}<p>Escribe el código de 6 números que muestra la aplicación de códigos de tu teléfono.</p>{% endif %}
+  <form method="post">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ siguiente }}">
+    <label for="codigo">Código</label>
+    <input id="codigo" name="codigo" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]*" maxlength="8" required autofocus>
+    <button type="submit" class="boton">Verificar</button>
+  </form>
+  <p class="meta"><a href="{% url 'logout' %}">Salir</a>. ¿Cambiaste de teléfono? Pide al administrador que reinicie tu segundo factor.</p>
+</section>
+{% endblock %}

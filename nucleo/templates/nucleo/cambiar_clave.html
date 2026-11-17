@@ -1,0 +1,13 @@
+{% extends "nucleo/base.html" %}
+{% block titulo %}Cambiar mi clave{% endblock %}
+{% block contenido %}
+<section class="tarjeta tarjeta-angosta">
+  <h1>Cambiar mi clave</h1>
+  <p class="meta">La clave nueva debe tener al menos 12 caracteres y no puede ser muy parecida a tu usuario ni una clave común.</p>
+  <form method="post">{% csrf_token %}
+    {% for campo in form %}<label for="{{ campo.id_for_label }}">{{ campo.label }}</label>{{ campo }}{% for e in campo.errors %}<p class="error" role="alert">{{ e }}</p>{% endfor %}{% endfor %}
+    {% if form.non_field_errors %}<p class="error" role="alert">{{ form.non_field_errors.0 }}</p>{% endif %}
+    <button type="submit" class="boton">Cambiar clave</button>
+  </form>
+</section>
+{% endblock %}
