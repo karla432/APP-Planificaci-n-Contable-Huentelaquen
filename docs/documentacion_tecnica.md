@@ -228,7 +228,7 @@ Reglas de la arquitectura (confirmadas en el código):
 
 | Archivo | Para qué sirve |
 |---|---|
-| `planificacion.service` | Unidad systemd: gunicorn en `127.0.0.1:8010`, 2 procesos, usuario `planificacion`, endurecida |
+| `planificacion.service` | Unidad systemd: gunicorn en `127.0.0.1:8002`, 2 procesos, usuario `planificacion`, endurecida |
 | `nginx-planificacion.conf` | Proxy inverso con TLS (certbot), `/static/` y límite de subida de 12 MB |
 | `planificacion.env.example` | Variables de entorno de producción (copiar a `/etc/planificacion/planificacion.env`) |
 | `manage.sh` | Ejecuta `manage.py` con el entorno de producción y como el usuario del servicio |
@@ -973,7 +973,7 @@ La configuración se lee solo de variables de entorno del proceso (`os.environ`)
 | `PLANIFICACION_SIN_CLAVE` | Vacío (apagado) | Con `1` habilita `/acceso-rapido/` **solo en desarrollo**; en producción impide arrancar | **No debe existir** en producción |
 | `PLANIFICACION_2FA` | Vacío | Con `1` exige segundo factor también en desarrollo; en producción siempre está activo | No |
 | `PLANIFICACION_HOY` | Vacío | Fija «hoy» (`AAAA-MM-DD`) para mostrar un día del cierre; solo desarrollo (en producción se ignora) | No |
-| `PLANIFICACION_RAIZ` | `/opt/planificacion/app` | Raíz del código; solo la leen `deploy/manage.sh` y `deploy/actualizar.sh` | Solo si se instala en otra ruta |
+| `PLANIFICACION_RAIZ` | `/srv/planificacion/app` | Raíz del código; solo la leen `deploy/manage.sh` y `deploy/actualizar.sh` | Solo si se instala en otra ruta |
 | `DJANGO_SETTINGS_MODULE` | `config.settings` | Lo fijan `manage.py` y `config/wsgi.py` si no está definida | No |
 
 ## 7.2 Qué cambia según el entorno
@@ -991,7 +991,7 @@ La configuración se lee solo de variables de entorno del proceso (`os.environ`)
 
 ## 7.3 Archivos de ejemplo
 
-- `deploy/planificacion.env.example`: la plantilla completa para `/etc/planificacion/planificacion.env` (permisos 600, dueño `planificacion`): entorno, secreto, hosts, orígenes CSRF, proxy, base, adjuntos, estáticos y respaldos. Trae marcadores como `CAMBIAR-POR-UNA-CLAVE-LARGA-Y-UNICA` y el dominio de ejemplo `planificacion.example.cl`.
+- `deploy/planificacion.env.example`: la plantilla completa para `/etc/planificacion/planificacion.env` (permisos 600, dueño `planificacion`): entorno, secreto, hosts, orígenes CSRF, proxy, base, adjuntos, estáticos y respaldos. Trae marcadores como `CAMBIAR-POR-UNA-CLAVE-LARGA-Y-UNICA` y el dominio de ejemplo `planificacion.finanzashuentelauquen.cl`.
 - `.env.example` (raíz): una versión reducida; no incluye adjuntos, estáticos ni respaldos.
 - Ninguno lleva valores reales. El archivo real vive fuera del repositorio (`.env` está en `.gitignore`).
 
@@ -1080,8 +1080,8 @@ La guía operativa completa es `docs/f1/08_guia_de_despliegue.md` (no se copia a
 
 | Archivo | Qué hace |
 |---|---|
-| `planificacion.service` | Unidad systemd: usuario y grupo `planificacion`; `EnvironmentFile=/etc/planificacion/planificacion.env`; gunicorn con `config.wsgi:application`, `--bind 127.0.0.1:8010`, `--workers 2`, `--timeout 60`; reinicio ante fallas; `NoNewPrivileges`, `PrivateTmp`, `ProtectSystem=strict`, `ProtectHome`, `UMask=0077` y escritura solo en `/var/lib/planificacion`, `/var/backups/planificacion` y `/var/log/planificacion` |
-| `nginx-planificacion.conf` | Redirige HTTP a HTTPS; `client_max_body_size 12m`; `server_tokens off`; sirve `/static/` desde `/var/www/planificacion/static/`; el resto va a `127.0.0.1:8010` con `Host`, `X-Forwarded-Proto` y `X-Forwarded-For`; los adjuntos **no** se sirven desde nginx; las líneas del certificado quedan para `certbot` |
+| `planificacion.service` | Unidad systemd: usuario y grupo `planificacion`; `EnvironmentFile=/etc/planificacion/planificacion.env`; gunicorn con `config.wsgi:application`, `--bind 127.0.0.1:8002`, `--workers 2`, `--timeout 60`; reinicio ante fallas; `NoNewPrivileges`, `PrivateTmp`, `ProtectSystem=strict`, `ProtectHome`, `UMask=0077` y escritura solo en `/var/lib/planificacion`, `/var/backups/planificacion` y `/var/log/planificacion` |
+| `nginx-planificacion.conf` | Sitio propio solo en el puerto 80 (certbot agrega el 443 y la redirección a HTTPS); cierra `/admin/` con 404; `client_max_body_size 12m`; `server_tokens off`; sirve `/static/` desde `/var/www/planificacion/static/`; el resto va a `127.0.0.1:8002` con `Host`, `X-Forwarded-Proto` y `X-Forwarded-For`; los adjuntos **no** se sirven desde nginx; las líneas del certificado quedan para `certbot` |
 | `planificacion.env.example` | Plantilla de variables (7.3) |
 | `manage.sh` | Carga el archivo de entorno y ejecuta `manage.py` con `sudo -E -u planificacion` |
 | `actualizar.sh` | Seis pasos: respaldo, código (`git fetch`, `checkout`, `pull --ff-only`), dependencias (`pip install -r requirements.lock.txt`), migraciones, estáticos, y reinicio con `check --deploy` y `verificar_bitacora` |

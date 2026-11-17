@@ -8,10 +8,10 @@ After=network.target
 [Service]
 User=planificacion
 Group=planificacion
-WorkingDirectory=/opt/planificacion/app
+WorkingDirectory=/srv/planificacion/app
 EnvironmentFile=/etc/planificacion/planificacion.env
 # Dos procesos bastan: la base es SQLite con WAL y el uso es de un equipo pequeño.
-ExecStart=/opt/planificacion/venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8010 --workers 2 --timeout 60 --access-logfile - --error-logfile -
+ExecStart=/srv/planificacion/venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8002 --workers 2 --timeout 60 --access-logfile - --error-logfile -
 Restart=on-failure
 RestartSec=5
 NoNewPrivileges=true

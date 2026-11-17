@@ -13,18 +13,19 @@ Una aplicación Django (gunicorn) detrás de nginx con HTTPS, base SQLite con WA
 4. Retención de respaldos (propuesta: 30 diarios) y de bitácora (propuesta: 5 años). Karla debe confirmarlas.
 
 ## 3. Instalación (resumen)
+> Para el VPS donde corre el Arqueo de Caja (Ubuntu 22.04, puerto 8002, `planificacion.finanzashuentelauquen.cl`) sigue **`deploy/README_DESPLIEGUE.md`**, paso a paso. Ojo: Ubuntu 22.04 trae Python 3.10 y Django 6.1 exige 3.12 o más.
 ```bash
 # Usuario, carpetas y permisos
-sudo useradd --system --home /opt/planificacion --shell /usr/sbin/nologin planificacion
-sudo mkdir -p /opt/planificacion /var/lib/planificacion/evidencias /var/backups/planificacion /var/log/planificacion /var/www/planificacion/static /etc/planificacion
-sudo chown -R planificacion:planificacion /opt/planificacion /var/lib/planificacion /var/backups/planificacion /var/log/planificacion /var/www/planificacion
+sudo useradd --system --home /srv/planificacion --shell /usr/sbin/nologin planificacion
+sudo mkdir -p /srv/planificacion /var/lib/planificacion/evidencias /var/backups/planificacion /var/log/planificacion /var/www/planificacion/static /etc/planificacion
+sudo chown -R planificacion:planificacion /srv/planificacion /var/lib/planificacion /var/backups/planificacion /var/log/planificacion /var/www/planificacion
 sudo chmod 700 /var/lib/planificacion /var/backups/planificacion
 
 # Código (rama aprobada) y entorno virtual
-sudo -u planificacion git clone https://github.com/karla432/app-planificaci-n-contable-huentelaquen.git /opt/planificacion/app
-cd /opt/planificacion/app && sudo -u planificacion git checkout RAMA_O_ETIQUETA_APROBADA
-sudo -u planificacion python3 -m venv /opt/planificacion/venv
-sudo -u planificacion /opt/planificacion/venv/bin/pip install -r requirements.lock.txt
+sudo -u planificacion git clone https://github.com/karla432/app-planificaci-n-contable-huentelaquen.git /srv/planificacion/app
+cd /srv/planificacion/app && sudo -u planificacion git checkout RAMA_O_ETIQUETA_APROBADA
+sudo -u planificacion python3 -m venv /srv/planificacion/venv
+sudo -u planificacion /srv/planificacion/venv/bin/pip install -r requirements.lock.txt
 ```
 ```bash
 # Variables de entorno (la clave secreta es distinta en cada servidor)

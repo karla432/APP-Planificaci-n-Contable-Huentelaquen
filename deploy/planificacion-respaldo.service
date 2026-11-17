@@ -1,0 +1,8 @@
+# /etc/systemd/system/planificacion-respaldo.service   (lo dispara planificacion-respaldo.timer)
+# Respaldo propio de Planificación Contable; no toca los respaldos del Arqueo.
+[Unit]
+Description=Respaldo diario de Planificación Contable Huentelauquén
+
+[Service]
+Type=oneshot
+ExecStart=/srv/planificacion/app/deploy/respaldo_diario.sh

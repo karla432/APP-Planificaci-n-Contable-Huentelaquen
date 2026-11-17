@@ -1,0 +1,11 @@
+# /etc/systemd/system/planificacion-respaldo.timer   (activar: systemctl enable --now planificacion-respaldo.timer)
+# 03:15 para no coincidir con otros respaldos nocturnos del servidor (ajustar si el Arqueo respalda a esa hora).
+[Unit]
+Description=Respaldo diario de Planificación Contable (03:15)
+
+[Timer]
+OnCalendar=*-*-* 03:15:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
