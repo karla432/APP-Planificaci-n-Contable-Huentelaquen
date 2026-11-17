@@ -45,25 +45,41 @@ La app **se niega a arrancar** en producción sin `DJANGO_SECRET_KEY` y `DJANGO_
 `check --deploy` deja solo una advertencia (W021, precarga HSTS): se deja así a propósito hasta que el dominio sea definitivo.
 
 ## 4. Cuentas
-Las cuentas reales se crean solo desde la consola (nunca van en el repositorio). Los cargos deben existir antes (se crean al cargar el plan, sección 5; si prefieres crear las cuentas antes, carga el plan primero).
+**Orden obligatorio en una base nueva** (la base nueva solo trae el cargo «Contador»; los demás cargos aparecen al cargar el plan):
+1. Cargar el plan **con `--crear-cargos`**, sin abrir el mes todavía (sección 5, paso A).
+2. Crear las cuentas (esta sección), siempre con `--desde 2026-01-01`.
+3. Que la Gerente ingrese, confirme los feriados de 2026 y abra el año en «Abrir mes».
+4. Abrir noviembre (sección 5, paso B).
+
+Las cuentas reales se crean solo desde la consola (nunca van en el repositorio). Los cargos deben existir antes (paso 1).
 ```bash
-sudo deploy/manage.sh crear_usuario USUARIO --rol GERENTE --nombre "Nombre de la persona" --cargo "Gerente AyF"
+sudo deploy/manage.sh crear_usuario USUARIO --rol GERENTE --nombre "Nombre de la persona" --cargo "Gerente AyF" --desde 2026-01-01
 ```
+**`--desde` importa:** sin él, el cargo se asigna con la fecha de hoy y, al abrir noviembre desde el 01-11, las tareas con fecha anterior **no encuentran responsable** y no se generan (aviso `sin_responsable`). Usa una fecha anterior al comienzo de la medición.
 La clave se pide por teclado (mínimo 12 caracteres). Roles: `GERENTE`, `JEFATURA`, `COLABORADOR`, `LECTURA`, `ADMIN_SISTEMA`.
 - **Gerente AyF y administrador tienen segundo factor obligatorio.** El comando muestra UNA vez la clave para la aplicación de códigos (Google/Microsoft Authenticator): entrégasela en privado. En su primer ingreso escribe el código de 6 números.
 - Cada persona puede cambiar su clave desde «Cambiar mi clave» (menú, abajo a la izquierda). **No se obliga a cambiarla en el primer ingreso**: pídele a cada persona que lo haga.
 - Cambió de teléfono o perdió la clave: `sudo deploy/manage.sh recuperar_acceso USUARIO --reiniciar-2fa` (pide clave nueva; con `--solo-desbloquear` solo quita el bloqueo).
 - Bloqueo: 5 intentos fallidos (clave o código) bloquean la cuenta 15 minutos.
 - Una persona sin cuenta en la app no ve nada.
+- Las cuentas que se crean desde el Mantenedor → Usuarios quedan **sin clave** y con el cargo asignado desde el día en que se crean: Eugenio debe darles clave con `recuperar_acceso USUARIO` y, si el mes ya se abrió con fechas anteriores, preferir crearlas por consola con `--desde`.
+- **`/admin/` (administración de Django) sigue publicado.** Una cuenta con `createsuperuser` no pasa por el segundo factor, porque no tiene perfil de la aplicación. No crees superusuarios en producción, o bloquea `/admin/` en nginx (ejemplo: `location /admin/ { return 404; }`) hasta decidir.
 
 ## 5. Cargar el plan y abrir el mes
 Karla te entrega el Excel «Planificación vigente» (contiene datos reales de la empresa: **no va al repositorio**). Ojo: el **responsable** de cada tarea es un **cargo** (por ejemplo «Contador Senior»), no el nombre de una persona; si el Excel trae un nombre, la carga se detiene y te lo dice.
+**Paso A — cargar el plan y crear los cargos** (base nueva; primero sin `--aplicar` para ver qué haría y qué cargos crearía):
 ```bash
-sudo deploy/manage.sh cargar_plan /ruta/Planificacion_vigente.xlsx                 # solo muestra qué haría
-sudo deploy/manage.sh cargar_plan /ruta/Planificacion_vigente.xlsx --aplicar --confirmo-desactivar
+sudo deploy/manage.sh cargar_plan /ruta/Planificacion_vigente.xlsx --crear-cargos                 # solo muestra qué haría
+sudo deploy/manage.sh cargar_plan /ruta/Planificacion_vigente.xlsx --crear-cargos --aplicar --confirmo-desactivar
+```
+Revisa la lista «Se crearán N cargos»: deben ser cargos, no nombres de personas (si trae un nombre, usa `--cargo "TEXTO=CARGO"`).
+
+**Paso B — después de crear las cuentas y de que la Gerente abra el año 2026**, abrir noviembre con la gracia:
+```bash
 sudo deploy/manage.sh cargar_plan /ruta/Planificacion_vigente.xlsx --aplicar --confirmo-desactivar --abrir-mes 2026-11 --desde 2026-11-01 \
      --inicio-uso 2026-11-01 --dias-de-gracia 21
 ```
+(Repetir la carga del mismo archivo no cambia nada: ya no hay diferencias.) Sin el año abierto, `--abrir-mes` falla.
 `--desde` es el comienzo de la medición (01-11-2026). `--inicio-uso` es el día desde el que corre la gracia (01-11-2026): durante `--dias-de-gracia` (21 días, **hasta el 22-11-2026**) nada cuenta como atrasado; lo ya vencido aparece en «Mi día» como «Por registrar» y las primeras atrasadas se ven desde el lunes 23-11. Se puede cambiar después con `deploy/manage.sh configurar_gracia --inicio AAAA-MM-DD --dias 21` (o `--quitar`).
 Si el Excel trae otro texto donde va un cargo, `--cargo "TEXTO=CARGO"` lo traduce sin tocar el archivo (el cargo «Contador» ya existe).
 Antes de abrir el mes, Karla confirma los feriados del año y abre el año en la pantalla «Abrir mes» (2027 y 2028 ya vienen cargados; el 2026 lo confirma ella). **Fecha de comienzo: 01-11-2026.** Al abrir desde el 01-11, las tareas de noviembre cuya fecha ya pasó quedan generadas como pendientes, pero **no cuentan como atrasadas hasta el 23-11** (gracia acordada con Karla): el equipo las va registrando.
@@ -110,3 +126,5 @@ Después, el equipo puede cambiar quién ejecuta cada tarea (en el detalle de la
 - No se obliga cambiar la clave en el primer ingreso (solo se ofrece «Cambiar mi clave»).
 - El código QR del segundo factor solo se muestra si el servidor tiene instalada la librería `qrcode`; si no, la clave se escribe a mano en la aplicación.
 - Los archivos de `deploy/` y los comandos de operación se probaron en el entorno de desarrollo, no en el servidor real.
+- `qrcode` no está en `requirements.lock.txt`: con ese archivo el segundo factor no muestra QR (la clave se escribe a mano). Si se quiere QR, agregar la librería al lock y probar.
+- Hay funciones del diseño original sin pantalla (cierre de período con foto de KPI, pantalla de Auditoría, Parámetros) y «No aplica» existe como servicio sin pantalla. Detalle en `docs/documentacion_tecnica.md`, sección 13.

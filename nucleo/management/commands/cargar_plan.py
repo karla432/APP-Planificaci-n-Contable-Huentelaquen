@@ -17,11 +17,12 @@ class Command(BaseCommand):
         parser.add_argument("--confirmo-desactivar", action="store_true", help="Acepta desactivar las tareas que el archivo ya no trae.")
         parser.add_argument("--abrir-mes", help="Mes a abrir después de cargar, AAAA-MM (por ejemplo 2026-11).")
         parser.add_argument("--desde", help="Fecha de comienzo de la medición, AAAA-MM-DD (por ejemplo 2026-11-01).")
+        parser.add_argument("--crear-cargos", action="store_true", help="En una base nueva todavía no existen los cargos del equipo: con esta opción se crean los que trae el Excel. Revisa antes la lista (que sean cargos, no nombres de personas).")
         parser.add_argument("--inicio-uso", help="Primer día en que el equipo usa la app, AAAA-MM-DD. Lo anterior no cuenta como atrasado durante la gracia.")
         parser.add_argument("--dias-de-gracia", type=int, default=21)
         parser.add_argument("--cargo", action="append", default=[], metavar="TEXTO=CARGO", help="Si el Excel trae otro texto donde va un cargo (por ejemplo el nombre de una persona), dice a qué cargo corresponde. Se puede repetir.")
 
-    def handle(self, *args, archivo, aplicar, confirmo_desactivar, abrir_mes, desde, inicio_uso, dias_de_gracia, cargo, **opciones):
+    def handle(self, *args, archivo, aplicar, confirmo_desactivar, abrir_mes, desde, inicio_uso, dias_de_gracia, cargo, crear_cargos, **opciones):
         equivalencias = {}
         for par in cargo:
             if "=" not in par:
@@ -33,8 +34,11 @@ class Command(BaseCommand):
         except Exception as e:  # el archivo no es un Excel del plan
             raise CommandError(f"No pude leer el archivo: {e}") from e
         self.stdout.write(f"Filas: {vp.total_filas} · nuevas: {len(vp.altas)} · modificadas: {len(vp.cambios)} · a desactivar: {len(vp.bajas)} · por revisar: {len(vp.requieren_revision)}")
+        if vp.cargos_nuevos and not crear_cargos:
+            raise CommandError(f"Hay cargos que no existen en la app: {', '.join(vp.cargos_nuevos)}. Si son los cargos reales del equipo (base nueva), repite con --crear-cargos; "
+                               "si alguno es el nombre de una persona, corrígelo en el Excel (el responsable es un CARGO) o tradúcelo con --cargo \"TEXTO=CARGO\".")
         if vp.cargos_nuevos:
-            raise CommandError(f"Hay cargos que no existen en la app: {', '.join(vp.cargos_nuevos)}. Corrígelos en el Excel (el responsable es un CARGO) o créalos primero.")
+            self.stdout.write(f"Se crearán {len(vp.cargos_nuevos)} cargos: {', '.join(vp.cargos_nuevos)}.")
         for t in vp.bajas:
             self.stdout.write(f"  se desactivaría: {t.codigo} {t.subtarea[:70]}")
         for f, motivo in vp.requieren_revision:

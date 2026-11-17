@@ -33,7 +33,7 @@ Karla Meneses, Gerente de Administración y Finanzas de Hacienda Huentelauquén.
 - La pantalla «Matriz del cierre» muestra el plan vigente; la propuesta de equilibrio es opcional (`?ver=propuesta`).
 
 ## Estado al 17-11-2026
-Hecho y con pruebas (713): Planificación 2.0 cargada, matriz con hitos/dependencias/techo, **Excel «Planificación vigente» descargable y recargable**, tareas trimestrales y anuales, **cualquier persona del equipo puede cambiar quién ejecuta una tarea** (DEC-41), mejoras de visibilidad de las listas de tareas, **segundo factor (TOTP) para Gerente y administrador** (DEC-42), **cambiar mi clave**, y los comandos de operación `crear_usuario`, `recuperar_acceso`, `verificar_bitacora`, `respaldar`, `verificar_respaldo` y `cargar_plan`. Kit de despliegue en `deploy/` y guía en `docs/f1/08_guia_de_despliegue.md` (para Eugenio).
+Hecho y con pruebas (726): Planificación 2.0 cargada, matriz con hitos/dependencias/techo, **Excel «Planificación vigente» descargable y recargable**, tareas trimestrales y anuales, **cualquier persona del equipo puede cambiar quién ejecuta una tarea** (DEC-41), mejoras de visibilidad de las listas de tareas, **segundo factor (TOTP) para Gerente y administrador** (DEC-42), **cambiar mi clave**, y los comandos de operación `crear_usuario`, `recuperar_acceso`, `verificar_bitacora`, `respaldar`, `verificar_respaldo` y `cargar_plan`. Kit de despliegue en `deploy/` y guía en `docs/f1/08_guia_de_despliegue.md` (para Eugenio).
 Rama de trabajo: `claude/peaceful-ride-ysf0iw`.
 
 **Producción: NO está aprobada ni hecha.** Karla pidió (17-11-2026) dejar todo listo para que Eugenio despliegue ese mismo día, con fecha de comienzo 01-11-2026. Falta: la aprobación escrita de Karla (G3) y la de Eugenio, y la lista de aceptación de la sección 7 de la guía, que solo se comprueba en el servidor real. Nada del kit de despliegue se ha probado en un servidor.
@@ -49,3 +49,10 @@ También sigue pendiente confirmar los supuestos de `00_decisiones_y_gates.md` (
 
 ## Próximos pasos posibles (que decida Karla)
 Exportar de vuelta el mismo formato de tres hojas; tabla de «lo que se acumula por las pausas» (hoja Diario-Semanal, tabla C); revisar la bandeja de «Mi día/Mi semana» con el plan nuevo; luego, etapa de seguridad y despliegue (con aprobación escrita).
+
+## Documentación (17-11-2026)
+- `docs/manual_usuario/manual_de_usuario.md`: manual de usuario con imágenes numeradas (datos de ejemplo).
+- `docs/documentacion_tecnica.md`: documentación técnica completa (modelo de datos, reglas, seguridad, operación, hallazgos y límites).
+- `docs/herramientas/construir_documentos.sh`: genera los PDF y Word de ambos (requiere pandoc y Playwright/Chromium).
+- Corregido al revisar la documentación: `cargar_plan --crear-cargos` (base nueva), `crear_usuario --desde`, y el enlace «Salir» de la pantalla del segundo factor (era 405).
+- Pendiente para Eugenio (ver sección 13.2 de la documentación técnica): `/admin/` publicado sin segundo factor, cuentas del Mantenedor sin clave, `qrcode` fuera del lock, README y algunos `docs/f1` desactualizados.

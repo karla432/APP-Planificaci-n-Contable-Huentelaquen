@@ -91,3 +91,12 @@ def test_la_base_de_un_respaldo_es_una_base_sqlite_valida(servidor):
     respaldos = sorted((carpeta / "otros").glob("respaldo_*.sqlite3.gz"))
     assert respaldos
     assert gzip.open(respaldos[-1]).read(16).startswith(b"SQLite format 3")
+
+
+def test_crear_usuario_permite_fijar_desde_cuando_ejerce_el_cargo(servidor):
+    m = servidor["manage"]
+    r = m("crear_usuario", "jefa2", "--rol", "JEFATURA", "--nombre", "Jefa dos", "--cargo", "Jefa de Control", "--desde", "2026-01-01", entrada=f"{CLAVE_OK}\n{CLAVE_OK}\n")
+    assert r.returncode == 0, r.stderr
+    chequeo = m("shell", "-c", "from nucleo.models import Asignacion; print(Asignacion.objects.get(colaborador__usuario__username='jefa2').desde)")
+    assert chequeo.stdout.strip().splitlines()[-1] == "2026-01-01"
+    assert "AAAA-MM-DD" in m("crear_usuario", "jefa3", "--rol", "JEFATURA", "--nombre", "x", "--cargo", "Jefa de Control", "--desde", "ayer", entrada=f"{CLAVE_OK}\n{CLAVE_OK}\n").stderr

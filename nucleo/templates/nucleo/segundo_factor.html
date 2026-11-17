@@ -15,6 +15,6 @@
     <input id="codigo" name="codigo" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]*" maxlength="8" required autofocus>
     <button type="submit" class="boton">Verificar</button>
   </form>
-  <p class="meta"><a href="{% url 'logout' %}">Salir</a>. ¿Cambiaste de teléfono? Pide al administrador que reinicie tu segundo factor.</p>
+  <p class="meta"><form method="post" action="{% url 'logout' %}" style="display:inline">{% csrf_token %}<button class="btn btn-2 btn-sm" type="submit">Salir</button></form> ¿Cambiaste de teléfono? Pide al administrador que reinicie tu segundo factor.</p>
 </section>
 {% endblock %}

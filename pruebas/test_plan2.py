@@ -425,3 +425,14 @@ def test_el_comando_carga_el_plan_con_la_traduccion_de_cargos_y_fija_la_gracia(c
     call_command("cargar_plan", str(ruta), "--aplicar", "--cargo", "Persona Ejemplo=Contador", "--inicio-uso", "2026-11-01", "--dias-de-gracia", "21")
     assert Tarea.objects.get(subtarea="Ordenar y revisar los DTE de compras").cargo_ejecuta.nombre == "Contador"
     assert gracia.inicio_de_operacion() == date(2026, 11, 1) and gracia.gracia_hasta() == date(2026, 11, 22)
+
+
+def test_en_una_base_nueva_el_comando_pide_crear_los_cargos_y_con_la_opcion_los_crea(db):
+    from django.core.management import call_command
+    from nucleo.models import Cargo
+    ruta = "docs/datos/Planificacion_2.0_contabilidad.xlsx"
+    assert not Cargo.objects.filter(nombre="Jefa de Control").exists()
+    with pytest.raises(Exception, match="--crear-cargos"):
+        call_command("cargar_plan", ruta)
+    call_command("cargar_plan", ruta, "--aplicar", "--crear-cargos")
+    assert Cargo.objects.filter(nombre="Jefa de Control").exists() and Tarea.objects.count() > 100

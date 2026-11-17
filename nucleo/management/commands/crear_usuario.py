@@ -24,6 +24,7 @@ class Command(BaseCommand):
         parser.add_argument("--nombre", required=True, help="Nombre de la persona, como quiere verlo en la app.")
         parser.add_argument("--cargo", help="Cargo que ejerce (por ejemplo «Jefa de Control»). Obligatorio salvo para el administrador y los perfiles de solo lectura.")
         parser.add_argument("--correo", default="")
+        parser.add_argument("--desde", help="Desde cuándo ejerce el cargo, AAAA-MM-DD (por defecto hoy). Para abrir un mes que ya empezó (por ejemplo noviembre desde el 01-11) usa una fecha anterior, por ejemplo 2026-01-01.")
 
     def _clave(self) -> str:
         if sys.stdin.isatty():
@@ -35,8 +36,12 @@ class Command(BaseCommand):
         return a
 
     @transaction.atomic
-    def handle(self, *args, usuario, rol, nombre, cargo, correo, **opciones):
+    def handle(self, *args, usuario, rol, nombre, cargo, correo, desde=None, **opciones):
         usuarios = get_user_model()
+        try:
+            fecha_desde = date.fromisoformat(desde) if desde else date.today()
+        except ValueError:
+            raise CommandError(f"--desde debe ser una fecha AAAA-MM-DD (recibí «{desde}»).") from None
         if usuarios.objects.filter(username=usuario).exists():
             raise CommandError(f"El usuario «{usuario}» ya existe. Para cambiar su clave usa `recuperar_acceso`.")
         c = None
@@ -53,7 +58,7 @@ class Command(BaseCommand):
         u.groups.add(Group.objects.get_or_create(name=rol)[0])
         if c is not None:
             colaborador = Colaborador.objects.create(usuario=u, nombre=nombre, correo=correo)
-            Asignacion.objects.create(cargo=c, colaborador=colaborador, desde=date.today())
+            Asignacion.objects.create(cargo=c, colaborador=colaborador, desde=fecha_desde)
         auditoria.registrar("usuario.creado_por_consola", usuario=None, entidad="Usuario", entidad_id=u.pk, despues={"usuario": usuario, "rol": rol, "cargo": cargo or ""})
         self.stdout.write(self.style.SUCCESS(f"Usuario «{usuario}» creado con el rol {rol}."))
         if rol in segundo_factor.ROLES_QUE_LO_EXIGEN:
